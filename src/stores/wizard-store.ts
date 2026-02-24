@@ -9,6 +9,8 @@ interface WizardState {
   messages: ChatMessage[];
   sessionId: string | null;
   isLoading: boolean;
+  complianceResults: Record<string, { status: string; notes: string }>;
+  complianceReviewed: boolean;
 
   setStep: (step: WizardStep) => void;
   nextStep: () => void;
@@ -17,6 +19,7 @@ interface WizardState {
   addAgent: (agent: AiosAgent) => void;
   removeAgent: (slug: string) => void;
   updateAgent: (slug: string, data: Partial<AiosAgent>) => void;
+  addAgent_batch: (agents: AiosAgent[]) => void;
   addSquad: (squad: AiosSquad) => void;
   removeSquad: (slug: string) => void;
   updateSquad: (slug: string, data: Partial<AiosSquad>) => void;
@@ -24,23 +27,22 @@ interface WizardState {
   addMessage: (message: ChatMessage) => void;
   setSessionId: (id: string) => void;
   setLoading: (loading: boolean) => void;
-  complianceResults: Record<string, { status: string; notes: string }>;
-  complianceReviewed: boolean;
   setComplianceResults: (results: Record<string, { status: string; notes: string }>) => void;
   reset: () => void;
   getStepIndex: () => number;
   canProceed: () => boolean;
+  getValidationMessage: () => string | null;
 }
 
 const initialState = {
   currentStep: 'welcome' as WizardStep,
   project: { name: '', description: '', domain: 'software', orchestrationPattern: 'TASK_FIRST' as const },
-  agents: [],
-  squads: [],
-  messages: [],
-  sessionId: null,
+  agents: [] as AiosAgent[],
+  squads: [] as AiosSquad[],
+  messages: [] as ChatMessage[],
+  sessionId: null as string | null,
   isLoading: false,
-  complianceResults: {},
+  complianceResults: {} as Record<string, { status: string; notes: string }>,
   complianceReviewed: false,
 };
 
@@ -48,9 +50,11 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   ...initialState,
 
   setStep: (step) => set({ currentStep: step }),
-  
+
   nextStep: () => {
-    const idx = get().getStepIndex();
+    const state = get();
+    if (!state.canProceed()) return;
+    const idx = state.getStepIndex();
     if (idx < WIZARD_STEPS.length - 1) {
       set({ currentStep: WIZARD_STEPS[idx + 1].key });
     }
@@ -64,36 +68,75 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   },
 
   updateProject: (data) => set((s) => ({ project: { ...s.project, ...data } })),
-  addAgent: (agent) => set((s) => ({ agents: [...s.agents.filter(a => a.slug !== agent.slug), agent] })),
-  removeAgent: (slug) => set((s) => ({ agents: s.agents.filter(a => a.slug !== slug) })),
+
+  addAgent: (agent) => set((s) => ({
+    agents: [...s.agents.filter(a => a.slug !== agent.slug), agent],
+  })),
+
+  removeAgent: (slug) => set((s) => ({
+    agents: s.agents.filter(a => a.slug !== slug),
+    // Also remove from squads
+    squads: s.squads.map(sq => ({
+      ...sq,
+      agentIds: sq.agentIds.filter(id => id !== slug),
+    })),
+  })),
+
   updateAgent: (slug, data) => set((s) => ({
     agents: s.agents.map(a => a.slug === slug ? { ...a, ...data } : a),
   })),
-  addSquad: (squad) => set((s) => ({ squads: [...s.squads.filter(sq => sq.slug !== squad.slug), squad] })),
-  removeSquad: (slug) => set((s) => ({ squads: s.squads.filter(sq => sq.slug !== slug) })),
+
+  addAgent_batch: (agents) => set((s) => {
+    const existing = new Set(s.agents.map(a => a.slug));
+    const newAgents = agents.filter(a => !existing.has(a.slug));
+    return { agents: [...s.agents, ...newAgents] };
+  }),
+
+  addSquad: (squad) => set((s) => ({
+    squads: [...s.squads.filter(sq => sq.slug !== squad.slug), squad],
+  })),
+
+  removeSquad: (slug) => set((s) => ({
+    squads: s.squads.filter(sq => sq.slug !== slug),
+  })),
+
   updateSquad: (slug, data) => set((s) => ({
     squads: s.squads.map(sq => sq.slug === slug ? { ...sq, ...data } : sq),
   })),
+
   setMessages: (messages) => set({ messages }),
   addMessage: (message) => set((s) => ({ messages: [...s.messages, message] })),
   setSessionId: (id) => set({ sessionId: id }),
   setLoading: (loading) => set({ isLoading: loading }),
-  complianceResults: {},
-  complianceReviewed: false,
   setComplianceResults: (results) => set({ complianceResults: results, complianceReviewed: true }),
   reset: () => set(initialState),
   getStepIndex: () => WIZARD_STEPS.findIndex(s => s.key === get().currentStep),
+
   canProceed: () => {
     const { currentStep, project, agents } = get();
     switch (currentStep) {
       case 'welcome': return true;
-      case 'context_analysis': return !!project.domain;
-      case 'project_config': return !!project.name;
+      case 'context_analysis': return true;
+      case 'project_config': return !!(project.name && project.name.trim().length > 0);
       case 'agents': return agents.length > 0;
       case 'squads': return true;
       case 'integrations': return true;
       case 'review': return true;
       default: return false;
+    }
+  },
+
+  getValidationMessage: () => {
+    const { currentStep, project, agents } = get();
+    switch (currentStep) {
+      case 'project_config':
+        if (!project.name || project.name.trim().length === 0) return 'Defina um nome para o projeto';
+        return null;
+      case 'agents':
+        if (agents.length === 0) return 'Adicione pelo menos um agente';
+        return null;
+      default:
+        return null;
     }
   },
 }));

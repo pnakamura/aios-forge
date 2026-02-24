@@ -1,5 +1,5 @@
 import { useWizardStore } from '@/stores/wizard-store';
-import { useMemo, useCallback } from 'react';
+import { useMemo, useEffect } from 'react';
 import {
   ReactFlow,
   Node,
@@ -11,83 +11,120 @@ import {
   useEdgesState,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { Bot, Users, Network } from 'lucide-react';
+
+const NODE_STYLES = {
+  orchestrator: {
+    background: 'hsl(190 95% 50% / 0.12)',
+    border: '2px solid hsl(190 95% 50% / 0.5)',
+    borderRadius: '14px',
+    padding: '14px 24px',
+    color: 'hsl(190 95% 70%)',
+    fontSize: '12px',
+    fontWeight: '700',
+    textAlign: 'center' as const,
+    whiteSpace: 'pre-line' as const,
+    boxShadow: '0 0 20px -5px hsl(190 95% 50% / 0.2)',
+  },
+  agent: {
+    background: 'hsl(265 80% 60% / 0.08)',
+    border: '1.5px solid hsl(265 80% 60% / 0.35)',
+    borderRadius: '10px',
+    padding: '10px 16px',
+    color: 'hsl(265 80% 80%)',
+    fontSize: '11px',
+    fontWeight: '500',
+    textAlign: 'center' as const,
+    whiteSpace: 'pre-line' as const,
+    minWidth: '140px',
+  },
+  squad: {
+    background: 'hsl(150 80% 45% / 0.08)',
+    border: '1.5px solid hsl(150 80% 45% / 0.35)',
+    borderRadius: '10px',
+    padding: '10px 16px',
+    color: 'hsl(150 80% 70%)',
+    fontSize: '11px',
+    fontWeight: '500',
+    textAlign: 'center' as const,
+    whiteSpace: 'pre-line' as const,
+    minWidth: '150px',
+  },
+};
 
 function buildDiagramData(agents: any[], squads: any[], pattern: string) {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
 
+  const patternLabels: Record<string, string> = {
+    SEQUENTIAL_PIPELINE: 'Pipeline Sequencial',
+    PARALLEL_SWARM: 'Enxame Paralelo',
+    HIERARCHICAL: 'Hierarquico',
+    WATCHDOG: 'Watchdog',
+    COLLABORATIVE: 'Colaborativo',
+    TASK_FIRST: 'Task-First',
+  };
+
+  // Calculate layout
+  const agentCount = agents.length;
+  const squadCount = squads.length;
+  const totalWidth = Math.max(agentCount, squadCount, 1) * 180;
+  const centerX = totalWidth / 2;
+
   // Orchestrator node
   nodes.push({
     id: 'orchestrator',
     type: 'default',
-    position: { x: 400, y: 50 },
-    data: { label: `🎯 Orquestrador\n${pattern.replace(/_/g, ' ')}` },
-    style: {
-      background: 'hsl(190 95% 50% / 0.15)',
-      border: '2px solid hsl(190 95% 50% / 0.5)',
-      borderRadius: '12px',
-      padding: '12px 20px',
-      color: 'hsl(190 95% 70%)',
-      fontSize: '12px',
-      fontWeight: '600',
-      textAlign: 'center' as const,
-      whiteSpace: 'pre-line' as const,
-    },
+    position: { x: centerX - 80, y: 40 },
+    data: { label: `${patternLabels[pattern] || pattern}\nOrquestrador` },
+    style: NODE_STYLES.orchestrator,
   });
 
-  // Agent nodes
-  const agentStartX = 50;
-  const agentY = 220;
-  const agentSpacing = 160;
-
+  // Agent nodes - evenly distributed
+  const agentStartX = (totalWidth - (agentCount - 1) * 170) / 2;
   agents.forEach((agent, i) => {
     const nodeId = `agent-${agent.slug}`;
     nodes.push({
       id: nodeId,
       type: 'default',
-      position: { x: agentStartX + i * agentSpacing, y: agentY },
-      data: { label: `🤖 ${agent.name}\n${agent.role.substring(0, 30)}` },
-      style: {
-        background: 'hsl(265 80% 60% / 0.1)',
-        border: '1.5px solid hsl(265 80% 60% / 0.4)',
-        borderRadius: '10px',
-        padding: '10px 14px',
-        color: 'hsl(265 80% 80%)',
-        fontSize: '11px',
-        textAlign: 'center' as const,
-        whiteSpace: 'pre-line' as const,
-        minWidth: '130px',
-      },
+      position: { x: agentStartX + i * 170, y: 200 },
+      data: { label: `${agent.name}\n${agent.role.substring(0, 35)}` },
+      style: NODE_STYLES.agent,
     });
 
-    edges.push({
-      id: `edge-orch-${agent.slug}`,
-      source: 'orchestrator',
-      target: nodeId,
-      style: { stroke: 'hsl(190 95% 50% / 0.3)', strokeWidth: 1.5 },
-      animated: true,
-    });
+    // Edge style varies by pattern
+    const isSequential = pattern === 'SEQUENTIAL_PIPELINE';
+    if (isSequential && i > 0) {
+      edges.push({
+        id: `edge-chain-${i}`,
+        source: `agent-${agents[i - 1].slug}`,
+        target: nodeId,
+        style: { stroke: 'hsl(265 80% 60% / 0.4)', strokeWidth: 1.5 },
+        animated: true,
+      });
+    }
+
+    if (!isSequential || i === 0) {
+      edges.push({
+        id: `edge-orch-${agent.slug}`,
+        source: 'orchestrator',
+        target: nodeId,
+        style: { stroke: 'hsl(190 95% 50% / 0.3)', strokeWidth: 1.5 },
+        animated: true,
+      });
+    }
   });
 
   // Squad nodes
+  const squadStartX = (totalWidth - (squadCount - 1) * 220) / 2;
   squads.forEach((squad, i) => {
     const nodeId = `squad-${squad.slug}`;
     nodes.push({
       id: nodeId,
       type: 'default',
-      position: { x: 50 + i * 220, y: 400 },
-      data: { label: `👥 ${squad.name}\n${(squad.agentIds || []).length} agentes` },
-      style: {
-        background: 'hsl(150 80% 45% / 0.1)',
-        border: '1.5px solid hsl(150 80% 45% / 0.4)',
-        borderRadius: '10px',
-        padding: '10px 14px',
-        color: 'hsl(150 80% 70%)',
-        fontSize: '11px',
-        textAlign: 'center' as const,
-        whiteSpace: 'pre-line' as const,
-        minWidth: '140px',
-      },
+      position: { x: squadStartX + i * 220, y: 380 },
+      data: { label: `${squad.name}\n${(squad.agentIds || []).length} agentes` },
+      style: NODE_STYLES.squad,
     });
 
     // Connect squad to its agents
@@ -110,24 +147,43 @@ function buildDiagramData(agents: any[], squads: any[], pattern: string) {
 export function ArchitectureDiagram() {
   const { agents, squads, project } = useWizardStore();
 
-  const { nodes: initialNodes, edges: initialEdges } = useMemo(
+  const { nodes: computedNodes, edges: computedEdges } = useMemo(
     () => buildDiagramData(agents, squads, project.orchestrationPattern || 'TASK_FIRST'),
     [agents, squads, project.orchestrationPattern]
   );
 
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
-  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState(computedNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(computedEdges);
+
+  // Sync nodes/edges when agents, squads, or pattern changes
+  useEffect(() => {
+    setNodes(computedNodes);
+    setEdges(computedEdges);
+  }, [computedNodes, computedEdges, setNodes, setEdges]);
 
   if (agents.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-        Adicione agentes para visualizar o diagrama
+      <div className="h-full flex flex-col items-center justify-center text-center p-8 gap-4">
+        <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+          <Network className="w-7 h-7 text-primary/50" />
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground mb-1">Adicione agentes para visualizar</p>
+          <p className="text-xs text-muted-foreground/60">O diagrama mostra a arquitetura de orquestracao</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full w-full">
+    <div className="h-full w-full relative">
+      {/* Legend */}
+      <div className="absolute top-3 left-3 z-10 flex gap-3 text-[10px] text-muted-foreground bg-card/80 backdrop-blur-sm rounded-lg px-3 py-2 border border-border/50">
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[hsl(190,95%,50%)]" /> Orquestrador</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[hsl(265,80%,60%)]" /> Agentes</span>
+        {squads.length > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[hsl(150,80%,45%)]" /> Squads</span>}
+      </div>
+
       <ReactFlow
         nodes={nodes}
         edges={edges}

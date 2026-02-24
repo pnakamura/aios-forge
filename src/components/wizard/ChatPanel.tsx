@@ -2,23 +2,72 @@ import { useState, useRef, useEffect } from 'react';
 import { useWizardStore } from '@/stores/wizard-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Bot, User, Loader2 } from 'lucide-react';
+import { Send, Bot, User, Loader2, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+
+const STEP_PROMPTS: Record<string, { title: string; subtitle: string; suggestions: string[] }> = {
+  welcome: {
+    title: 'Assistente AIOS',
+    subtitle: 'Descreva seu projeto e eu vou ajudar a configurar agentes, squads e toda a arquitetura.',
+    suggestions: [
+      'Quero criar um sistema de agentes para desenvolvimento de software',
+      'Preciso de um AIOS para gerar conteudo automatizado',
+      'Quero orquestrar agentes para gestao de projetos',
+    ],
+  },
+  context_analysis: {
+    title: 'Analise de Contexto',
+    subtitle: 'Com base no que voce descreveu, vou sugerir a melhor configuracao.',
+    suggestions: [
+      'Quais agentes voce recomenda para meu caso?',
+      'Qual padrao de orquestracao e mais adequado?',
+      'Quais integracoes devo configurar?',
+    ],
+  },
+  agents: {
+    title: 'Configuracao de Agentes',
+    subtitle: 'Posso sugerir agentes e ajudar a configurar seus prompts.',
+    suggestions: [
+      'Quais agentes nativos sao recomendados para meu projeto?',
+      'Me ajude a criar um agente customizado',
+      'Explique o papel de cada agente disponivel',
+    ],
+  },
+  squads: {
+    title: 'Montagem de Squads',
+    subtitle: 'Vou ajudar a agrupar seus agentes em equipes eficientes.',
+    suggestions: [
+      'Sugira squads para os agentes que adicionei',
+      'Como devo organizar as tasks entre squads?',
+      'Crie um workflow para o squad de desenvolvimento',
+    ],
+  },
+};
 
 export function ChatPanel() {
   const { messages, addMessage, isLoading, setLoading, currentStep, project, agents, squads } = useWizardStore();
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const stepConfig = STEP_PROMPTS[currentStep] || STEP_PROMPTS.welcome;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
 
-  const sendMessage = async () => {
-    if (!input.trim() || isLoading) return;
-    const userMsg = { role: 'user' as const, content: input };
+  // Auto-focus input
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, [currentStep]);
+
+  const sendMessage = async (content?: string) => {
+    const messageContent = content || input.trim();
+    if (!messageContent || isLoading) return;
+
+    const userMsg = { role: 'user' as const, content: messageContent };
     addMessage(userMsg);
     setInput('');
     setLoading(true);
@@ -47,15 +96,29 @@ export function ChatPanel() {
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center py-12">
-            <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4">
-              <Bot className="w-7 h-7 text-primary" />
+          <div className="flex flex-col items-center justify-center h-full text-center py-8">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-5 shadow-[0_0_30px_-10px_hsl(var(--glow-primary)/0.3)]">
+              <Bot className="w-8 h-8 text-primary" />
             </div>
-            <h3 className="font-semibold text-lg mb-2">Assistente AIOS</h3>
-            <p className="text-muted-foreground text-sm max-w-sm">
-              Olá! Sou seu assistente para construção do AIOS. 
-              Descreva seu projeto e eu vou ajudar a configurar agentes, squads e toda a arquitetura.
+            <h3 className="font-bold text-lg mb-1">{stepConfig.title}</h3>
+            <p className="text-muted-foreground text-sm max-w-sm mb-6">
+              {stepConfig.subtitle}
             </p>
+            <div className="space-y-2 w-full max-w-md">
+              {stepConfig.suggestions.map(suggestion => (
+                <button
+                  key={suggestion}
+                  onClick={() => sendMessage(suggestion)}
+                  disabled={isLoading}
+                  className="w-full text-left px-4 py-3 rounded-lg border border-border/50 bg-card/50 hover:border-primary/30 hover:bg-primary/5 transition-all text-sm text-muted-foreground hover:text-foreground group"
+                >
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5 text-primary/50 group-hover:text-primary transition-colors shrink-0" />
+                    {suggestion}
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -108,23 +171,25 @@ export function ChatPanel() {
             <div className="w-7 h-7 rounded-lg bg-accent/20 flex items-center justify-center">
               <Bot className="w-3.5 h-3.5 text-accent" />
             </div>
-            <div className="rounded-xl px-4 py-3 bg-secondary/80 border border-border/50">
+            <div className="rounded-xl px-4 py-3 bg-secondary/80 border border-border/50 flex items-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Pensando...</span>
             </div>
           </div>
         )}
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-border/50">
+      <div className="p-4 border-t border-border/50 bg-card/30">
         <form
           onSubmit={(e) => { e.preventDefault(); sendMessage(); }}
           className="flex gap-2"
         >
           <Input
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Descreva seu projeto ou peça sugestões..."
+            placeholder="Descreva seu projeto ou peca sugestoes..."
             className="flex-1 bg-secondary/50"
             disabled={isLoading}
           />
