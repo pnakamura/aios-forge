@@ -32,11 +32,25 @@ supabase/
 
 1. **Descoberta** (`welcome`) — Chat com IA para descrever o projeto
 2. **Projeto** (`project_config`) — Formulario: nome, descricao, dominio, padrao de orquestracao
-3. **Agentes** (`agents`) — Catalogo de 11 agentes nativos + criacao customizada
-4. **Squads** (`squads`) — Builder para agrupar agentes em equipes com tasks/workflows
+3. **Agentes** (`agents`) — Catalogo de 11 agentes nativos + criacao customizada (painel esquerdo = AgentCatalog)
+4. **Squads** (`squads`) — Builder para agrupar agentes em equipes com tasks/workflows (painel esquerdo = SquadBuilder)
 5. **Integracoes** (`integrations`) — APIs de LLM auto-detectadas + servicos externos
 6. **Revisao** (`review`) — Resumo + validacao de conformidade AIOS
 7. **Geracao** (`generation`) — Salvar no Supabase ou download ZIP
+
+## Diagrama de Arquitetura (`src/components/wizard/ArchitectureDiagram.tsx`)
+
+Diagrama interativo com React Flow organizado em 3 tiers:
+- **Tier 1**: Orquestrador (padrao selecionado)
+- **Tier 2**: Agentes (custom nodes com Handle source/target)
+- **Tier 3**: Squads (custom nodes com Handle target)
+
+Funcionalidades interativas:
+- Arrastar conectores de agente para squad = atribuir agente ao squad (via `onConnect` → `updateSquad`)
+- Selecionar no + Delete = remover agente/squad do store
+- Selecionar aresta + Delete = desvincular agente do squad
+- Criar squad pelo diagrama (botao "+ Squad" no painel)
+- Alteracoes no diagrama refletem no store e vice-versa (sync bidirecional via `useEffect`)
 
 ## Pacote gerado (`src/lib/generate-aios-package.ts`)
 
