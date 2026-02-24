@@ -1,0 +1,58 @@
+import { OrchestrationPattern } from '@/types/aios';
+
+export const ORCHESTRATION_PATTERNS: OrchestrationPattern[] = [
+  {
+    id: 'SEQUENTIAL_PIPELINE',
+    name: 'Pipeline Sequencial',
+    description: 'Agentes executam em cadeia, cada um processando a saída do anterior. Ideal para fluxos lineares e previsíveis.',
+    useCases: ['Processamento de documentos', 'Pipelines de dados', 'Workflows de aprovação'],
+    suggestedAgents: ['analyst', 'architect', 'dev', 'qa', 'devops'],
+    domains: ['software', 'conteúdo'],
+    icon: 'ArrowRight',
+  },
+  {
+    id: 'PARALLEL_SWARM',
+    name: 'Enxame Paralelo',
+    description: 'Múltiplos agentes trabalham simultaneamente em tarefas independentes. Máxima velocidade para tarefas desacopladas.',
+    useCases: ['Desenvolvimento multi-módulo', 'Testes paralelos', 'Geração de conteúdo em massa'],
+    suggestedAgents: ['aios-orchestrator', 'dev', 'qa', 'devops'],
+    domains: ['software', 'conteúdo'],
+    icon: 'GitBranch',
+  },
+  {
+    id: 'HIERARCHICAL',
+    name: 'Hierárquico',
+    description: 'Estrutura de comando em árvore. O Master delega para líderes de squad, que coordenam agentes especializados.',
+    useCases: ['Projetos grandes', 'Times distribuídos', 'Governança corporativa'],
+    suggestedAgents: ['aios-master', 'pm', 'sm', 'dev', 'qa', 'po'],
+    domains: ['software', 'negócios'],
+    icon: 'GitFork',
+  },
+  {
+    id: 'WATCHDOG',
+    name: 'Watchdog',
+    description: 'Um agente supervisor monitora e valida a saída de outros agentes continuamente. Ideal para qualidade e compliance.',
+    useCases: ['Revisão de código', 'Compliance', 'Monitoramento contínuo'],
+    suggestedAgents: ['aios-master', 'qa', 'architect'],
+    domains: ['software', 'negócios'],
+    icon: 'Eye',
+  },
+  {
+    id: 'COLLABORATIVE',
+    name: 'Colaborativo',
+    description: 'Agentes trabalham juntos em um espaço compartilhado, trocando informações livremente. Ideal para brainstorming e design.',
+    useCases: ['Design thinking', 'Brainstorming', 'Pesquisa exploratória'],
+    suggestedAgents: ['analyst', 'ux-expert', 'pm', 'architect', 'po'],
+    domains: ['software', 'conteúdo', 'educação'],
+    icon: 'MessageSquare',
+  },
+  {
+    id: 'TASK_FIRST',
+    name: 'Task-First',
+    description: 'Tarefas são a unidade central. Agentes são assignados dinamicamente às tarefas conforme sua especialidade.',
+    useCases: ['Desenvolvimento ágil', 'Sprints', 'Projetos dinâmicos'],
+    suggestedAgents: ['aios-orchestrator', 'sm', 'dev', 'qa', 'devops'],
+    domains: ['software'],
+    icon: 'CheckSquare',
+  },
+];
