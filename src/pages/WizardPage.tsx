@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWizardStore } from '@/stores/wizard-store';
 import { StepProgress } from '@/components/wizard/StepProgress';
+import { StepContextPanel } from '@/components/wizard/StepContextPanel';
 import { ChatPanel } from '@/components/wizard/ChatPanel';
 import { AgentCatalog } from '@/components/wizard/AgentCatalog';
 import { SquadBuilder } from '@/components/wizard/SquadBuilder';
@@ -526,6 +527,7 @@ export default function WizardPage() {
       <div className="flex-1 flex overflow-hidden">
         {/* Left panel */}
         <div className="flex-1 border-r border-border/50 flex flex-col min-w-0">
+          <StepContextPanel />
           {renderStepContent()}
         </div>
 
