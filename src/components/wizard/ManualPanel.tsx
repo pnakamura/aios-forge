@@ -1,11 +1,12 @@
 import { useWizardStore } from '@/stores/wizard-store';
 import { ORCHESTRATION_PATTERNS } from '@/data/orchestration-patterns';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
   CheckCircle2, Circle, AlertCircle,
   Terminal, Settings, Bot, Users, Network,
-  Package, Play, FileText, Wrench, BookOpen,
+  Package, Play, FileText, Wrench, BookOpen, Download, ArrowRight,
 } from 'lucide-react';
 
 type CheckStatus = 'done' | 'partial' | 'pending';
@@ -19,7 +20,8 @@ function StatusIcon({ status }: { status: CheckStatus }) {
 }
 
 export function ManualPanel() {
-  const { project, agents, squads } = useWizardStore();
+  const store = useWizardStore();
+  const { project, agents, squads } = store;
   const patternInfo = ORCHESTRATION_PATTERNS.find(p => p.id === project.orchestrationPattern);
 
   // Compute checklist statuses
@@ -206,25 +208,46 @@ export function ManualPanel() {
           </div>
         </section>
 
-        {/* Ready indicator */}
-        <div className={cn(
-          'rounded-lg p-3 border text-center',
-          allDone
-            ? 'border-glow-success/30 bg-glow-success/5'
-            : 'border-border/50 bg-card/30'
-        )}>
-          {allDone ? (
-            <div className="flex items-center justify-center gap-2 text-glow-success text-xs font-medium">
-              <Package className="w-4 h-4" />
-              Pacote pronto para gerar e instalar
+        {/* Ready indicator / Action */}
+        {allDone ? (
+          <div className="space-y-2">
+            <div className="rounded-lg p-3 border border-glow-success/30 bg-glow-success/5 text-center">
+              <div className="flex items-center justify-center gap-2 text-glow-success text-xs font-medium">
+                <CheckCircle2 className="w-4 h-4" />
+                Pacote pronto para gerar e instalar
+              </div>
             </div>
-          ) : (
+            {store.currentStep !== 'generation' ? (
+              <Button
+                className="w-full gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+                size="sm"
+                onClick={() => store.setStep('generation')}
+              >
+                <ArrowRight className="w-3.5 h-3.5" />
+                Ir para Geracao do Pacote
+              </Button>
+            ) : (
+              <Button
+                className="w-full gap-2 bg-glow-success/90 hover:bg-glow-success text-white"
+                size="sm"
+                onClick={() => {
+                  const btn = document.querySelector('[data-download-zip]') as HTMLButtonElement;
+                  if (btn) btn.click();
+                }}
+              >
+                <Download className="w-3.5 h-3.5" />
+                Baixar Pacote ZIP
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-lg p-3 border border-border/50 bg-card/30 text-center">
             <div className="flex items-center justify-center gap-2 text-muted-foreground text-xs">
               <Play className="w-4 h-4" />
               Complete as etapas para gerar o pacote
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

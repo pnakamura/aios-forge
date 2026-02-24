@@ -553,7 +553,7 @@ export default function WizardPage() {
               <Button onClick={handleSaveProject} disabled={saving} className="gap-2 h-11 px-6 shadow-[var(--shadow-glow)]">
                 {saving ? 'Salvando...' : store.editingProjectId ? 'Atualizar Projeto' : 'Salvar Projeto'}
               </Button>
-              <Button variant="outline" onClick={handleDownloadZip} className="gap-2 h-11 px-6">
+              <Button variant="outline" onClick={handleDownloadZip} className="gap-2 h-11 px-6" data-download-zip>
                 <Download className="w-4 h-4" /> Download ZIP
               </Button>
             </motion.div>
