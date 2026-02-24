@@ -100,8 +100,8 @@ export default function WizardPage() {
         } as any);
       }
 
-      // Save generated files
-      const files = generateFileTree(store.project, store.agents, store.squads);
+      // Save generated files with compliance data
+      const files = generateFileTree(store.project, store.agents, store.squads, store.complianceResults);
       for (const file of files) {
         await supabase.from('generated_files').insert({
           project_id: proj.id,
@@ -109,6 +109,7 @@ export default function WizardPage() {
           content: file.content,
           file_type: file.type,
           compliance_status: file.complianceStatus,
+          compliance_notes: file.complianceNotes || null,
         });
       }
 
@@ -122,7 +123,7 @@ export default function WizardPage() {
   };
 
   const handleDownloadZip = async () => {
-    const files = generateFileTree(store.project, store.agents, store.squads);
+    const files = generateFileTree(store.project, store.agents, store.squads, store.complianceResults);
     const zip = new JSZip();
     files.forEach(f => zip.file(f.path, f.content));
     const blob = await zip.generateAsync({ type: 'blob' });
@@ -228,7 +229,11 @@ export default function WizardPage() {
           </div>
         );
 
-      case 'review':
+      case 'review': {
+        const total = Object.keys(store.complianceResults).length;
+        const passed = Object.values(store.complianceResults).filter(r => r.status === 'passed').length;
+        const warnings = Object.values(store.complianceResults).filter(r => r.status === 'warning').length;
+        const failed = Object.values(store.complianceResults).filter(r => r.status === 'failed').length;
         return (
           <div className="p-6 space-y-4 overflow-y-auto h-full">
             <h3 className="font-semibold">Revisão do Projeto</h3>
@@ -250,9 +255,29 @@ export default function WizardPage() {
                   {store.squads.map(s => <Badge key={s.slug} variant="secondary" className="text-xs">{s.name}</Badge>)}
                 </div>
               </div>
+              {/* Compliance summary */}
+              <div className={cn(
+                'p-3 rounded-lg border',
+                store.complianceReviewed
+                  ? failed > 0 ? 'border-destructive/30 bg-destructive/5' : 'border-glow-success/30 bg-glow-success/5'
+                  : 'border-border/50 bg-card/50'
+              )}>
+                <p className="text-xs text-muted-foreground mb-1">Conformidade AIOS</p>
+                {store.complianceReviewed ? (
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className="text-glow-success font-medium">{passed} aprovados</span>
+                    {warnings > 0 && <span className="text-yellow-400 font-medium">{warnings} avisos</span>}
+                    {failed > 0 && <span className="text-destructive font-medium">{failed} reprovados</span>}
+                    <span className="text-muted-foreground">de {total}</span>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Execute a revisão na aba Arquivos para validar.</p>
+                )}
+              </div>
             </div>
           </div>
         );
+      }
 
       case 'generation':
         return (
@@ -264,6 +289,9 @@ export default function WizardPage() {
             <p className="text-sm text-muted-foreground max-w-sm">
               Seu AIOS está configurado. Salve o projeto no banco ou baixe o ZIP com todos os arquivos.
             </p>
+            {!store.complianceReviewed && (
+              <p className="text-xs text-yellow-400">⚠ Revisão de conformidade não executada. Recomendamos revisar antes de salvar.</p>
+            )}
             <div className="flex gap-3">
               <Button onClick={handleSaveProject} disabled={saving} className="gap-2">
                 {saving ? 'Salvando...' : 'Salvar Projeto'}

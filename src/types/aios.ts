@@ -117,7 +117,7 @@ export interface GeneratedFile {
   path: string;
   content: string;
   type: 'yaml' | 'md' | 'json' | 'ts' | 'env' | 'other';
-  complianceStatus: 'pending' | 'passed' | 'failed';
+  complianceStatus: 'pending' | 'passed' | 'warning' | 'failed';
   complianceNotes?: string;
 }
 
