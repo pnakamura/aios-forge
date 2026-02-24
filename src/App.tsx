@@ -23,6 +23,7 @@ const App = () => (
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/wizard" element={<WizardPage />} />
+          <Route path="/wizard/:id" element={<WizardPage />} />
           <Route path="/project/:id" element={<ProjectDetailPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useWizardStore } from '@/stores/wizard-store';
 import { StepProgress } from '@/components/wizard/StepProgress';
 import { StepContextPanel } from '@/components/wizard/StepContextPanel';
@@ -30,10 +30,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 export default function WizardPage() {
   const store = useWizardStore();
   const navigate = useNavigate();
+  const { id: editId } = useParams<{ id: string }>();
   const [rightPanel, setRightPanel] = useState<'preview' | 'diagram' | 'agents' | 'squads'>('agents');
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [loadingProject, setLoadingProject] = useState(false);
 
+  // Auth check
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -41,6 +44,49 @@ export default function WizardPage() {
     };
     checkAuth();
   }, [navigate]);
+
+  // Reset store when visiting /wizard (new project) if previous editing state exists
+  useEffect(() => {
+    if (!editId && store.editingProjectId) {
+      store.reset();
+    }
+  }, [editId]);
+
+  // Load existing project for editing
+  useEffect(() => {
+    if (!editId) return;
+    // Only load if not already editing this project
+    if (store.editingProjectId === editId) return;
+
+    const loadExistingProject = async () => {
+      setLoadingProject(true);
+      try {
+        const [pRes, aRes, sRes] = await Promise.all([
+          supabase.from('projects').select('*').eq('id', editId).single(),
+          supabase.from('agents').select('*').eq('project_id', editId),
+          supabase.from('squads').select('*').eq('project_id', editId),
+        ]);
+        if (pRes.error) {
+          toast.error('Projeto nao encontrado');
+          navigate('/dashboard');
+          return;
+        }
+        store.loadProject({
+          projectId: editId,
+          project: pRes.data,
+          agents: aRes.data || [],
+          squads: sRes.data || [],
+        });
+        toast.success(`Projeto "${pRes.data.name}" carregado para edicao`);
+      } catch (err) {
+        toast.error('Erro ao carregar projeto');
+        navigate('/dashboard');
+      } finally {
+        setLoadingProject(false);
+      }
+    };
+    loadExistingProject();
+  }, [editId]);
 
   // Track unsaved changes
   useEffect(() => {
@@ -85,22 +131,45 @@ export default function WizardPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Nao autenticado');
 
-      // Create project
-      const projectData = {
-        name: store.project.name || 'Meu AIOS',
-        description: store.project.description || '',
-        domain: store.project.domain || 'software',
-        orchestration_pattern: (store.project.orchestrationPattern || 'TASK_FIRST') as any,
-        config: JSON.parse(JSON.stringify(store.project.config || {})),
-        user_id: user.id,
-      };
-      const { data: proj, error: projErr } = await supabase.from('projects').insert(projectData as any).select().single();
-      if (projErr) throw projErr;
+      const isUpdate = !!store.editingProjectId;
+      let projectId: string;
+
+      if (isUpdate) {
+        // ── Update existing project ──
+        projectId = store.editingProjectId!;
+        const { error: projErr } = await supabase.from('projects').update({
+          name: store.project.name || 'Meu AIOS',
+          description: store.project.description || '',
+          domain: store.project.domain || 'software',
+          orchestration_pattern: (store.project.orchestrationPattern || 'TASK_FIRST') as any,
+          config: JSON.parse(JSON.stringify(store.project.config || {})),
+        } as any).eq('id', projectId);
+        if (projErr) throw projErr;
+
+        // Delete old children and re-insert (simplest approach for full sync)
+        await Promise.all([
+          supabase.from('agents').delete().eq('project_id', projectId),
+          supabase.from('squads').delete().eq('project_id', projectId),
+          supabase.from('generated_files').delete().eq('project_id', projectId),
+        ]);
+      } else {
+        // ── Create new project ──
+        const { data: proj, error: projErr } = await supabase.from('projects').insert({
+          name: store.project.name || 'Meu AIOS',
+          description: store.project.description || '',
+          domain: store.project.domain || 'software',
+          orchestration_pattern: (store.project.orchestrationPattern || 'TASK_FIRST') as any,
+          config: JSON.parse(JSON.stringify(store.project.config || {})),
+          user_id: user.id,
+        } as any).select().single();
+        if (projErr) throw projErr;
+        projectId = proj.id;
+      }
 
       // Batch insert agents
       if (store.agents.length > 0) {
         const agentRows = store.agents.map(agent => ({
-          project_id: proj.id,
+          project_id: projectId,
           name: agent.name,
           slug: agent.slug,
           role: agent.role,
@@ -120,7 +189,7 @@ export default function WizardPage() {
       // Batch insert squads
       if (store.squads.length > 0) {
         const squadRows = store.squads.map(squad => ({
-          project_id: proj.id,
+          project_id: projectId,
           name: squad.name,
           slug: squad.slug,
           description: squad.description,
@@ -134,11 +203,11 @@ export default function WizardPage() {
         if (squadErr) throw squadErr;
       }
 
-      // Save generated files in batch
+      // Save generated files
       const files = generateAiosPackage({ project: store.project, agents: store.agents, squads: store.squads, complianceResults: store.complianceResults });
       if (files.length > 0) {
         const fileRows = files.map(file => ({
-          project_id: proj.id,
+          project_id: projectId,
           path: file.path,
           content: file.content,
           file_type: file.type,
@@ -150,8 +219,8 @@ export default function WizardPage() {
       }
 
       setHasUnsavedChanges(false);
-      toast.success('Projeto salvo com sucesso!');
-      navigate(`/project/${proj.id}`);
+      toast.success(isUpdate ? 'Projeto atualizado!' : 'Projeto salvo!');
+      navigate(`/project/${projectId}`);
     } catch (err: any) {
       toast.error(err.message || 'Erro ao salvar');
     } finally {
@@ -477,7 +546,7 @@ export default function WizardPage() {
               className="flex gap-3"
             >
               <Button onClick={handleSaveProject} disabled={saving} className="gap-2 h-11 px-6 shadow-[var(--shadow-glow)]">
-                {saving ? 'Salvando...' : 'Salvar Projeto'}
+                {saving ? 'Salvando...' : store.editingProjectId ? 'Atualizar Projeto' : 'Salvar Projeto'}
               </Button>
               <Button variant="outline" onClick={handleDownloadZip} className="gap-2 h-11 px-6">
                 <Download className="w-4 h-4" /> Download ZIP
@@ -490,6 +559,19 @@ export default function WizardPage() {
         return <ChatPanel />;
     }
   };
+
+  if (loadingProject) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center animate-pulse">
+            <Package className="w-6 h-6 text-primary" />
+          </div>
+          <p className="text-sm text-muted-foreground">Carregando projeto para edicao...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-background">

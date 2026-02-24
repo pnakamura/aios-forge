@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Cpu, Plus, FolderOpen, LogOut, Bot, Users, Network, Package, Calendar } from 'lucide-react';
+import { Cpu, Plus, FolderOpen, LogOut, Bot, Users, Network, Package, Calendar, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 
@@ -124,13 +124,24 @@ export default function DashboardPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
                 onClick={() => navigate(`/project/${p.id}`)}
-                className="glass rounded-xl p-6 cursor-pointer hover:border-primary/30 transition-all group"
+                className="glass rounded-xl p-6 cursor-pointer hover:border-primary/30 transition-all group relative"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:shadow-[var(--shadow-glow)] transition-shadow">
                     <Bot className="w-5 h-5 text-primary" />
                   </div>
-                  <Badge variant="outline" className="text-[10px]">{p.domain}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => { e.stopPropagation(); navigate(`/wizard/${p.id}`); }}
+                      title="Editar projeto"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Badge variant="outline" className="text-[10px]">{p.domain}</Badge>
+                  </div>
                 </div>
                 <h3 className="font-bold mb-1 group-hover:text-primary transition-colors">{p.name}</h3>
                 <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{p.description || 'Sem descricao'}</p>

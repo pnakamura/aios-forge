@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { ArrowLeft, Bot, Users, Network, Download, FileText, Trash2, Package, Calendar, Terminal, Copy, Check } from 'lucide-react';
+import { ArrowLeft, Bot, Users, Network, Download, FileText, Trash2, Package, Calendar, Terminal, Copy, Check, Pencil } from 'lucide-react';
 import { motion } from 'framer-motion';
 import JSZip from 'jszip';
 import { cn } from '@/lib/utils';
@@ -104,6 +104,9 @@ export default function ProjectDetailPage() {
           <Badge variant="outline" className="text-xs">{project.domain}</Badge>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => navigate(`/wizard/${id}`)} size="sm" className="gap-2">
+            <Pencil className="w-3.5 h-3.5" /> Editar
+          </Button>
           <Button onClick={handleDownload} className="gap-2" disabled={files.length === 0} size="sm">
             <Download className="w-3.5 h-3.5" /> Download ZIP
           </Button>

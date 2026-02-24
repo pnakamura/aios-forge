@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { WizardStep, AiosAgent, AiosSquad, AiosProject, ChatMessage, WIZARD_STEPS } from '@/types/aios';
+import { WizardStep, AiosAgent, AiosSquad, AiosProject, ChatMessage, WIZARD_STEPS, OrchestrationPatternType } from '@/types/aios';
 
 interface WizardState {
   currentStep: WizardStep;
@@ -11,6 +11,8 @@ interface WizardState {
   isLoading: boolean;
   complianceResults: Record<string, { status: string; notes: string }>;
   complianceReviewed: boolean;
+  /** When editing a saved project, holds the Supabase project ID */
+  editingProjectId: string | null;
 
   setStep: (step: WizardStep) => void;
   nextStep: () => void;
@@ -32,6 +34,13 @@ interface WizardState {
   getStepIndex: () => number;
   canProceed: () => boolean;
   getValidationMessage: () => string | null;
+  /** Load a saved project from Supabase data into the wizard for editing */
+  loadProject: (data: {
+    projectId: string;
+    project: any;
+    agents: any[];
+    squads: any[];
+  }) => void;
 }
 
 const initialState = {
@@ -44,6 +53,7 @@ const initialState = {
   isLoading: false,
   complianceResults: {} as Record<string, { status: string; notes: string }>,
   complianceReviewed: false,
+  editingProjectId: null as string | null,
 };
 
 export const useWizardStore = create<WizardState>((set, get) => ({
@@ -108,6 +118,54 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   setSessionId: (id) => set({ sessionId: id }),
   setLoading: (loading) => set({ isLoading: loading }),
   setComplianceResults: (results) => set({ complianceResults: results, complianceReviewed: true }),
+  loadProject: ({ projectId, project: p, agents: dbAgents, squads: dbSquads }) => {
+    // Map DB rows (snake_case) → store types (camelCase)
+    const agents: AiosAgent[] = dbAgents.map((a: any) => ({
+      id: a.id,
+      slug: a.slug,
+      name: a.name,
+      role: a.role,
+      systemPrompt: a.system_prompt || '',
+      llmModel: a.llm_model || 'google/gemini-3-flash-preview',
+      commands: a.commands || [],
+      tools: a.tools || [],
+      skills: a.skills || [],
+      visibility: a.visibility || 'full',
+      isCustom: a.is_custom || false,
+      category: undefined, // not stored in DB, will be inferred from native agents
+    }));
+
+    const squads: AiosSquad[] = dbSquads.map((s: any) => ({
+      id: s.id,
+      name: s.name,
+      slug: s.slug,
+      description: s.description || '',
+      agentIds: s.agent_ids || [],
+      tasks: s.tasks || [],
+      workflows: s.workflows || [],
+      manifestYaml: s.manifest_yaml || '',
+      isValidated: s.is_validated || false,
+    }));
+
+    set({
+      editingProjectId: projectId,
+      currentStep: 'review',
+      project: {
+        id: p.id,
+        name: p.name || '',
+        description: p.description || '',
+        domain: p.domain || 'software',
+        orchestrationPattern: (p.orchestration_pattern || 'TASK_FIRST') as OrchestrationPatternType,
+        config: p.config || {},
+      },
+      agents,
+      squads,
+      messages: [],
+      complianceResults: {},
+      complianceReviewed: false,
+    });
+  },
+
   reset: () => set(initialState),
   getStepIndex: () => WIZARD_STEPS.findIndex(s => s.key === get().currentStep),
 
