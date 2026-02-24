@@ -168,8 +168,11 @@ export function ArchitectureDiagram() {
           <Network className="w-7 h-7 text-primary/50" />
         </div>
         <div>
-          <p className="text-sm text-muted-foreground mb-1">Adicione agentes para visualizar</p>
-          <p className="text-xs text-muted-foreground/60">O diagrama mostra a arquitetura de orquestracao</p>
+          <p className="text-sm text-muted-foreground mb-1">Diagrama de Arquitetura</p>
+          <p className="text-xs text-muted-foreground/60 max-w-xs">
+            Quando voce adicionar agentes (etapa 4), o diagrama mostrara a arquitetura
+            de orquestracao com as conexoes entre orquestrador, agentes e squads.
+          </p>
         </div>
       </div>
     );

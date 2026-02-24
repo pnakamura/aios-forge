@@ -295,10 +295,16 @@ export function FilePreview() {
               )}
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground text-sm gap-2 p-8">
+            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground text-sm gap-3 p-8">
               <File className="w-10 h-10 text-muted-foreground/30" />
-              <p>Selecione um arquivo para visualizar</p>
-              <p className="text-xs text-muted-foreground/50">O pacote contem {files.length} arquivos prontos para download</p>
+              <div className="text-center">
+                <p className="font-medium mb-1">Selecione um arquivo para visualizar</p>
+                <p className="text-xs text-muted-foreground/50 mb-3">O pacote contem {files.length} arquivos que evoluem a cada etapa</p>
+              </div>
+              <div className="text-[11px] text-muted-foreground/60 max-w-xs text-center space-y-1.5">
+                <p>A arvore de arquivos a esquerda reflete seu AIOS em tempo real.</p>
+                <p>A medida que voce define o projeto, adiciona agentes e configura squads, novos arquivos aparecem automaticamente.</p>
+              </div>
             </div>
           )}
         </div>

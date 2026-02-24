@@ -2,12 +2,12 @@ import { useState, useRef, useEffect } from 'react';
 import { useWizardStore } from '@/stores/wizard-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Bot, User, Loader2, Sparkles } from 'lucide-react';
+import { Send, Bot, User, Loader2, Sparkles, ArrowRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 
-const STEP_PROMPTS: Record<string, { title: string; subtitle: string; suggestions: string[] }> = {
+const STEP_PROMPTS: Record<string, { title: string; subtitle: string; suggestions: string[]; quickChips: string[] }> = {
   welcome: {
     title: 'Assistente AIOS',
     subtitle: 'Descreva seu projeto e eu vou ajudar a configurar agentes, squads e toda a arquitetura.',
@@ -16,32 +16,48 @@ const STEP_PROMPTS: Record<string, { title: string; subtitle: string; suggestion
       'Preciso de um AIOS para gerar conteudo automatizado',
       'Quero orquestrar agentes para gestao de projetos',
     ],
+    quickChips: [],
   },
   context_analysis: {
     title: 'Analise de Contexto',
-    subtitle: 'Com base no que voce descreveu, vou sugerir a melhor configuracao.',
+    subtitle: 'Vou analisar o contexto e sugerir a melhor configuracao. Pergunte-me sobre padroes e agentes.',
     suggestions: [
       'Quais agentes voce recomenda para meu caso?',
       'Qual padrao de orquestracao e mais adequado?',
       'Quais integracoes devo configurar?',
     ],
+    quickChips: [
+      'Recomende agentes',
+      'Melhor padrao de orquestracao',
+      'Quais integracoes?',
+    ],
   },
   agents: {
     title: 'Configuracao de Agentes',
-    subtitle: 'Posso sugerir agentes e ajudar a configurar seus prompts.',
+    subtitle: 'Adicione agentes no painel a direita ou me peca sugestoes.',
     suggestions: [
       'Quais agentes nativos sao recomendados para meu projeto?',
       'Me ajude a criar um agente customizado',
       'Explique o papel de cada agente disponivel',
     ],
+    quickChips: [
+      'Agentes recomendados',
+      'Criar agente customizado',
+      'Explicar agentes',
+    ],
   },
   squads: {
     title: 'Montagem de Squads',
-    subtitle: 'Vou ajudar a agrupar seus agentes em equipes eficientes.',
+    subtitle: 'Crie squads no painel a direita ou me peca sugestoes de organizacao.',
     suggestions: [
       'Sugira squads para os agentes que adicionei',
       'Como devo organizar as tasks entre squads?',
       'Crie um workflow para o squad de desenvolvimento',
+    ],
+    quickChips: [
+      'Sugerir squads',
+      'Organizar tasks',
+      'Criar workflow',
     ],
   },
 };
@@ -179,6 +195,23 @@ export function ChatPanel() {
         )}
       </div>
 
+      {/* Quick suggestion chips - always visible when messages exist */}
+      {messages.length > 0 && stepConfig.quickChips.length > 0 && (
+        <div className="px-4 py-2 border-t border-border/30 bg-card/20 flex items-center gap-2 flex-wrap shrink-0">
+          <ArrowRight className="w-3 h-3 text-muted-foreground/50 shrink-0" />
+          {stepConfig.quickChips.map(chip => (
+            <button
+              key={chip}
+              onClick={() => sendMessage(STEP_PROMPTS[currentStep]?.suggestions.find(s => s.toLowerCase().includes(chip.toLowerCase().split(' ')[0])) || chip)}
+              disabled={isLoading}
+              className="text-[11px] px-3 py-1 rounded-full border border-border/50 bg-secondary/30 hover:border-primary/30 hover:bg-primary/5 text-muted-foreground hover:text-foreground transition-all disabled:opacity-50"
+            >
+              {chip}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Input */}
       <div className="p-4 border-t border-border/50 bg-card/30">
         <form
@@ -189,7 +222,7 @@ export function ChatPanel() {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Descreva seu projeto ou peca sugestoes..."
+            placeholder={stepConfig.subtitle || 'Descreva seu projeto ou peca sugestoes...'}
             className="flex-1 bg-secondary/50"
             disabled={isLoading}
           />

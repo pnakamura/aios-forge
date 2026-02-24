@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWizardStore } from '@/stores/wizard-store';
 import { StepProgress } from '@/components/wizard/StepProgress';
@@ -61,15 +61,33 @@ export default function WizardPage() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  // Auto-switch right panel based on step
+  // Auto-switch right panel based on step — every step has a relevant tab
   useEffect(() => {
     switch (store.currentStep) {
-      case 'agents': setRightPanel('agents'); break;
-      case 'squads': setRightPanel('squads'); break;
-      case 'review': case 'generation': setRightPanel('preview'); break;
-      default: break;
+      case 'welcome':
+      case 'context_analysis':
+      case 'project_config':
+        setRightPanel('preview'); // Show files evolving in real-time
+        break;
+      case 'agents':
+        setRightPanel('agents');
+        break;
+      case 'squads':
+        setRightPanel('squads');
+        break;
+      case 'integrations':
+      case 'review':
+      case 'generation':
+        setRightPanel('preview');
+        break;
     }
   }, [store.currentStep]);
+
+  // Compute live file count for the evolution header
+  const fileCount = useMemo(
+    () => generateAiosPackage({ project: store.project, agents: store.agents, squads: store.squads, complianceResults: store.complianceResults }).length,
+    [store.project, store.agents, store.squads, store.complianceResults]
+  );
 
   const handleSaveProject = async () => {
     setSaving(true);
@@ -533,22 +551,67 @@ export default function WizardPage() {
 
         {/* Right panel */}
         <div className="w-[45%] flex flex-col min-w-0">
-          <Tabs value={rightPanel} onValueChange={(v) => setRightPanel(v as any)} className="flex flex-col h-full">
+          {/* Evolution status header */}
+          <div className="px-4 py-3 border-b border-border/50 bg-card/40 shrink-0">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Package className="w-3.5 h-3.5 text-primary" />
+                <span className="text-[11px] font-semibold">Construindo seu AIOS</span>
+              </div>
+              <Badge variant="outline" className="text-[10px]">
+                Etapa {stepIdx + 1} de 8
+              </Badge>
+            </div>
+            <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden mb-2.5">
+              <motion.div
+                className="h-full rounded-full bg-primary"
+                animate={{ width: `${((stepIdx + 1) / 8) * 100}%` }}
+                transition={{ duration: 0.4 }}
+              />
+            </div>
+            <div className="flex gap-4 text-[10px]">
+              <span className={cn(
+                'flex items-center gap-1 transition-colors',
+                store.agents.length > 0 ? 'text-glow-success' : 'text-muted-foreground'
+              )}>
+                <Bot className="w-3 h-3" />
+                <span className="font-mono">{store.agents.length}</span> agentes
+              </span>
+              <span className={cn(
+                'flex items-center gap-1 transition-colors',
+                store.squads.length > 0 ? 'text-glow-success' : 'text-muted-foreground'
+              )}>
+                <Users className="w-3 h-3" />
+                <span className="font-mono">{store.squads.length}</span> squads
+              </span>
+              <span className="flex items-center gap-1 text-primary">
+                <FileText className="w-3 h-3" />
+                <span className="font-mono">{fileCount}</span> arquivos
+              </span>
+            </div>
+          </div>
+
+          <Tabs value={rightPanel} onValueChange={(v) => setRightPanel(v as any)} className="flex flex-col flex-1 min-h-0">
             <TabsList className="mx-2 mt-2 shrink-0">
               <TabsTrigger value="agents" className="gap-1.5 text-xs">
                 <Bot className="w-3.5 h-3.5" /> Agentes
-                {store.agents.length > 0 && (
-                  <span className="ml-1 w-4 h-4 rounded-full bg-primary/20 text-primary text-[10px] flex items-center justify-center">{store.agents.length}</span>
-                )}
+                <span className={cn(
+                  'ml-1 w-4 h-4 rounded-full text-[10px] flex items-center justify-center',
+                  store.agents.length > 0 ? 'bg-glow-success/20 text-glow-success' : 'bg-secondary text-muted-foreground'
+                )}>{store.agents.length}</span>
               </TabsTrigger>
               <TabsTrigger value="squads" className="gap-1.5 text-xs">
                 <Users className="w-3.5 h-3.5" /> Squads
-                {store.squads.length > 0 && (
-                  <span className="ml-1 w-4 h-4 rounded-full bg-accent/20 text-accent text-[10px] flex items-center justify-center">{store.squads.length}</span>
-                )}
+                <span className={cn(
+                  'ml-1 w-4 h-4 rounded-full text-[10px] flex items-center justify-center',
+                  store.squads.length > 0 ? 'bg-glow-success/20 text-glow-success' : 'bg-secondary text-muted-foreground'
+                )}>{store.squads.length}</span>
               </TabsTrigger>
               <TabsTrigger value="diagram" className="gap-1.5 text-xs"><GitBranch className="w-3.5 h-3.5" /> Diagrama</TabsTrigger>
-              <TabsTrigger value="preview" className="gap-1.5 text-xs"><FileText className="w-3.5 h-3.5" /> Arquivos</TabsTrigger>
+              <TabsTrigger value="preview" className="gap-1.5 text-xs">
+                <FileText className="w-3.5 h-3.5" /> Arquivos
+                <span className="ml-1 w-5 h-4 rounded-full bg-primary/20 text-primary text-[10px] flex items-center justify-center">{fileCount}</span>
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="agents" className="flex-1 overflow-hidden m-0"><AgentCatalog /></TabsContent>
             <TabsContent value="squads" className="flex-1 overflow-hidden m-0"><SquadBuilder /></TabsContent>

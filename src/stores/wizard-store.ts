@@ -1,6 +1,60 @@
 import { create } from 'zustand';
 import { WizardStep, AiosAgent, AiosSquad, AiosProject, ChatMessage, WIZARD_STEPS } from '@/types/aios';
 
+// ── Transition messages injected when the user advances to a new step ──
+
+function getTransitionMessage(step: WizardStep, state: { project: Partial<AiosProject>; agents: AiosAgent[]; squads: AiosSquad[] }): string | null {
+  const patternName = (state.project.orchestrationPattern || 'TASK_FIRST').replace(/_/g, ' ');
+  switch (step) {
+    case 'context_analysis':
+      return [
+        '### Fase: Analise de Contexto',
+        '',
+        'Com base no que voce descreveu, vou analisar o contexto e sugerir a melhor configuracao para o seu AIOS.',
+        '',
+        '**Nesta fase vamos definir:**',
+        '- Dominio mais adequado para o projeto',
+        '- Padrao de orquestracao ideal',
+        '- Tipos de agentes recomendados',
+        '',
+        'Me pergunte sobre padroes, agentes ou estrategias. Quando tiver clareza, clique em **Proximo** para configurar o projeto.',
+        '',
+        '*Acompanhe no painel a direita a evolucao dos arquivos do sistema.*',
+      ].join('\n');
+    case 'agents':
+      return [
+        '### Fase: Selecao de Agentes',
+        '',
+        `Agora vamos montar o time de agentes! No **painel a direita** esta o catalogo com agentes nativos.`,
+        '',
+        '**O que fazer:**',
+        `1. Veja os agentes recomendados para o padrao **${patternName}**`,
+        '2. Clique em **Adicionar todos** para os recomendados ou selecione individualmente',
+        '3. Me peca para criar agentes customizados se precisar',
+        '',
+        'Cada agente adicionado gera automaticamente: `agents/<nome>.yaml` e `agents/<nome>.md`',
+        '',
+        '*Adicione pelo menos 1 agente para prosseguir.*',
+      ].join('\n');
+    case 'squads':
+      return [
+        '### Fase: Montagem de Squads',
+        '',
+        `Seus **${state.agents.length} agentes** estao selecionados! Agora vamos organiza-los em equipes.`,
+        '',
+        '**No painel a direita**, crie squads e atribua agentes. Cada squad gera:',
+        '- `squads/<nome>/squad.yaml` — manifesto do squad',
+        '- `squads/<nome>/README.md` — documentacao',
+        '',
+        'Me peca sugestoes de como organizar os squads.',
+        '',
+        '*Esta etapa e opcional — avance quando desejar.*',
+      ].join('\n');
+    default:
+      return null;
+  }
+}
+
 interface WizardState {
   currentStep: WizardStep;
   project: Partial<AiosProject>;
@@ -56,7 +110,13 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     if (!state.canProceed()) return;
     const idx = state.getStepIndex();
     if (idx < WIZARD_STEPS.length - 1) {
-      set({ currentStep: WIZARD_STEPS[idx + 1].key });
+      const newStep = WIZARD_STEPS[idx + 1].key;
+      const transitionMsg = getTransitionMessage(newStep, state);
+      const updates: Partial<WizardState> = { currentStep: newStep };
+      if (transitionMsg) {
+        updates.messages = [...state.messages, { role: 'assistant' as const, content: transitionMsg }];
+      }
+      set(updates);
     }
   },
 
