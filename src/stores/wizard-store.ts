@@ -3,6 +3,8 @@ import { WizardStep, AiosAgent, AiosSquad, AiosProject, ChatMessage, WIZARD_STEP
 
 interface WizardState {
   currentStep: WizardStep;
+  /** Tracks the furthest step the user has reached (allows backward navigation without losing progress) */
+  highestStepIndex: number;
   project: Partial<AiosProject>;
   agents: AiosAgent[];
   squads: AiosSquad[];
@@ -17,6 +19,7 @@ interface WizardState {
   setStep: (step: WizardStep) => void;
   nextStep: () => void;
   prevStep: () => void;
+  getHighestStepIndex: () => number;
   updateProject: (data: Partial<AiosProject>) => void;
   addAgent: (agent: AiosAgent) => void;
   removeAgent: (slug: string) => void;
@@ -45,6 +48,7 @@ interface WizardState {
 
 const initialState = {
   currentStep: 'welcome' as WizardStep,
+  highestStepIndex: 0,
   project: { name: '', description: '', domain: 'software', orchestrationPattern: 'TASK_FIRST' as const },
   agents: [] as AiosAgent[],
   squads: [] as AiosSquad[],
@@ -59,14 +63,24 @@ const initialState = {
 export const useWizardStore = create<WizardState>((set, get) => ({
   ...initialState,
 
-  setStep: (step) => set({ currentStep: step }),
+  setStep: (step) => {
+    const stepIdx = WIZARD_STEPS.findIndex(s => s.key === step);
+    set((s) => ({
+      currentStep: step,
+      highestStepIndex: Math.max(s.highestStepIndex, stepIdx),
+    }));
+  },
 
   nextStep: () => {
     const state = get();
     if (!state.canProceed()) return;
     const idx = state.getStepIndex();
     if (idx < WIZARD_STEPS.length - 1) {
-      set({ currentStep: WIZARD_STEPS[idx + 1].key });
+      const nextIdx = idx + 1;
+      set((s) => ({
+        currentStep: WIZARD_STEPS[nextIdx].key,
+        highestStepIndex: Math.max(s.highestStepIndex, nextIdx),
+      }));
     }
   },
 
@@ -76,6 +90,8 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       set({ currentStep: WIZARD_STEPS[idx - 1].key });
     }
   },
+
+  getHighestStepIndex: () => get().highestStepIndex,
 
   updateProject: (data) => set((s) => ({ project: { ...s.project, ...data } })),
 
@@ -147,9 +163,11 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       isValidated: s.is_validated || false,
     }));
 
+    const reviewIdx = WIZARD_STEPS.findIndex(s => s.key === 'review');
     set({
       editingProjectId: projectId,
       currentStep: 'review',
+      highestStepIndex: reviewIdx,
       project: {
         id: p.id,
         name: p.name || '',
@@ -170,7 +188,11 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   getStepIndex: () => WIZARD_STEPS.findIndex(s => s.key === get().currentStep),
 
   canProceed: () => {
-    const { currentStep, project, agents } = get();
+    const state = get();
+    const { currentStep, project, agents } = state;
+    const currentIdx = WIZARD_STEPS.findIndex(s => s.key === currentStep);
+    // If user already visited a higher step, always allow navigating forward
+    if (currentIdx < state.highestStepIndex) return true;
     switch (currentStep) {
       case 'welcome': return true;
       case 'project_config': return !!(project.name && project.name.trim().length > 0);

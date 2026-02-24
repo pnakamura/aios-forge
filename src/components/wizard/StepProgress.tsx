@@ -33,21 +33,22 @@ function getPhaseLabel(stepKey: WizardStep): string {
 }
 
 export function StepProgress() {
-  const { currentStep, setStep, getStepIndex } = useWizardStore();
+  const { currentStep, setStep, getStepIndex, getHighestStepIndex } = useWizardStore();
   const currentIdx = getStepIndex();
+  const highestIdx = getHighestStepIndex();
 
   return (
     <div className="flex items-center gap-0 px-2 py-2 overflow-x-auto">
       {WIZARD_STEPS.map((step, i) => {
         const isActive = step.key === currentStep;
-        const isCompleted = i < currentIdx;
-        const isClickable = i <= currentIdx;
+        const isCompleted = i < highestIdx && !isActive;
+        const isClickable = i <= highestIdx;
         const phase = getPhaseLabel(step.key);
         const colors = PHASE_COLORS[phase];
 
         // Connector before this step (except first)
         const prevPhase = i > 0 ? getPhaseLabel(WIZARD_STEPS[i - 1].key) : phase;
-        const prevCompleted = i > 0 && i - 1 < currentIdx;
+        const prevCompleted = i > 0 && i - 1 < highestIdx;
 
         return (
           <div key={step.key} className="flex items-center">

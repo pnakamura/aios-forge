@@ -251,6 +251,7 @@ export default function WizardPage() {
 
   const canProceed = store.canProceed();
   const stepIdx = store.getStepIndex();
+  const highestIdx = store.getHighestStepIndex();
 
   const renderStepContent = () => {
     return (
@@ -677,12 +678,12 @@ export default function WizardPage() {
                     strokeWidth="3"
                     strokeLinecap="round"
                     strokeDasharray={113.1}
-                    animate={{ strokeDashoffset: 113.1 - (113.1 * ((stepIdx + 1) / 7)) }}
+                    animate={{ strokeDashoffset: 113.1 - (113.1 * ((highestIdx + 1) / 7)) }}
                     transition={{ duration: 0.5, ease: 'easeOut' }}
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-[10px] font-bold text-primary">{stepIdx + 1}/7</span>
+                  <span className="text-[10px] font-bold text-primary">{highestIdx + 1}/7</span>
                 </div>
               </div>
 
