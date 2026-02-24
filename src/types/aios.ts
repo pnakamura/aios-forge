@@ -1,6 +1,5 @@
 export type WizardStep =
   | 'welcome'
-  | 'context_analysis'
   | 'project_config'
   | 'agents'
   | 'squads'
@@ -9,14 +8,13 @@ export type WizardStep =
   | 'generation';
 
 export const WIZARD_STEPS: { key: WizardStep; label: string; number: number }[] = [
-  { key: 'welcome', label: 'Boas-vindas', number: 1 },
-  { key: 'context_analysis', label: 'Análise', number: 2 },
-  { key: 'project_config', label: 'Projeto', number: 3 },
-  { key: 'agents', label: 'Agentes', number: 4 },
-  { key: 'squads', label: 'Squads', number: 5 },
-  { key: 'integrations', label: 'Integrações', number: 6 },
-  { key: 'review', label: 'Revisão', number: 7 },
-  { key: 'generation', label: 'Geração', number: 8 },
+  { key: 'welcome', label: 'Descoberta', number: 1 },
+  { key: 'project_config', label: 'Projeto', number: 2 },
+  { key: 'agents', label: 'Agentes', number: 3 },
+  { key: 'squads', label: 'Squads', number: 4 },
+  { key: 'integrations', label: 'Integracoes', number: 5 },
+  { key: 'review', label: 'Revisao', number: 6 },
+  { key: 'generation', label: 'Geracao', number: 7 },
 ];
 
 export type OrchestrationPatternType =

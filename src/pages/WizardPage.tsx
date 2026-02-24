@@ -61,24 +61,14 @@ export default function WizardPage() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  // Auto-switch right panel based on step — every step has a relevant tab
+  // Auto-switch right panel — show file evolution for most steps
   useEffect(() => {
     switch (store.currentStep) {
-      case 'welcome':
-      case 'context_analysis':
-      case 'project_config':
-        setRightPanel('preview'); // Show files evolving in real-time
-        break;
       case 'agents':
-        setRightPanel('agents');
+        setRightPanel('diagram'); // Show architecture as agents are added
         break;
-      case 'squads':
-        setRightPanel('squads');
-        break;
-      case 'integrations':
-      case 'review':
-      case 'generation':
-        setRightPanel('preview');
+      default:
+        setRightPanel('preview'); // Show files evolving in real-time
         break;
     }
   }, [store.currentStep]);
@@ -206,7 +196,6 @@ export default function WizardPage() {
   const renderStepInner = () => {
     switch (store.currentStep) {
       case 'welcome':
-      case 'context_analysis':
         return <ChatPanel />;
 
       case 'project_config':
@@ -300,10 +289,10 @@ export default function WizardPage() {
         );
 
       case 'agents':
-        return <ChatPanel />;
+        return <AgentCatalog />;
 
       case 'squads':
-        return <ChatPanel />;
+        return <SquadBuilder />;
 
       case 'integrations':
         return (
@@ -559,13 +548,13 @@ export default function WizardPage() {
                 <span className="text-[11px] font-semibold">Construindo seu AIOS</span>
               </div>
               <Badge variant="outline" className="text-[10px]">
-                Etapa {stepIdx + 1} de 8
+                Etapa {stepIdx + 1} de 7
               </Badge>
             </div>
             <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden mb-2.5">
               <motion.div
                 className="h-full rounded-full bg-primary"
-                animate={{ width: `${((stepIdx + 1) / 8) * 100}%` }}
+                animate={{ width: `${((stepIdx + 1) / 7) * 100}%` }}
                 transition={{ duration: 0.4 }}
               />
             </div>

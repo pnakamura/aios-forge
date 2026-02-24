@@ -2,65 +2,10 @@ import { useState, useRef, useEffect } from 'react';
 import { useWizardStore } from '@/stores/wizard-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Bot, User, Loader2, Sparkles, ArrowRight } from 'lucide-react';
+import { Send, Bot, User, Loader2, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-
-const STEP_PROMPTS: Record<string, { title: string; subtitle: string; suggestions: string[]; quickChips: string[] }> = {
-  welcome: {
-    title: 'Assistente AIOS',
-    subtitle: 'Descreva seu projeto e eu vou ajudar a configurar agentes, squads e toda a arquitetura.',
-    suggestions: [
-      'Quero criar um sistema de agentes para desenvolvimento de software',
-      'Preciso de um AIOS para gerar conteudo automatizado',
-      'Quero orquestrar agentes para gestao de projetos',
-    ],
-    quickChips: [],
-  },
-  context_analysis: {
-    title: 'Analise de Contexto',
-    subtitle: 'Vou analisar o contexto e sugerir a melhor configuracao. Pergunte-me sobre padroes e agentes.',
-    suggestions: [
-      'Quais agentes voce recomenda para meu caso?',
-      'Qual padrao de orquestracao e mais adequado?',
-      'Quais integracoes devo configurar?',
-    ],
-    quickChips: [
-      'Recomende agentes',
-      'Melhor padrao de orquestracao',
-      'Quais integracoes?',
-    ],
-  },
-  agents: {
-    title: 'Configuracao de Agentes',
-    subtitle: 'Adicione agentes no painel a direita ou me peca sugestoes.',
-    suggestions: [
-      'Quais agentes nativos sao recomendados para meu projeto?',
-      'Me ajude a criar um agente customizado',
-      'Explique o papel de cada agente disponivel',
-    ],
-    quickChips: [
-      'Agentes recomendados',
-      'Criar agente customizado',
-      'Explicar agentes',
-    ],
-  },
-  squads: {
-    title: 'Montagem de Squads',
-    subtitle: 'Crie squads no painel a direita ou me peca sugestoes de organizacao.',
-    suggestions: [
-      'Sugira squads para os agentes que adicionei',
-      'Como devo organizar as tasks entre squads?',
-      'Crie um workflow para o squad de desenvolvimento',
-    ],
-    quickChips: [
-      'Sugerir squads',
-      'Organizar tasks',
-      'Criar workflow',
-    ],
-  },
-};
 
 export function ChatPanel() {
   const { messages, addMessage, isLoading, setLoading, currentStep, project, agents, squads } = useWizardStore();
@@ -68,13 +13,10 @@ export function ChatPanel() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const stepConfig = STEP_PROMPTS[currentStep] || STEP_PROMPTS.welcome;
-
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
 
-  // Auto-focus input
   useEffect(() => {
     inputRef.current?.focus();
   }, [currentStep]);
@@ -107,6 +49,18 @@ export function ChatPanel() {
     }
   };
 
+  const suggestions = [
+    'Quero criar um sistema de agentes para desenvolvimento de software',
+    'Preciso de um AIOS para gerar conteudo automatizado',
+    'Quero orquestrar agentes para gestao de projetos',
+  ];
+
+  const quickChips = [
+    { label: 'Recomendar agentes', msg: 'Quais agentes voce recomenda para meu caso?' },
+    { label: 'Melhor padrao', msg: 'Qual padrao de orquestracao e mais adequado?' },
+    { label: 'Integracoes', msg: 'Quais integracoes devo configurar?' },
+  ];
+
   return (
     <div className="flex flex-col h-full">
       {/* Messages */}
@@ -116,12 +70,12 @@ export function ChatPanel() {
             <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-5 shadow-[0_0_30px_-10px_hsl(var(--glow-primary)/0.3)]">
               <Bot className="w-8 h-8 text-primary" />
             </div>
-            <h3 className="font-bold text-lg mb-1">{stepConfig.title}</h3>
+            <h3 className="font-bold text-lg mb-1">Assistente AIOS</h3>
             <p className="text-muted-foreground text-sm max-w-sm mb-6">
-              {stepConfig.subtitle}
+              Descreva seu projeto — objetivos, dominio, tipo de sistema — e eu vou ajudar a planejar toda a arquitetura de agentes.
             </p>
             <div className="space-y-2 w-full max-w-md">
-              {stepConfig.suggestions.map(suggestion => (
+              {suggestions.map(suggestion => (
                 <button
                   key={suggestion}
                   onClick={() => sendMessage(suggestion)}
@@ -195,18 +149,17 @@ export function ChatPanel() {
         )}
       </div>
 
-      {/* Quick suggestion chips - always visible when messages exist */}
-      {messages.length > 0 && stepConfig.quickChips.length > 0 && (
+      {/* Quick chips - visible when conversation exists */}
+      {messages.length > 0 && (
         <div className="px-4 py-2 border-t border-border/30 bg-card/20 flex items-center gap-2 flex-wrap shrink-0">
-          <ArrowRight className="w-3 h-3 text-muted-foreground/50 shrink-0" />
-          {stepConfig.quickChips.map(chip => (
+          {quickChips.map(chip => (
             <button
-              key={chip}
-              onClick={() => sendMessage(STEP_PROMPTS[currentStep]?.suggestions.find(s => s.toLowerCase().includes(chip.toLowerCase().split(' ')[0])) || chip)}
+              key={chip.label}
+              onClick={() => sendMessage(chip.msg)}
               disabled={isLoading}
               className="text-[11px] px-3 py-1 rounded-full border border-border/50 bg-secondary/30 hover:border-primary/30 hover:bg-primary/5 text-muted-foreground hover:text-foreground transition-all disabled:opacity-50"
             >
-              {chip}
+              {chip.label}
             </button>
           ))}
         </div>
@@ -222,7 +175,7 @@ export function ChatPanel() {
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={stepConfig.subtitle || 'Descreva seu projeto ou peca sugestoes...'}
+            placeholder="Descreva seu projeto, peca sugestoes de agentes e padroes..."
             className="flex-1 bg-secondary/50"
             disabled={isLoading}
           />

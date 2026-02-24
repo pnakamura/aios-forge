@@ -2,8 +2,7 @@ import { useWizardStore } from '@/stores/wizard-store';
 import { WizardStep } from '@/types/aios';
 import { cn } from '@/lib/utils';
 import {
-  Check, Circle, FileText, MessageSquare, Settings, Bot,
-  Users, Network, Shield, Package, ChevronDown, ChevronRight,
+  Check, Circle, FileText, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -14,19 +13,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface StepChecklistItem {
   id: string;
   label: string;
-  /** Which generated files this piece of data feeds into */
   targetFiles: string[];
-  /** Function to determine if this item is fulfilled */
   check: (state: ReturnType<typeof useWizardStore.getState>) => boolean;
 }
 
 interface StepMeta {
   key: WizardStep;
   phase: string;
-  phaseGroup: 'Descoberta' | 'Configuracao' | 'Construcao' | 'Finalizacao';
+  phaseGroup: 'Descoberta' | 'Construcao' | 'Finalizacao';
   title: string;
   objective: string;
   description: string;
+  actionHint: string;
   checklist: StepChecklistItem[];
   criteriaToAdvance: string;
 }
@@ -34,11 +32,12 @@ interface StepMeta {
 const STEP_META: StepMeta[] = [
   {
     key: 'welcome',
-    phase: '1 de 8',
+    phase: '1 de 7',
     phaseGroup: 'Descoberta',
-    title: 'Boas-vindas',
-    objective: 'Entender o contexto geral do projeto',
-    description: 'Converse com o assistente para descrever seu projeto, seus objetivos e o tipo de sistema que deseja construir.',
+    title: 'Descoberta',
+    objective: 'Entender o contexto e objetivos do projeto',
+    description: 'Converse com o assistente para descrever seu projeto, objetivos, dominio e tipo de sistema.',
+    actionHint: 'Use o chat a esquerda para descrever seu projeto.',
     checklist: [
       {
         id: 'w-conversation',
@@ -46,39 +45,23 @@ const STEP_META: StepMeta[] = [
         targetFiles: [],
         check: (s) => s.messages.length > 0,
       },
-    ],
-    criteriaToAdvance: 'Descreva seu projeto ao assistente e avance quando estiver pronto.',
-  },
-  {
-    key: 'context_analysis',
-    phase: '2 de 8',
-    phaseGroup: 'Descoberta',
-    title: 'Analise de Contexto',
-    objective: 'Refinar requisitos e receber sugestoes',
-    description: 'O assistente analisa o que voce descreveu e sugere o melhor padrao de orquestracao, agentes e dominio.',
-    checklist: [
       {
-        id: 'ca-domain',
-        label: 'Dominio do projeto identificado',
+        id: 'w-context',
+        label: 'Contexto do projeto descrito',
         targetFiles: ['aios.config.yaml', 'README.md'],
-        check: (s) => !!s.project.domain && s.project.domain !== 'software',
-      },
-      {
-        id: 'ca-pattern-discussed',
-        label: 'Padrao de orquestracao discutido',
-        targetFiles: ['aios.config.yaml', 'src/orchestrator.ts'],
         check: (s) => s.messages.length >= 2,
       },
     ],
-    criteriaToAdvance: 'Discuta com o assistente ate ter clareza sobre dominio e abordagem.',
+    criteriaToAdvance: 'Descreva seu projeto e avance quando tiver clareza.',
   },
   {
     key: 'project_config',
-    phase: '3 de 8',
-    phaseGroup: 'Configuracao',
+    phase: '2 de 7',
+    phaseGroup: 'Descoberta',
     title: 'Configuracao do Projeto',
     objective: 'Definir identidade e arquitetura base',
-    description: 'Preencha nome, descricao, dominio e escolha o padrao de orquestracao que define como os agentes se comunicam.',
+    description: 'Preencha o formulario com nome, descricao, dominio e padrao de orquestracao.',
+    actionHint: 'Preencha o formulario a esquerda. No painel direito, veja os arquivos evoluindo.',
     checklist: [
       {
         id: 'pc-name',
@@ -109,11 +92,12 @@ const STEP_META: StepMeta[] = [
   },
   {
     key: 'agents',
-    phase: '4 de 8',
+    phase: '3 de 7',
     phaseGroup: 'Construcao',
     title: 'Selecao de Agentes',
     objective: 'Montar o time de agentes IA',
-    description: 'Selecione agentes nativos ou crie customizados. Cada agente tera seu arquivo de definicao e configuracao no pacote.',
+    description: 'Use o catalogo para adicionar agentes nativos ou criar customizados. Cada agente gera seus arquivos automaticamente.',
+    actionHint: 'Clique nos agentes para adicionar. Use "Adicionar todos" para os recomendados.',
     checklist: [
       {
         id: 'ag-at-least-one',
@@ -138,11 +122,12 @@ const STEP_META: StepMeta[] = [
   },
   {
     key: 'squads',
-    phase: '5 de 8',
+    phase: '4 de 7',
     phaseGroup: 'Construcao',
     title: 'Montagem de Squads',
     objective: 'Agrupar agentes em equipes com responsabilidades',
-    description: 'Crie squads para organizar seus agentes em equipes, defina tasks e workflows de execucao.',
+    description: 'Crie squads, atribua agentes e defina tasks. Cada squad gera seu manifesto YAML.',
+    actionHint: 'Clique "Novo Squad" para criar. Atribua agentes e adicione tasks.',
     checklist: [
       {
         id: 'sq-created',
@@ -163,15 +148,16 @@ const STEP_META: StepMeta[] = [
         check: (s) => s.squads.some(sq => sq.tasks.length > 0),
       },
     ],
-    criteriaToAdvance: 'Opcional — avance quando desejar. Squads podem ser configurados depois.',
+    criteriaToAdvance: 'Opcional — avance quando desejar.',
   },
   {
     key: 'integrations',
-    phase: '6 de 8',
+    phase: '5 de 7',
     phaseGroup: 'Construcao',
     title: 'Integracoes',
     objective: 'Mapear servicos e APIs externas',
-    description: 'Revise as integracoes necessarias. APIs de LLM sao detectadas automaticamente pelos modelos dos agentes.',
+    description: 'APIs de LLM sao detectadas automaticamente pelos modelos dos agentes selecionados.',
+    actionHint: 'Revise as integracoes detectadas e avance.',
     checklist: [
       {
         id: 'int-llm',
@@ -184,11 +170,12 @@ const STEP_META: StepMeta[] = [
   },
   {
     key: 'review',
-    phase: '7 de 8',
+    phase: '6 de 7',
     phaseGroup: 'Finalizacao',
     title: 'Revisao',
     objective: 'Validar a configuracao antes de gerar',
-    description: 'Revise todos os dados coletados e execute a validacao de conformidade AIOS nos arquivos.',
+    description: 'Revise todos os dados e execute a validacao de conformidade na aba Arquivos.',
+    actionHint: 'Revise o resumo e use "Revisar Conformidade" na aba Arquivos.',
     checklist: [
       {
         id: 'rv-compliance',
@@ -197,15 +184,16 @@ const STEP_META: StepMeta[] = [
         check: (s) => s.complianceReviewed,
       },
     ],
-    criteriaToAdvance: 'Recomenda-se executar a revisao de conformidade antes de gerar.',
+    criteriaToAdvance: 'Recomenda-se executar a revisao de conformidade.',
   },
   {
     key: 'generation',
-    phase: '8 de 8',
+    phase: '7 de 7',
     phaseGroup: 'Finalizacao',
     title: 'Geracao',
     objective: 'Exportar o pacote AIOS completo',
-    description: 'Seu pacote esta pronto. Salve no banco de dados ou baixe o ZIP com todos os arquivos.',
+    description: 'Seu pacote esta pronto. Salve no banco de dados ou baixe o ZIP.',
+    actionHint: 'Clique "Salvar Projeto" ou "Download ZIP".',
     checklist: [],
     criteriaToAdvance: '',
   },
@@ -220,7 +208,6 @@ export function StepContextPanel() {
   const totalItems = meta.checklist.length;
   const progressPct = totalItems > 0 ? Math.round((completedItems.length / totalItems) * 100) : 100;
 
-  // Collect unique target files for this step
   const allTargetFiles = [...new Set(meta.checklist.flatMap(c => c.targetFiles))].sort();
 
   return (
@@ -236,7 +223,6 @@ export function StepContextPanel() {
           className={cn(
             'text-[10px] shrink-0 font-semibold',
             meta.phaseGroup === 'Descoberta' && 'border-accent/40 text-accent',
-            meta.phaseGroup === 'Configuracao' && 'border-primary/40 text-primary',
             meta.phaseGroup === 'Construcao' && 'border-glow-success/40 text-glow-success',
             meta.phaseGroup === 'Finalizacao' && 'border-glow-warning/40 text-glow-warning',
           )}
@@ -275,7 +261,6 @@ export function StepContextPanel() {
           </div>
         )}
 
-        {/* Expand/collapse */}
         {expanded ? (
           <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
         ) : (
@@ -296,6 +281,11 @@ export function StepContextPanel() {
             <div className="px-4 pb-3 space-y-3">
               {/* Description */}
               <p className="text-xs text-muted-foreground leading-relaxed">{meta.description}</p>
+
+              {/* Action hint */}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-primary/5 border border-primary/10">
+                <span className="text-[11px] text-primary font-medium">{meta.actionHint}</span>
+              </div>
 
               {/* Checklist */}
               {meta.checklist.length > 0 && (
@@ -320,7 +310,6 @@ export function StepContextPanel() {
                           )}>
                             {item.label}
                           </span>
-                          {/* Target files */}
                           {item.targetFiles.length > 0 && (
                             <div className="flex gap-1 flex-wrap mt-0.5">
                               {item.targetFiles.map(f => (

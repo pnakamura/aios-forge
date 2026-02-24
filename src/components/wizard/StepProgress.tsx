@@ -4,8 +4,7 @@ import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const PHASE_GROUPS: { label: string; steps: WizardStep[]; color: string }[] = [
-  { label: 'Descoberta', steps: ['welcome', 'context_analysis'], color: 'accent' },
-  { label: 'Configuracao', steps: ['project_config'], color: 'primary' },
+  { label: 'Descoberta', steps: ['welcome', 'project_config'], color: 'accent' },
   { label: 'Construcao', steps: ['agents', 'squads', 'integrations'], color: 'glow-success' },
   { label: 'Finalizacao', steps: ['review', 'generation'], color: 'glow-warning' },
 ];
