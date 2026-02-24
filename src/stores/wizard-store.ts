@@ -24,6 +24,9 @@ interface WizardState {
   addMessage: (message: ChatMessage) => void;
   setSessionId: (id: string) => void;
   setLoading: (loading: boolean) => void;
+  complianceResults: Record<string, { status: string; notes: string }>;
+  complianceReviewed: boolean;
+  setComplianceResults: (results: Record<string, { status: string; notes: string }>) => void;
   reset: () => void;
   getStepIndex: () => number;
   canProceed: () => boolean;
@@ -37,6 +40,8 @@ const initialState = {
   messages: [],
   sessionId: null,
   isLoading: false,
+  complianceResults: {},
+  complianceReviewed: false,
 };
 
 export const useWizardStore = create<WizardState>((set, get) => ({
@@ -73,6 +78,9 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   addMessage: (message) => set((s) => ({ messages: [...s.messages, message] })),
   setSessionId: (id) => set({ sessionId: id }),
   setLoading: (loading) => set({ isLoading: loading }),
+  complianceResults: {},
+  complianceReviewed: false,
+  setComplianceResults: (results) => set({ complianceResults: results, complianceReviewed: true }),
   reset: () => set(initialState),
   getStepIndex: () => WIZARD_STEPS.findIndex(s => s.key === get().currentStep),
   canProceed: () => {
