@@ -54,6 +54,7 @@ export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
   // ── Documentation ────────────────────────────────────────────
   files.push(generateClaudeMd(name, slug, project, agents, squads, pattern, patternInfo));
   files.push(generateReadme(name, project, agents, squads, patternInfo));
+  files.push(generateInstallationManual(name, slug, project, agents, squads, pattern, patternInfo));
   files.push(generateSetupGuide(name, agents));
   files.push(generateArchitectureDoc(name, pattern, agents, squads, patternInfo));
 
@@ -1089,6 +1090,577 @@ docker build -t ${slug} .    # Apenas build
 - Tipos TypeScript centralizados em \`src/types.ts\`
 - Cada agente e um arquivo YAML independente, editavel sem recompilar
 - Squads agrupam agentes para tarefas coordenadas
+`,
+  };
+}
+
+function generateInstallationManual(
+  name: string,
+  slug: string,
+  project: Partial<AiosProject>,
+  agents: AiosAgent[],
+  squads: AiosSquad[],
+  pattern: OrchestrationPatternType,
+  patternInfo?: any,
+): GeneratedFile {
+  const usesOpenAI = agents.some(a => a.llmModel.includes('gpt') || a.llmModel.includes('openai'));
+  const usesClaude = agents.some(a => a.llmModel.includes('claude') || a.llmModel.includes('anthropic'));
+  const usesGemini = agents.some(a => a.llmModel.includes('gemini') || a.llmModel.includes('google'));
+
+  const providerSections: string[] = [];
+  if (usesOpenAI) providerSections.push(`#### OpenAI
+- Acesse https://platform.openai.com/api-keys
+- Crie uma nova API key
+- Defina no \`.env\`: \`OPENAI_API_KEY=sk-...\`
+- Modelos usados: ${agents.filter(a => a.llmModel.includes('gpt') || a.llmModel.includes('openai')).map(a => `\`${a.llmModel}\` (${a.name})`).join(', ')}`);
+  if (usesClaude) providerSections.push(`#### Anthropic (Claude)
+- Acesse https://console.anthropic.com/settings/keys
+- Crie uma nova API key
+- Defina no \`.env\`: \`ANTHROPIC_API_KEY=sk-ant-...\`
+- Modelos usados: ${agents.filter(a => a.llmModel.includes('claude') || a.llmModel.includes('anthropic')).map(a => `\`${a.llmModel}\` (${a.name})`).join(', ')}`);
+  if (usesGemini) providerSections.push(`#### Google (Gemini)
+- Acesse https://aistudio.google.com/apikey
+- Crie uma nova API key
+- Defina no \`.env\`: \`GOOGLE_API_KEY=...\`
+- Modelos usados: ${agents.filter(a => a.llmModel.includes('gemini') || a.llmModel.includes('google')).map(a => `\`${a.llmModel}\` (${a.name})`).join(', ')}`);
+  if (providerSections.length === 0) providerSections.push(`#### Provider padrao
+- Configure ao menos uma chave: \`OPENAI_API_KEY\` ou \`ANTHROPIC_API_KEY\``);
+
+  const agentOpsSection = agents.map(a =>
+    `| \`${a.slug}\` | ${a.name} | ${a.role} | \`${a.llmModel}\` | \`agents/${a.slug}.yaml\` |`
+  ).join('\n');
+
+  const squadOpsSection = squads.map(s => {
+    const members = (s.agentIds || []).map(id => agents.find(a => a.slug === id)?.name || id).join(', ');
+    return `| \`${s.slug}\` | ${s.name} | ${members || '(vazio)'} | ${s.tasks.length} | \`squads/${s.slug}/squad.yaml\` |`;
+  }).join('\n');
+
+  return {
+    path: 'docs/manual.md',
+    type: 'md',
+    complianceStatus: 'pending',
+    content: `# Manual de Instalacao e Operacao
+
+## ${name}
+
+> ${project.description || 'Sistema AIOS de orquestracao de agentes IA'}
+> Dominio: ${project.domain || 'software'} | Orquestracao: ${patternInfo?.name || pattern}
+
+---
+
+## Indice
+
+1. [Pre-requisitos](#1-pre-requisitos)
+2. [Instalacao](#2-instalacao)
+3. [Configuracao](#3-configuracao)
+4. [Executando o Sistema](#4-executando-o-sistema)
+5. [Operacao](#5-operacao)
+6. [Agentes](#6-agentes)
+7. [Squads](#7-squads)
+8. [Orquestracao](#8-orquestracao)
+9. [Docker](#9-docker)
+10. [Personalizacao](#10-personalizacao)
+11. [Monitoramento e Logs](#11-monitoramento-e-logs)
+12. [Troubleshooting](#12-troubleshooting)
+13. [Referencia de Comandos](#13-referencia-de-comandos)
+
+---
+
+## 1. Pre-requisitos
+
+### Software necessario
+
+| Requisito | Versao minima | Verificacao |
+|-----------|---------------|-------------|
+| Node.js | >= 20.0.0 | \`node -v\` |
+| npm | >= 10.0.0 | \`npm -v\` |
+| Git | >= 2.30 | \`git --version\` |
+| Docker (opcional) | >= 24.0 | \`docker --version\` |
+| Docker Compose (opcional) | >= 2.20 | \`docker compose version\` |
+
+### API Keys necessarias
+
+Este sistema utiliza ${agents.length} agente(s) que requerem acesso a LLMs:
+
+${providerSections.join('\n\n')}
+
+### Recursos de hardware recomendados
+
+- **Desenvolvimento**: 4GB RAM, 2 CPU cores
+- **Producao**: 8GB RAM, 4 CPU cores (varia com carga)
+- **Disco**: 500MB para o projeto + dependencias
+
+---
+
+## 2. Instalacao
+
+### 2.1 Setup automatizado (recomendado)
+
+\`\`\`bash
+# Extraia o pacote e entre no diretorio
+cd ${slug}
+
+# Execute o script de setup
+bash scripts/setup.sh
+\`\`\`
+
+O script ira:
+- Verificar a versao do Node.js
+- Instalar dependencias via \`npm install\`
+- Criar o arquivo \`.env\` a partir de \`.env.example\`
+- Compilar o TypeScript
+
+### 2.2 Setup manual
+
+\`\`\`bash
+# 1. Entre no diretorio do projeto
+cd ${slug}
+
+# 2. Instale as dependencias
+npm install
+
+# 3. Crie o arquivo de configuracao de ambiente
+cp .env.example .env
+
+# 4. Edite o .env com suas API keys
+# Use seu editor preferido (vim, nano, code, etc.)
+
+# 5. Compile o TypeScript
+npm run build
+\`\`\`
+
+### 2.3 Verificacao da instalacao
+
+\`\`\`bash
+# Verificar que a compilacao foi bem-sucedida
+ls dist/main.js
+
+# Verificar configuracao
+cat aios.config.yaml
+
+# Teste rapido (deve iniciar e mostrar logs)
+npm run dev
+\`\`\`
+
+---
+
+## 3. Configuracao
+
+### 3.1 Variaveis de ambiente (\`.env\`)
+
+| Variavel | Obrigatoria | Descricao |
+|----------|-------------|-----------|
+| \`OPENAI_API_KEY\` | ${usesOpenAI ? 'Sim' : 'Condicional'} | Chave da API OpenAI |
+| \`ANTHROPIC_API_KEY\` | ${usesClaude ? 'Sim' : 'Condicional'} | Chave da API Anthropic |
+| \`DATABASE_URL\` | Nao | URL de conexao do banco de dados |
+| \`LOG_LEVEL\` | Nao | Nivel de log: debug, info, warn, error (padrao: info) |
+| \`NODE_ENV\` | Nao | Ambiente: development, production (padrao: production) |
+| \`PORT\` | Nao | Porta do servidor (padrao: 3000) |
+
+> **Importante**: Nunca commite o arquivo \`.env\`. Ele ja esta no \`.gitignore\`.
+
+### 3.2 Configuracao central (\`aios.config.yaml\`)
+
+O arquivo \`aios.config.yaml\` e a configuracao principal do sistema. Ele define:
+
+- **Nome e dominio** do sistema
+- **Padrao de orquestracao** (${patternInfo?.name || pattern})
+- **Lista de agentes** registrados com seus modelos
+- **Lista de squads** com composicao de agentes
+- **Politica de retry** e timeouts
+- **Configuracao de logging**
+
+Para alterar o padrao de orquestracao:
+\`\`\`yaml
+orchestration:
+  pattern: "${pattern}"  # Altere para outro padrao se necessario
+\`\`\`
+
+Padroes disponiveis: \`SEQUENTIAL_PIPELINE\`, \`PARALLEL_SWARM\`, \`HIERARCHICAL\`, \`WATCHDOG\`, \`COLLABORATIVE\`, \`TASK_FIRST\`
+
+### 3.3 Configuracao de agentes
+
+Cada agente possui dois arquivos em \`agents/\`:
+
+- **\`<slug>.yaml\`** — Configuracao tecnica (modelo, temperatura, comandos)
+- **\`<slug>.md\`** — Documentacao e system prompt
+
+Para modificar o comportamento de um agente, edite seu arquivo YAML:
+\`\`\`yaml
+llm:
+  model: "google/gemini-3-flash-preview"  # Modelo LLM
+  temperature: 0.7                         # Criatividade (0.0 a 1.0)
+  max_tokens: 4096                         # Tamanho maximo da resposta
+
+system_prompt: |
+  Seu prompt de sistema aqui...
+\`\`\`
+
+### 3.4 Configuracao de squads
+
+Cada squad possui um diretorio em \`squads/<slug>/\` com:
+
+- **\`squad.yaml\`** — Manifesto com agentes, tasks e workflows
+- **\`README.md\`** — Documentacao do squad
+
+---
+
+## 4. Executando o Sistema
+
+### 4.1 Modo desenvolvimento
+
+\`\`\`bash
+npm run dev
+\`\`\`
+
+Usa \`tsx\` para execucao direta de TypeScript com hot-reload.
+Ideal para testes e iteracao rapida.
+
+### 4.2 Modo producao
+
+\`\`\`bash
+# Compilar
+npm run build
+
+# Executar
+npm start
+\`\`\`
+
+### 4.3 Via Docker
+
+\`\`\`bash
+# Build e executar
+docker compose up --build
+
+# Executar em background
+docker compose up -d --build
+
+# Parar
+docker compose down
+
+# Ver logs
+docker compose logs -f
+\`\`\`
+
+### 4.4 Saida esperada ao iniciar
+
+\`\`\`
+[INFO] Iniciando ${name} (padrao: ${pattern})
+[INFO] Variaveis de ambiente validadas
+[INFO] ${agents.length} agente(s) registrado(s)
+[INFO] ${squads.length} squad(s) configurado(s)
+[INFO] Sistema AIOS pronto. Aguardando tarefas...
+\`\`\`
+
+---
+
+## 5. Operacao
+
+### 5.1 Fluxo de execucao
+
+1. O sistema inicia via \`src/main.ts\`
+2. Variaveis de ambiente sao validadas (\`src/env.ts\`)
+3. O \`AgentRunner\` e criado para gerenciar chamadas LLM (\`src/agent-runner.ts\`)
+4. O \`Orchestrator\` e configurado com o padrao **${patternInfo?.name || pattern}** (\`src/orchestrator.ts\`)
+5. Agentes sao carregados a partir dos arquivos YAML em \`agents/\`
+6. O sistema aguarda tarefas para orquestrar
+
+### 5.2 Enviando tarefas
+
+Atualmente o sistema opera via importacao programatica:
+
+\`\`\`typescript
+import { aiosConfig } from './main.js';
+import { createOrchestrator } from './orchestrator.js';
+import { createAgentRunner } from './agent-runner.js';
+
+const runner = createAgentRunner(env);
+const orchestrator = createOrchestrator(aiosConfig, runner);
+
+const result = await orchestrator.run({
+  task: "Descreva a tarefa aqui",
+  context: { chave: "valor" }
+});
+
+console.log(result.output);
+\`\`\`
+
+---
+
+## 6. Agentes
+
+### 6.1 Registro de agentes
+
+| Slug | Nome | Role | Modelo | Config |
+|------|------|------|--------|--------|
+${agentOpsSection || '| (nenhum) | - | - | - | - |'}
+
+### 6.2 Ciclo de vida de um agente
+
+1. **Carregamento**: O \`AgentRunner\` le o arquivo \`agents/<slug>.yaml\`
+2. **System Prompt**: O prompt de sistema e extraido da configuracao
+3. **Invocacao**: O orquestrador envia a tarefa ao agente via LLM
+4. **Resposta**: O agente retorna o resultado ao orquestrador
+5. **Roteamento**: O resultado pode ser passado ao proximo agente (dependendo do padrao)
+
+### 6.3 Adicionando um novo agente
+
+1. Crie \`agents/novo-agente.yaml\`:
+\`\`\`yaml
+slug: "novo-agente"
+name: "Novo Agente"
+role: "Descricao do role"
+version: "1.0.0"
+llm:
+  model: "google/gemini-3-flash-preview"
+  temperature: 0.7
+  max_tokens: 4096
+system_prompt: |
+  Voce e o Novo Agente...
+commands: []
+tools: []
+skills: []
+\`\`\`
+
+2. Registre em \`aios.config.yaml\`:
+\`\`\`yaml
+agents:
+  - slug: "novo-agente"
+    name: "Novo Agente"
+    role: "Descricao do role"
+    model: "google/gemini-3-flash-preview"
+    config: "agents/novo-agente.yaml"
+\`\`\`
+
+3. Atualize \`src/main.ts\` no array \`agents\` do \`aiosConfig\`
+
+### 6.4 Removendo um agente
+
+1. Delete os arquivos \`agents/<slug>.yaml\` e \`agents/<slug>.md\`
+2. Remova a entrada de \`aios.config.yaml\`
+3. Remova de qualquer squad que o contenha
+4. Atualize \`src/main.ts\`
+
+---
+
+## 7. Squads
+
+### 7.1 Registro de squads
+
+| Slug | Nome | Agentes | Tasks | Config |
+|------|------|---------|-------|--------|
+${squadOpsSection || '| (nenhum) | - | - | - | - |'}
+
+### 7.2 Estrutura de um squad
+
+Um squad agrupa agentes para trabalhar em tarefas coordenadas:
+
+- **Agentes**: Lista de agentes que compoem o squad
+- **Tasks**: Tarefas individuais assignadas a agentes especificos
+- **Workflows**: Sequencias de passos que definem o fluxo de trabalho
+
+### 7.3 Adicionando um novo squad
+
+1. Crie o diretorio \`squads/novo-squad/\`
+2. Crie \`squads/novo-squad/squad.yaml\`:
+\`\`\`yaml
+name: "Novo Squad"
+slug: "novo-squad"
+description: "Descricao do squad"
+agents:
+  - slug: "dev"
+    name: "Developer"
+tasks: []
+workflows: []
+\`\`\`
+3. Registre em \`aios.config.yaml\`
+
+---
+
+## 8. Orquestracao
+
+### 8.1 Padrao atual: ${patternInfo?.name || pattern}
+
+${patternInfo?.description || ''}
+
+${pattern === 'SEQUENTIAL_PIPELINE' ? `**Como funciona**: Cada agente recebe a saida do agente anterior como contexto, formando um pipeline linear.
+
+\`\`\`
+Agente A → Agente B → Agente C → Resultado final
+\`\`\`` : ''}${pattern === 'PARALLEL_SWARM' ? `**Como funciona**: Todos os agentes recebem a mesma tarefa simultaneamente. Os resultados sao agregados.
+
+\`\`\`
+         ┌→ Agente A ─┐
+Tarefa ──┼→ Agente B ──┼→ Resultado agregado
+         └→ Agente C ─┘
+\`\`\`` : ''}${pattern === 'HIERARCHICAL' ? `**Como funciona**: Um agente master planeja e delega tarefas para agentes subordinados.
+
+\`\`\`
+        [Master]
+       /   |   \\
+  Agent A  B    C
+\`\`\`` : ''}${pattern === 'WATCHDOG' ? `**Como funciona**: Agentes executam tarefas enquanto um supervisor monitora e valida os resultados.
+
+\`\`\`
+[Supervisor] ← monitora ← [Workers A, B, C]
+\`\`\`` : ''}${pattern === 'COLLABORATIVE' ? `**Como funciona**: Agentes compartilham contexto e iteram em multiplas rodadas de colaboracao.
+
+\`\`\`
+[Agente A] ↔ [Contexto Compartilhado] ↔ [Agente B]
+\`\`\`` : ''}${pattern === 'TASK_FIRST' ? `**Como funciona**: O orquestrador analisa cada tarefa e a atribui dinamicamente ao agente mais adequado.
+
+\`\`\`
+Tarefa → [Orchestrator] → seleciona → [Agente mais adequado] → Resultado
+\`\`\`` : ''}
+
+### 8.2 Alterando o padrao
+
+Para mudar o padrao de orquestracao:
+
+1. Edite \`aios.config.yaml\`: altere \`orchestration.pattern\`
+2. Edite \`src/main.ts\`: altere \`pattern\` no \`aiosConfig\`
+3. Recompile: \`npm run build\`
+
+---
+
+## 9. Docker
+
+### 9.1 Build
+
+\`\`\`bash
+docker build -t ${slug} .
+\`\`\`
+
+### 9.2 Executar
+
+\`\`\`bash
+docker run --env-file .env -p 3000:3000 ${slug}
+\`\`\`
+
+### 9.3 Docker Compose
+
+\`\`\`bash
+# Iniciar
+docker compose up -d --build
+
+# Parar
+docker compose down
+
+# Reconstruir apos mudancas
+docker compose up -d --build --force-recreate
+\`\`\`
+
+### 9.4 Volumes montados
+
+O \`docker-compose.yaml\` monta os seguintes volumes em modo leitura:
+- \`./agents\` → Definicoes de agentes (editavel sem rebuild)
+- \`./squads\` → Definicoes de squads (editavel sem rebuild)
+- \`./aios.config.yaml\` → Configuracao central (editavel sem rebuild)
+
+---
+
+## 10. Personalizacao
+
+### 10.1 Modificar system prompt de um agente
+
+Edite \`agents/<slug>.yaml\` na secao \`system_prompt\`. Nao requer recompilacao — o prompt e lido em runtime.
+
+### 10.2 Trocar modelo LLM de um agente
+
+Edite \`agents/<slug>.yaml\`:
+\`\`\`yaml
+llm:
+  model: "claude-sonnet-4-20250514"  # Novo modelo
+\`\`\`
+
+Modelos suportados:
+- OpenAI: \`gpt-4o\`, \`gpt-4o-mini\`
+- Anthropic: \`claude-opus-4-20250514\`, \`claude-sonnet-4-20250514\`, \`claude-haiku-4-5-20251001\`
+- Google: \`google/gemini-3-flash-preview\`, \`google/gemini-2.5-pro-preview\`
+
+### 10.3 Ajustar politica de retry
+
+Edite \`aios.config.yaml\`:
+\`\`\`yaml
+orchestration:
+  retry_policy:
+    max_retries: 5      # Numero de tentativas
+    backoff_ms: 2000     # Delay entre tentativas
+  timeout_ms: 600000     # Timeout total (10 min)
+\`\`\`
+
+---
+
+## 11. Monitoramento e Logs
+
+### 11.1 Niveis de log
+
+| Nivel | Uso |
+|-------|-----|
+| \`debug\` | Detalhes de cada chamada LLM e roteamento |
+| \`info\` | Eventos operacionais (padrao) |
+| \`warn\` | Avisos (API key ausente, retry) |
+| \`error\` | Erros (falha de agente, timeout) |
+
+Configure via \`.env\`:
+\`\`\`bash
+LOG_LEVEL=debug  # Para troubleshooting
+LOG_LEVEL=info   # Para operacao normal
+\`\`\`
+
+### 11.2 Formato de saida
+
+\`\`\`
+[2024-01-15T10:30:00.000Z] [INFO] Iniciando ${name} (padrao: ${pattern})
+[2024-01-15T10:30:00.050Z] [INFO] Variaveis de ambiente validadas
+[2024-01-15T10:30:00.100Z] [DEBUG] [Agent:dev] Invocando modelo google/gemini-3-flash-preview
+\`\`\`
+
+---
+
+## 12. Troubleshooting
+
+### Erro: "Nenhuma API key configurada"
+- **Causa**: Arquivo \`.env\` nao existe ou as chaves estao vazias
+- **Solucao**: \`cp .env.example .env\` e preencha as chaves
+
+### Erro: "Node.js >= 20 necessario"
+- **Causa**: Versao do Node.js desatualizada
+- **Solucao**: Atualize via \`nvm install 20\` ou baixe em nodejs.org
+
+### Erro: "Erro ao invocar agente"
+- **Causa**: API key invalida, modelo incorreto ou limite de rate
+- **Solucao**: Verifique a chave, o nome do modelo e os limites da sua conta
+
+### Erro de compilacao TypeScript
+- **Causa**: Dependencias desatualizadas
+- **Solucao**: \`rm -rf node_modules && npm install && npm run build\`
+
+### Docker: "port already in use"
+- **Causa**: Porta 3000 ocupada
+- **Solucao**: Altere \`PORT\` no \`.env\` ou pare o processo que usa a porta
+
+---
+
+## 13. Referencia de Comandos
+
+| Comando | Descricao |
+|---------|-----------|
+| \`npm install\` | Instalar dependencias |
+| \`npm run dev\` | Executar em modo desenvolvimento |
+| \`npm run build\` | Compilar TypeScript |
+| \`npm start\` | Executar em modo producao |
+| \`npm run lint\` | Verificar tipos TypeScript |
+| \`npm run setup\` | Executar script de setup completo |
+| \`docker compose up --build\` | Build e executar via Docker |
+| \`docker compose down\` | Parar containers |
+| \`docker compose logs -f\` | Seguir logs do container |
+
+---
+
+*Manual gerado automaticamente por AIOS Forge.*
+*Projeto: ${name} | Dominio: ${project.domain || 'software'} | Padrao: ${patternInfo?.name || pattern}*
+*Agentes: ${agents.length} | Squads: ${squads.length}*
 `,
   };
 }

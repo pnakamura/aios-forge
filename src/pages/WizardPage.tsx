@@ -8,6 +8,7 @@ import { AgentCatalog } from '@/components/wizard/AgentCatalog';
 import { SquadBuilder } from '@/components/wizard/SquadBuilder';
 import { FilePreview } from '@/components/wizard/FilePreview';
 import { ArchitectureDiagram } from '@/components/wizard/ArchitectureDiagram';
+import { ManualPanel } from '@/components/wizard/ManualPanel';
 import { ORCHESTRATION_PATTERNS } from '@/data/orchestration-patterns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,7 +21,7 @@ import { toast } from 'sonner';
 import {
   ArrowLeft, ArrowRight, Cpu, Bot, Users, Network,
   FileText, GitBranch, Check, Download, Package,
-  AlertCircle, Sparkles, Shield,
+  AlertCircle, Sparkles, Shield, BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { generateAiosPackage } from '@/lib/generate-aios-package';
@@ -31,7 +32,7 @@ export default function WizardPage() {
   const store = useWizardStore();
   const navigate = useNavigate();
   const { id: editId } = useParams<{ id: string }>();
-  const [rightPanel, setRightPanel] = useState<'preview' | 'diagram' | 'agents' | 'squads'>('agents');
+  const [rightPanel, setRightPanel] = useState<'preview' | 'diagram' | 'agents' | 'squads' | 'manual'>('agents');
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [loadingProject, setLoadingProject] = useState(false);
@@ -107,14 +108,18 @@ export default function WizardPage() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  // Auto-switch right panel — show file evolution for most steps
+  // Auto-switch right panel based on current step
   useEffect(() => {
     switch (store.currentStep) {
       case 'agents':
-        setRightPanel('diagram'); // Show architecture as agents are added
+        setRightPanel('diagram');
+        break;
+      case 'review':
+      case 'generation':
+        setRightPanel('manual');
         break;
       default:
-        setRightPanel('preview'); // Show files evolving in real-time
+        setRightPanel('preview');
         break;
     }
   }, [store.currentStep]);
@@ -683,11 +688,13 @@ export default function WizardPage() {
                 <FileText className="w-3.5 h-3.5" /> Arquivos
                 <span className="ml-1 w-5 h-4 rounded-full bg-primary/20 text-primary text-[10px] flex items-center justify-center">{fileCount}</span>
               </TabsTrigger>
+              <TabsTrigger value="manual" className="gap-1.5 text-xs"><BookOpen className="w-3.5 h-3.5" /> Manual</TabsTrigger>
             </TabsList>
             <TabsContent value="agents" className="flex-1 overflow-hidden m-0"><AgentCatalog /></TabsContent>
             <TabsContent value="squads" className="flex-1 overflow-hidden m-0"><SquadBuilder /></TabsContent>
             <TabsContent value="diagram" className="flex-1 overflow-hidden m-0"><ArchitectureDiagram /></TabsContent>
             <TabsContent value="preview" className="flex-1 overflow-hidden m-0"><FilePreview /></TabsContent>
+            <TabsContent value="manual" className="flex-1 overflow-hidden m-0"><ManualPanel /></TabsContent>
           </Tabs>
         </div>
       </div>
