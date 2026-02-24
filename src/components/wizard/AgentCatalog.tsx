@@ -72,7 +72,7 @@ export function AgentCatalog() {
       name: customAgent.name,
       role: customAgent.role,
       systemPrompt: customAgent.systemPrompt,
-      llmModel: 'google/gemini-3-flash-preview',
+      llmModel: 'gemini-2.0-flash',
       commands: [],
       tools: [],
       skills: [],
