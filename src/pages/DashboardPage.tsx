@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Cpu, Plus, FolderOpen, LogOut, Bot, Users, Network, Package, Calendar, Pencil } from 'lucide-react';
+import { Cpu, Plus, FolderOpen, LogOut, Bot, Users, Network, Package, Calendar, Pencil, Sun, Moon } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import { useTheme } from '@/lib/theme';
 
 interface Project {
   id: string;
@@ -21,6 +22,7 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     loadProjects();
@@ -70,6 +72,15 @@ export default function DashboardPage() {
           <span className="text-lg font-bold">AIOS Forge</span>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+            className="w-8 h-8 p-0"
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </Button>
           <Button size="sm" onClick={() => navigate('/wizard')} className="gap-2 shadow-[var(--shadow-glow)]">
             <Plus className="w-4 h-4" />
             Novo AIOS

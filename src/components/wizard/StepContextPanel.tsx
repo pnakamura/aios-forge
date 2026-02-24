@@ -211,11 +211,11 @@ export function StepContextPanel() {
   const allTargetFiles = [...new Set(meta.checklist.flatMap(c => c.targetFiles))].sort();
 
   return (
-    <div className="border-b border-border/50 bg-card/20 shrink-0">
+    <div className="border-b border-border/50 bg-card/40 shrink-0">
       {/* Compact header - always visible */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-secondary/20 transition-colors"
+        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-secondary/30 transition-colors"
       >
         {/* Phase group badge */}
         <Badge

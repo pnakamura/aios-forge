@@ -99,13 +99,18 @@ export function StepProgress() {
                 {step.label}
               </span>
 
-              {/* Active ring pulse */}
+              {/* Active ring — steady glow, no blinking */}
               {isActive && (
                 <motion.div
-                  className="absolute -inset-1 rounded-full border border-primary/20"
+                  className={cn(
+                    'absolute -inset-1.5 rounded-full border',
+                    phase === 'Descoberta' && 'border-accent/30 shadow-[0_0_8px_-2px_hsl(var(--glow-accent)/0.3)]',
+                    phase === 'Construcao' && 'border-glow-success/30 shadow-[0_0_8px_-2px_hsl(var(--glow-success)/0.3)]',
+                    phase === 'Finalizacao' && 'border-glow-warning/30 shadow-[0_0_8px_-2px_hsl(var(--glow-warning)/0.3)]',
+                  )}
                   initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: [0, 0.5, 0], scale: [0.8, 1.3, 1.3] }}
-                  transition={{ duration: 2, repeat: Infinity }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3 }}
                 />
               )}
             </button>

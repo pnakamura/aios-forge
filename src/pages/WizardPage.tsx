@@ -21,9 +21,10 @@ import { toast } from 'sonner';
 import {
   ArrowLeft, ArrowRight, Cpu, Bot, Users, Network,
   FileText, GitBranch, Check, Download, Package,
-  AlertCircle, Sparkles, Shield, BookOpen,
+  AlertCircle, Sparkles, Shield, BookOpen, Sun, Moon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/lib/theme';
 import { generateAiosPackage } from '@/lib/generate-aios-package';
 import JSZip from 'jszip';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -32,6 +33,7 @@ export default function WizardPage() {
   const store = useWizardStore();
   const navigate = useNavigate();
   const { id: editId } = useParams<{ id: string }>();
+  const { theme, toggleTheme } = useTheme();
   const [rightPanel, setRightPanel] = useState<'preview' | 'diagram' | 'agents' | 'squads' | 'manual'>('agents');
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -389,15 +391,15 @@ export default function WizardPage() {
               { name: 'MCP Server', desc: 'Model Context Protocol', configured: false },
             ].map(integration => (
               <div key={integration.name} className={cn(
-                'flex items-center justify-between p-4 rounded-lg border transition-all',
+                'flex items-center justify-between p-4 rounded-xl border transition-all shadow-sm',
                 integration.configured
                   ? 'border-glow-success/30 bg-glow-success/5'
-                  : 'border-border/50 bg-card/30'
+                  : 'border-border/60 bg-card/60'
               )}>
                 <div className="flex items-center gap-3">
                   <div className={cn(
-                    'w-8 h-8 rounded-lg flex items-center justify-center',
-                    integration.configured ? 'bg-glow-success/10' : 'bg-secondary'
+                    'w-9 h-9 rounded-lg flex items-center justify-center border',
+                    integration.configured ? 'bg-glow-success/10 border-glow-success/20' : 'bg-secondary/60 border-border/40'
                   )}>
                     {integration.configured ? <Check className="w-4 h-4 text-glow-success" /> : <Network className="w-4 h-4 text-muted-foreground" />}
                   </div>
@@ -438,8 +440,13 @@ export default function WizardPage() {
 
             <div className="space-y-3">
               {/* Project summary */}
-              <div className="p-4 rounded-lg border border-border/50 bg-card/50">
-                <p className="text-xs text-muted-foreground mb-2">Projeto</p>
+              <div className="p-4 rounded-xl border border-border/60 bg-card/60 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-5 h-5 rounded-md bg-primary/10 flex items-center justify-center">
+                    <Sparkles className="w-3 h-3 text-primary" />
+                  </div>
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Projeto</p>
+                </div>
                 <p className="font-semibold">{store.project.name || '(sem nome)'}</p>
                 <p className="text-sm text-muted-foreground mt-1">{store.project.description || 'Sem descricao'}</p>
                 <div className="flex gap-2 mt-3">
@@ -449,9 +456,14 @@ export default function WizardPage() {
               </div>
 
               {/* Agents */}
-              <div className="p-4 rounded-lg border border-border/50 bg-card/50">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs text-muted-foreground">Agentes</p>
+              <div className="p-4 rounded-xl border border-border/60 bg-card/60 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-md bg-accent/10 flex items-center justify-center">
+                      <Bot className="w-3 h-3 text-accent" />
+                    </div>
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Agentes</p>
+                  </div>
                   <Badge variant="outline" className="text-[10px]">{store.agents.length}</Badge>
                 </div>
                 <div className="flex gap-1.5 flex-wrap">
@@ -465,9 +477,14 @@ export default function WizardPage() {
               </div>
 
               {/* Squads */}
-              <div className="p-4 rounded-lg border border-border/50 bg-card/50">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs text-muted-foreground">Squads</p>
+              <div className="p-4 rounded-xl border border-border/60 bg-card/60 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-md bg-glow-success/10 flex items-center justify-center">
+                      <Users className="w-3 h-3 text-glow-success" />
+                    </div>
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Squads</p>
+                  </div>
                   <Badge variant="outline" className="text-[10px]">{store.squads.length}</Badge>
                 </div>
                 <div className="flex gap-1.5 flex-wrap">
@@ -481,9 +498,11 @@ export default function WizardPage() {
               </div>
 
               {/* Package summary */}
-              <div className="p-4 rounded-lg border border-primary/20 bg-primary/5">
+              <div className="p-4 rounded-xl border border-primary/25 bg-primary/5 shadow-sm">
                 <div className="flex items-center gap-2 mb-2">
-                  <Package className="w-4 h-4 text-primary" />
+                  <div className="w-5 h-5 rounded-md bg-primary/15 flex items-center justify-center">
+                    <Package className="w-3 h-3 text-primary" />
+                  </div>
                   <p className="text-xs font-medium text-primary">Pacote de Instalacao</p>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -494,12 +513,20 @@ export default function WizardPage() {
 
               {/* Compliance */}
               <div className={cn(
-                'p-4 rounded-lg border',
+                'p-4 rounded-xl border shadow-sm',
                 store.complianceReviewed
                   ? failed > 0 ? 'border-destructive/30 bg-destructive/5' : 'border-glow-success/30 bg-glow-success/5'
-                  : 'border-border/50 bg-card/50'
+                  : 'border-border/60 bg-card/60'
               )}>
-                <p className="text-xs text-muted-foreground mb-2">Conformidade AIOS</p>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={cn(
+                    'w-5 h-5 rounded-md flex items-center justify-center',
+                    store.complianceReviewed && failed === 0 ? 'bg-glow-success/15' : 'bg-secondary'
+                  )}>
+                    <Shield className="w-3 h-3 text-muted-foreground" />
+                  </div>
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Conformidade AIOS</p>
+                </div>
                 {store.complianceReviewed ? (
                   <div className="flex items-center gap-3 text-sm">
                     <span className="text-glow-success font-medium">{passed} aprovados</span>
@@ -603,6 +630,16 @@ export default function WizardPage() {
         </div>
         <StepProgress />
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+            className="w-8 h-8 p-0"
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </Button>
+          <div className="w-px h-5 bg-border/40" />
           <Button variant="ghost" size="sm" onClick={store.prevStep} disabled={stepIdx === 0}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
@@ -618,17 +655,17 @@ export default function WizardPage() {
       </header>
 
       {/* Main content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden bg-muted/30">
         {/* Left panel */}
-        <div className="flex-1 border-r border-border/50 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 m-2 mr-1 rounded-xl border border-border/60 bg-background overflow-hidden shadow-sm">
           <StepContextPanel />
           {renderStepContent()}
         </div>
 
         {/* Right panel */}
-        <div className="w-[45%] flex flex-col min-w-0">
+        <div className="w-[45%] flex flex-col min-w-0 m-2 ml-1 rounded-xl border border-border/60 bg-background overflow-hidden shadow-sm">
           {/* Evolution status header */}
-          <div className="px-4 py-3 border-b border-border/50 bg-card/40 shrink-0">
+          <div className="px-4 py-3 border-b border-border/50 bg-card/60 shrink-0">
             <div className="flex items-center gap-4">
               {/* Circular progress ring */}
               <div className="relative w-11 h-11 shrink-0">
@@ -658,20 +695,20 @@ export default function WizardPage() {
                 </div>
                 <div className="flex gap-3 text-[10px]">
                   <span className={cn(
-                    'flex items-center gap-1 transition-colors',
-                    store.agents.length > 0 ? 'text-glow-success' : 'text-muted-foreground/50'
+                    'flex items-center gap-1 px-1.5 py-0.5 rounded-md transition-colors',
+                    store.agents.length > 0 ? 'text-glow-success bg-glow-success/10' : 'text-muted-foreground/50'
                   )}>
                     <Bot className="w-3 h-3" />
                     <span className="font-mono font-bold">{store.agents.length}</span>
                   </span>
                   <span className={cn(
-                    'flex items-center gap-1 transition-colors',
-                    store.squads.length > 0 ? 'text-glow-success' : 'text-muted-foreground/50'
+                    'flex items-center gap-1 px-1.5 py-0.5 rounded-md transition-colors',
+                    store.squads.length > 0 ? 'text-glow-success bg-glow-success/10' : 'text-muted-foreground/50'
                   )}>
                     <Users className="w-3 h-3" />
                     <span className="font-mono font-bold">{store.squads.length}</span>
                   </span>
-                  <span className="flex items-center gap-1 text-primary">
+                  <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-primary bg-primary/10">
                     <FileText className="w-3 h-3" />
                     <span className="font-mono font-bold">{fileCount}</span>
                   </span>
@@ -681,27 +718,27 @@ export default function WizardPage() {
           </div>
 
           <Tabs value={rightPanel} onValueChange={(v) => setRightPanel(v as any)} className="flex flex-col flex-1 min-h-0">
-            <TabsList className="mx-2 mt-2 shrink-0">
-              <TabsTrigger value="agents" className="gap-1.5 text-xs">
+            <TabsList className="mx-3 mt-3 shrink-0 bg-muted/50 p-1 rounded-lg">
+              <TabsTrigger value="agents" className="gap-1.5 text-xs rounded-md">
                 <Bot className="w-3.5 h-3.5" /> Agentes
                 <span className={cn(
                   'ml-1 w-4 h-4 rounded-full text-[10px] flex items-center justify-center',
                   store.agents.length > 0 ? 'bg-glow-success/20 text-glow-success' : 'bg-secondary text-muted-foreground'
                 )}>{store.agents.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="squads" className="gap-1.5 text-xs">
+              <TabsTrigger value="squads" className="gap-1.5 text-xs rounded-md">
                 <Users className="w-3.5 h-3.5" /> Squads
                 <span className={cn(
                   'ml-1 w-4 h-4 rounded-full text-[10px] flex items-center justify-center',
                   store.squads.length > 0 ? 'bg-glow-success/20 text-glow-success' : 'bg-secondary text-muted-foreground'
                 )}>{store.squads.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="diagram" className="gap-1.5 text-xs"><GitBranch className="w-3.5 h-3.5" /> Diagrama</TabsTrigger>
-              <TabsTrigger value="preview" className="gap-1.5 text-xs">
+              <TabsTrigger value="diagram" className="gap-1.5 text-xs rounded-md"><GitBranch className="w-3.5 h-3.5" /> Diagrama</TabsTrigger>
+              <TabsTrigger value="preview" className="gap-1.5 text-xs rounded-md">
                 <FileText className="w-3.5 h-3.5" /> Arquivos
                 <span className="ml-1 w-5 h-4 rounded-full bg-primary/20 text-primary text-[10px] flex items-center justify-center">{fileCount}</span>
               </TabsTrigger>
-              <TabsTrigger value="manual" className="gap-1.5 text-xs"><BookOpen className="w-3.5 h-3.5" /> Manual</TabsTrigger>
+              <TabsTrigger value="manual" className="gap-1.5 text-xs rounded-md"><BookOpen className="w-3.5 h-3.5" /> Manual</TabsTrigger>
             </TabsList>
             <TabsContent value="agents" className="flex-1 overflow-hidden m-0"><AgentCatalog /></TabsContent>
             <TabsContent value="squads" className="flex-1 overflow-hidden m-0"><SquadBuilder /></TabsContent>

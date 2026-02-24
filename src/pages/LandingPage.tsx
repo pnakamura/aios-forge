@@ -1,8 +1,9 @@
 import { motion } from 'framer-motion';
-import { Bot, ArrowRight, Cpu, Users, Zap, Network, Code, ShieldCheck, Package, Terminal, Sparkles, Layers, ChevronRight } from 'lucide-react';
+import { Bot, ArrowRight, Cpu, Users, Zap, Network, Code, ShieldCheck, Package, Terminal, Sparkles, Layers, ChevronRight, Sun, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { useTheme } from '@/lib/theme';
 
 const features = [
   { icon: Bot, title: '11 Agentes Nativos', desc: 'Agentes pre-configurados para cada papel no ciclo de desenvolvimento', color: 'primary' },
@@ -93,6 +94,7 @@ function StatCounter({ value, label }: { value: string; label: string }) {
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -111,6 +113,15 @@ export default function LandingPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+            className="w-8 h-8 p-0"
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </Button>
           <Button variant="ghost" size="sm" onClick={() => navigate('/auth')} className="text-muted-foreground hover:text-foreground">
             Entrar
           </Button>

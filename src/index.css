@@ -5,6 +5,7 @@
 @tailwind utilities;
 
 @layer base {
+  /* ── Dark theme (default) ── */
   :root {
     --background: 220 20% 4%;
     --foreground: 210 40% 93%;
@@ -55,6 +56,57 @@
     --gradient-hero: linear-gradient(160deg, hsl(220 20% 4%) 0%, hsl(220 30% 8%) 50%, hsl(190 40% 8%) 100%);
     --shadow-glow: 0 0 30px -5px hsl(190 95% 50% / 0.3);
     --shadow-glow-accent: 0 0 30px -5px hsl(265 80% 60% / 0.3);
+  }
+
+  /* ── Light theme ── */
+  .light {
+    --background: 210 30% 98%;
+    --foreground: 220 20% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 12%;
+
+    --primary: 200 95% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 215 20% 93%;
+    --secondary-foreground: 220 16% 35%;
+
+    --muted: 215 20% 95%;
+    --muted-foreground: 215 15% 45%;
+
+    --accent: 265 70% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 215 20% 88%;
+    --input: 215 20% 88%;
+    --ring: 200 95% 40%;
+
+    --sidebar-background: 210 25% 96%;
+    --sidebar-foreground: 220 16% 35%;
+    --sidebar-primary: 200 95% 40%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 20% 93%;
+    --sidebar-accent-foreground: 220 16% 35%;
+    --sidebar-border: 215 20% 88%;
+    --sidebar-ring: 200 95% 40%;
+
+    /* Custom tokens */
+    --glow-primary: 200 95% 40%;
+    --glow-accent: 265 70% 55%;
+    --glow-success: 150 70% 38%;
+    --glow-warning: 35 90% 50%;
+    --gradient-primary: linear-gradient(135deg, hsl(200 95% 40%), hsl(220 85% 50%));
+    --gradient-accent: linear-gradient(135deg, hsl(265 70% 55%), hsl(300 60% 45%));
+    --gradient-hero: linear-gradient(160deg, hsl(210 30% 98%) 0%, hsl(215 25% 95%) 50%, hsl(200 30% 95%) 100%);
+    --shadow-glow: 0 0 30px -5px hsl(200 95% 40% / 0.15);
+    --shadow-glow-accent: 0 0 30px -5px hsl(265 70% 55% / 0.15);
   }
 }
 
