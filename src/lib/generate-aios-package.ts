@@ -52,6 +52,7 @@ export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
   files.push(generateDockerIgnore());
 
   // ── Documentation ────────────────────────────────────────────
+  files.push(generateClaudeMd(name, slug, project, agents, squads, pattern, patternInfo));
   files.push(generateReadme(name, project, agents, squads, patternInfo));
   files.push(generateSetupGuide(name, agents));
   files.push(generateArchitectureDoc(name, pattern, agents, squads, patternInfo));
@@ -915,6 +916,179 @@ dist
 .git
 *.md
 !README.md
+`,
+  };
+}
+
+function generateClaudeMd(
+  name: string,
+  slug: string,
+  project: Partial<AiosProject>,
+  agents: AiosAgent[],
+  squads: AiosSquad[],
+  pattern: OrchestrationPatternType,
+  patternInfo?: any,
+): GeneratedFile {
+  const agentsByCategory = new Map<string, AiosAgent[]>();
+  agents.forEach(a => {
+    const cat = a.category || (a.isCustom ? 'Custom' : 'Outros');
+    if (!agentsByCategory.has(cat)) agentsByCategory.set(cat, []);
+    agentsByCategory.get(cat)!.push(a);
+  });
+
+  const agentCategorySection = Array.from(agentsByCategory.entries())
+    .map(([cat, catAgents]) => `- **${cat}**: ${catAgents.map(a => `${a.name} (\`${a.slug}\`)`).join(', ')}`)
+    .join('\n');
+
+  const agentDetailSection = agents.map(a =>
+    `### ${a.name} (\`${a.slug}\`)
+- **Role**: ${a.role}
+- **Modelo LLM**: \`${a.llmModel}\`
+- **Visibilidade**: ${a.visibility}
+- **Custom**: ${a.isCustom ? 'sim' : 'nao'}
+- **Comandos**: ${(a.commands || []).length > 0 ? a.commands.map(c => `\`${c}\``).join(', ') : '(nenhum)'}
+- **Tools**: ${(a.tools || []).length > 0 ? a.tools.join(', ') : '(nenhum)'}
+- **Skills**: ${(a.skills || []).length > 0 ? a.skills.join(', ') : '(nenhum)'}`
+  ).join('\n\n');
+
+  const squadSection = squads.map(s => {
+    const squadAgents = (s.agentIds || []).map(id => agents.find(a => a.slug === id)).filter(Boolean);
+    const taskSection = (s.tasks || []).length > 0
+      ? s.tasks.map((t, i) => `  ${i + 1}. **${t.name}** — agente: \`${t.agentSlug}\`${t.dependencies.length > 0 ? `, depende de: ${t.dependencies.join(', ')}` : ''}`).join('\n')
+      : '  (nenhuma task definida)';
+    const workflowSection = (s.workflows || []).length > 0
+      ? s.workflows.map(w => `  - **${w.name}**: ${(w.steps || []).map(st => `${st.name} (\`${st.agentSlug}\`)`).join(' → ')}`).join('\n')
+      : '  (nenhum workflow definido)';
+
+    return `### ${s.name} (\`${s.slug}\`)
+- **Descricao**: ${s.description || '(sem descricao)'}
+- **Agentes**: ${squadAgents.map(a => `${a!.name} (\`${a!.slug}\`)`).join(', ') || '(vazio)'}
+- **Tasks**:
+${taskSection}
+- **Workflows**:
+${workflowSection}`;
+  }).join('\n\n');
+
+  return {
+    path: 'CLAUDE.md',
+    type: 'md',
+    complianceStatus: 'pending',
+    content: `# ${name}
+
+${project.description || 'Sistema AIOS de orquestracao de agentes IA.'}
+
+## Stack
+
+- **Runtime**: Node.js >= 20 + TypeScript 5
+- **Orquestracao**: AIOS Engine (padrao: ${patternInfo?.name || pattern})
+- **LLMs**: ${[...new Set(agents.map(a => a.llmModel))].join(', ') || '(nenhum definido)'}
+- **Containerizacao**: Docker + Docker Compose
+
+## Estrutura do projeto
+
+\`\`\`
+${slug}/
+  aios.config.yaml        → Configuracao central do sistema AIOS
+  CLAUDE.md                → Este arquivo (documentacao para IA)
+  package.json             → Dependencias Node.js
+  tsconfig.json            → Configuracao TypeScript
+  Dockerfile               → Build de producao
+  docker-compose.yaml      → Orquestracao de containers
+  .env.example             → Template de variaveis de ambiente
+  .gitignore               → Arquivos ignorados pelo git
+  src/
+    main.ts                → Entry point do sistema
+    orchestrator.ts        → Motor de orquestracao (${patternInfo?.name || pattern})
+    agent-runner.ts        → Executor de agentes (chamadas LLM)
+    logger.ts              → Logging estruturado
+    env.ts                 → Validacao de variaveis de ambiente
+    types.ts               → Definicoes de tipos TypeScript
+  agents/                  → Definicoes de agentes
+${agents.map(a => `    ${a.slug}.yaml          → Config do agente ${a.name}\n    ${a.slug}.md            → Documentacao do agente ${a.name}`).join('\n')}
+  squads/                  → Definicoes de squads
+${squads.map(s => `    ${s.slug}/\n      squad.yaml          → Manifesto do squad ${s.name}\n      README.md           → Documentacao do squad ${s.name}`).join('\n')}
+  docs/
+    setup.md               → Guia de instalacao
+    architecture.md        → Documentacao de arquitetura
+  scripts/
+    setup.sh               → Script de setup automatizado
+\`\`\`
+
+## Padrao de orquestracao: ${patternInfo?.name || pattern}
+
+${patternInfo?.description || ''}
+
+${patternInfo?.useCases ? `**Casos de uso**: ${patternInfo.useCases.join(', ')}` : ''}
+
+### Como funciona
+
+- **Configuracao**: \`aios.config.yaml\` define o padrao, agentes e squads
+- **Entry point**: \`src/main.ts\` inicializa o sistema e cria o orquestrador
+- **Orquestrador**: \`src/orchestrator.ts\` implementa o padrao ${pattern} com estrategias para roteamento e execucao de tarefas
+- **Agentes**: \`src/agent-runner.ts\` carrega definicoes YAML e invoca o LLM correto para cada agente
+
+## Agentes (${agents.length})
+
+${agentCategorySection || '(nenhum agente configurado)'}
+
+${agentDetailSection || ''}
+
+## Squads (${squads.length})
+
+${squads.length > 0 ? squadSection : '(nenhum squad configurado)'}
+
+## Hierarquia do sistema
+
+\`\`\`
+[Orquestrador: ${patternInfo?.name || pattern}]
+${agents.length > 0 ? agents.map(a => {
+  const memberOf = squads.filter(s => (s.agentIds || []).includes(a.slug));
+  return `  ├── ${a.name} (${a.role})${memberOf.length > 0 ? ` → squads: ${memberOf.map(s => s.name).join(', ')}` : ''}`;
+}).join('\n') : '  (sem agentes)'}
+${squads.length > 0 ? '\n' + squads.map(s => {
+  const members = (s.agentIds || []).map(id => agents.find(a => a.slug === id)?.name || id);
+  return `  [Squad: ${s.name}]\n${members.map(m => `    └── ${m}`).join('\n')}`;
+}).join('\n') : ''}
+\`\`\`
+
+## Integracoes LLM
+
+| Agente | Modelo | Provider |
+|--------|--------|----------|
+${agents.map(a => {
+  let provider = 'OpenAI';
+  if (a.llmModel.includes('claude') || a.llmModel.includes('anthropic')) provider = 'Anthropic';
+  else if (a.llmModel.includes('gemini') || a.llmModel.includes('google')) provider = 'Google';
+  return `| ${a.name} | \`${a.llmModel}\` | ${provider} |`;
+}).join('\n') || '| (vazio) | - | - |'}
+
+## Comandos
+
+\`\`\`bash
+npm install        # Instalar dependencias
+npm run dev        # Executar em modo desenvolvimento (tsx)
+npm run build      # Compilar TypeScript
+npm start          # Executar em producao
+npm run setup      # Script de setup completo
+\`\`\`
+
+### Docker
+
+\`\`\`bash
+docker compose up --build    # Build e executar
+docker build -t ${slug} .    # Apenas build
+\`\`\`
+
+## Convencoes
+
+- Configuracao central em \`aios.config.yaml\` (YAML)
+- Definicoes de agentes em \`agents/<slug>.yaml\` e \`agents/<slug>.md\`
+- Definicoes de squads em \`squads/<slug>/squad.yaml\`
+- Variaveis de ambiente em \`.env\` (nunca commitadas)
+- Logs estruturados via \`src/logger.ts\`
+- Tipos TypeScript centralizados em \`src/types.ts\`
+- Cada agente e um arquivo YAML independente, editavel sem recompilar
+- Squads agrupam agentes para tarefas coordenadas
 `,
   };
 }
