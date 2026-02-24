@@ -58,6 +58,14 @@ export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
   files.push(generateSetupGuide(name, agents));
   files.push(generateArchitectureDoc(name, pattern, agents, squads, patternInfo));
 
+  // ── Institutional Memory (.aios/) ───────────────────────────
+  files.push(generateProjectStatus(name, pattern));
+  files.push(generateDecisionsJson());
+  files.push(generateCodebaseMap(agents, squads));
+
+  // ── Story-Driven structure ─────────────────────────────────
+  files.push(generateStoryTemplate());
+
   // ── CI / Scripts ─────────────────────────────────────────────
   files.push(generateGitignore());
   files.push(generateSetupScript(slug));
@@ -215,6 +223,47 @@ ${(agent.skills || []).map(s => `  - "${s}"`).join('\n') || '  []'}
 }
 
 function generateSquadYaml(squad: AiosSquad, agents: AiosAgent[]): GeneratedFile {
+  const squadAgentIds = squad.agentIds || [];
+  const squadTasks = squad.tasks || [];
+  const squadWorkflows = squad.workflows || [];
+
+  // Generate enriched tasks — fill empty descriptions/checklists with useful defaults
+  const tasksYaml = squadTasks.length > 0
+    ? squadTasks.map(t => {
+        const desc = t.description || `Tarefa "${t.name}" executada pelo agente @${t.agentSlug}`;
+        const checklist = (t.checklist || []).length > 0
+          ? t.checklist
+          : ['Analisar requisitos da tarefa', 'Executar implementacao', 'Validar resultado'];
+        return `  - id: "${t.id}"
+    name: "${t.name}"
+    description: "${desc}"
+    agent: "${t.agentSlug}"
+    dependencies: [${t.dependencies.map(d => `"${d}"`).join(', ')}]
+    checklist:
+${checklist.map(c => `      - "${c}"`).join('\n')}`;
+      }).join('\n')
+    : '  []';
+
+  // Generate enriched workflows — fill empty steps with agent sequence
+  const workflowsYaml = squadWorkflows.length > 0
+    ? squadWorkflows.map(w => {
+        const steps = (w.steps || []).length > 0
+          ? w.steps
+          : squadAgentIds.map((id, i) => ({
+              id: `step-${i + 1}`,
+              name: `Etapa ${i + 1}: ${agents.find(a => a.slug === id)?.name || id}`,
+              agentSlug: id,
+              condition: undefined as string | undefined,
+            }));
+        return `  - id: "${w.id}"
+    name: "${w.name}"
+    steps:
+${steps.map(s => `      - id: "${s.id}"
+        name: "${s.name}"
+        agent: "${s.agentSlug}"${s.condition ? `\n        condition: "${s.condition}"` : ''}`).join('\n')}`;
+      }).join('\n')
+    : '  []';
+
   return {
     path: `squads/${squad.slug}/squad.yaml`,
     type: 'yaml',
@@ -226,7 +275,7 @@ description: "${squad.description || ''}"
 version: "1.0.0"
 
 agents:
-${(squad.agentIds || []).map(id => {
+${squadAgentIds.map(id => {
   const agent = agents.find(a => a.slug === id);
   return `  - slug: "${id}"
     name: "${agent?.name || id}"
@@ -234,21 +283,10 @@ ${(squad.agentIds || []).map(id => {
 }).join('\n') || '  []'}
 
 tasks:
-${(squad.tasks || []).map(t => `  - id: "${t.id}"
-    name: "${t.name}"
-    description: "${t.description || ''}"
-    agent: "${t.agentSlug}"
-    dependencies: [${t.dependencies.map(d => `"${d}"`).join(', ')}]
-    checklist:
-${(t.checklist || []).map(c => `      - "${c}"`).join('\n') || '      []'}`).join('\n') || '  []'}
+${tasksYaml}
 
 workflows:
-${(squad.workflows || []).map(w => `  - id: "${w.id}"
-    name: "${w.name}"
-    steps:
-${(w.steps || []).map(s => `      - id: "${s.id}"
-        name: "${s.name}"
-        agent: "${s.agentSlug}"${s.condition ? `\n        condition: "${s.condition}"` : ''}`).join('\n') || '      []'}`).join('\n') || '  []'}
+${workflowsYaml}
 `,
   };
 }
@@ -281,25 +319,16 @@ ${(squad.workflows || []).length > 0 ? squad.workflows.map(w => `### ${w.name}\n
 }
 
 function generatePackageJson(slug: string, name: string, agents: AiosAgent[]): GeneratedFile {
-  const usesOpenAI = agents.some(a => a.llmModel.includes('gpt'));
-  const usesClaude = agents.some(a => a.llmModel.includes('claude') || a.llmModel.includes('anthropic'));
-  const usesGemini = agents.some(a => a.llmModel.includes('gemini') || a.llmModel.includes('google'));
-
   const deps: Record<string, string> = {
     'yaml': '^2.4.0',
     'dotenv': '^16.4.0',
     'winston': '^3.14.0',
     'zod': '^3.23.0',
+    // Always include all LLM SDKs so agents can be reconfigured without reinstalling
+    'openai': '^4.60.0',
+    '@anthropic-ai/sdk': '^0.30.0',
+    '@google/generative-ai': '^0.21.0',
   };
-
-  if (usesOpenAI) deps['openai'] = '^4.60.0';
-  if (usesClaude) deps['@anthropic-ai/sdk'] = '^0.30.0';
-  if (usesGemini) deps['@google/generative-ai'] = '^0.21.0';
-  // Default: always include openai as many providers support OpenAI-compatible API
-  if (!usesOpenAI && !usesClaude && !usesGemini) {
-    deps['openai'] = '^4.60.0';
-    deps['@anthropic-ai/sdk'] = '^0.30.0';
-  }
 
   return {
     path: 'package.json',
@@ -382,6 +411,9 @@ function generateMainEntryPoint(
  */
 
 import { config } from 'dotenv';
+import { readFileSync } from 'fs';
+import { parse } from 'yaml';
+import { createInterface } from 'readline';
 import { validateEnv } from './env.js';
 import { createOrchestrator } from './orchestrator.js';
 import { createAgentRunner } from './agent-runner.js';
@@ -390,16 +422,42 @@ import type { AiosConfig } from './types.js';
 
 config();
 
-const aiosConfig: AiosConfig = {
-  name: "${name}",
-  pattern: "${pattern}",
-  agents: [
-${agents.map(a => `    { slug: "${a.slug}", name: "${a.name}", role: "${a.role}", model: "${a.llmModel}" },`).join('\n')}
-  ],
-  squads: [
-${squads.map(s => `    { slug: "${s.slug}", name: "${s.name}", agentSlugs: [${(s.agentIds || []).map(id => `"${id}"`).join(', ')}] },`).join('\n')}
-  ],
-};
+// Load config from YAML (single source of truth)
+function loadConfig(): AiosConfig {
+  try {
+    const raw = readFileSync('aios.config.yaml', 'utf-8');
+    const yaml = parse(raw) as any;
+    return {
+      name: yaml.name || '${name}',
+      pattern: yaml.orchestration?.pattern || '${pattern}',
+      agents: (yaml.agents || []).map((a: any) => ({
+        slug: a.slug,
+        name: a.name,
+        role: a.role,
+        model: a.model,
+      })),
+      squads: (yaml.squads || []).map((s: any) => ({
+        slug: s.slug,
+        name: s.name,
+        agentSlugs: s.agents || [],
+      })),
+    };
+  } catch (err) {
+    logger.warn('Falha ao ler aios.config.yaml, usando config padrao');
+    return {
+      name: "${name}",
+      pattern: "${pattern}",
+      agents: [
+${agents.map(a => `        { slug: "${a.slug}", name: "${a.name}", role: "${a.role}", model: "${a.llmModel}" },`).join('\n')}
+      ],
+      squads: [
+${squads.map(s => `        { slug: "${s.slug}", name: "${s.name}", agentSlugs: [${(s.agentIds || []).map(id => `"${id}"`).join(', ')}] },`).join('\n')}
+      ],
+    };
+  }
+}
+
+const aiosConfig = loadConfig();
 
 async function main() {
   logger.info(\`Iniciando \${aiosConfig.name} (padrao: \${aiosConfig.pattern})\`);
@@ -416,19 +474,53 @@ async function main() {
 
   logger.info(\`\${aiosConfig.agents.length} agente(s) registrado(s)\`);
   logger.info(\`\${aiosConfig.squads.length} squad(s) configurado(s)\`);
-  logger.info('Sistema AIOS pronto. Aguardando tarefas...');
+  logger.info('Sistema AIOS pronto.');
 
-  // Example: run a task
-  // await orchestrator.run({ task: "Analisar requisitos do projeto", context: {} });
-
-  // Keep alive
+  // Handle graceful shutdown
   process.on('SIGINT', () => {
     logger.info('Encerrando AIOS...');
     process.exit(0);
   });
 
-  // Interactive mode placeholder
-  logger.info('Modo interativo nao implementado. Use a API ou importe o orchestrator.');
+  // Interactive readline loop
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  console.log('');
+  console.log('='.repeat(50));
+  console.log('  AIOS Interativo — digite uma tarefa ou "sair"');
+  console.log('='.repeat(50));
+  console.log('');
+
+  const prompt = () => rl.question('aios> ', async (input) => {
+    const trimmed = input.trim();
+    if (!trimmed) return prompt();
+    if (trimmed === 'sair' || trimmed === 'exit' || trimmed === 'quit') {
+      logger.info('Encerrando AIOS...');
+      rl.close();
+      process.exit(0);
+    }
+    if (trimmed === 'status') {
+      console.log(\`\\nSistema: \${aiosConfig.name}\`);
+      console.log(\`Padrao: \${aiosConfig.pattern}\`);
+      console.log(\`Agentes: \${aiosConfig.agents.map(a => a.name).join(', ')}\`);
+      console.log(\`Squads: \${aiosConfig.squads.map(s => s.name).join(', ') || '(nenhum)'}\\n\`);
+      return prompt();
+    }
+
+    try {
+      logger.info(\`Processando tarefa: \${trimmed}\`);
+      const result = await orchestrator.run({ task: trimmed, context: {} });
+      console.log(\`\\n--- Resultado ---\\n\${result.output}\\n\`);
+    } catch (err) {
+      logger.error(\`Erro ao processar tarefa: \${err}\`);
+    }
+    prompt();
+  });
+
+  prompt();
 }
 
 main().catch((err) => {
@@ -636,7 +728,7 @@ export function createAgentRunner(env: ValidatedEnv): AgentRunner {
       if (model.includes('claude') || model.includes('anthropic')) {
         return await callAnthropic(systemPrompt, userMessage, model, env);
       } else if (model.includes('gemini') || model.includes('google')) {
-        return await callOpenAICompatible(systemPrompt, userMessage, model, env);
+        return await callGoogle(systemPrompt, userMessage, model, env);
       } else {
         return await callOpenAI(systemPrompt, userMessage, model, env);
       }
@@ -675,18 +767,21 @@ export function createAgentRunner(env: ValidatedEnv): AgentRunner {
     return { output: text, success: true };
   }
 
-  async function callOpenAICompatible(system: string, user: string, model: string, env: ValidatedEnv): Promise<AgentResult> {
-    const apiKey = env.OPENAI_API_KEY || env.ANTHROPIC_API_KEY || '';
-    if (!apiKey) {
-      return { output: '[LLM] Nenhuma API key configurada.', success: false };
+  async function callGoogle(system: string, user: string, model: string, env: ValidatedEnv): Promise<AgentResult> {
+    if (!env.GOOGLE_API_KEY) {
+      return { output: '[Google] API key nao configurada. Configure GOOGLE_API_KEY no .env', success: false };
     }
-    const { default: OpenAI } = await import('openai');
-    const client = new OpenAI({ apiKey });
-    const response = await client.chat.completions.create({
-      model,
-      messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+    const { GoogleGenerativeAI } = await import('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(env.GOOGLE_API_KEY);
+    // Remove provider prefix if present (e.g. 'google/gemini-2.0-flash' -> 'gemini-2.0-flash')
+    const modelName = model.replace(/^google\\//, '');
+    const genModel = genAI.getGenerativeModel({
+      model: modelName,
+      systemInstruction: system,
     });
-    return { output: response.choices[0]?.message?.content || '', success: true };
+    const result = await genModel.generateContent(user);
+    const text = result.response.text();
+    return { output: text, success: true };
   }
 
   return { invoke };
@@ -702,6 +797,15 @@ function generateLogger(): GeneratedFile {
     complianceStatus: 'pending',
     content: `/**
  * Logger - Structured logging for AIOS
+ *
+ * Provides timestamped, leveled logging to stdout/stderr.
+ * Configure via LOG_LEVEL env var: debug | info | warn | error
+ *
+ * Usage:
+ *   import { logger } from './logger.js';
+ *   logger.info('System started');
+ *   logger.debug('Agent invoked', { slug: 'dev' });
+ *   logger.error('Failed to connect', error);
  */
 
 const LEVELS = { debug: 0, info: 1, warn: 2, error: 3 } as const;
@@ -791,6 +895,7 @@ export interface AgentRunner {
 export interface ValidatedEnv {
   OPENAI_API_KEY?: string;
   ANTHROPIC_API_KEY?: string;
+  GOOGLE_API_KEY?: string;
   DATABASE_URL?: string;
   LOG_LEVEL?: string;
   [key: string]: string | undefined;
@@ -812,6 +917,7 @@ function generateEnvExample(project: Partial<AiosProject>): GeneratedFile {
 # LLM API Keys (configure at least one)
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
+GOOGLE_API_KEY=
 
 # Database (optional)
 DATABASE_URL=
@@ -842,13 +948,14 @@ export function validateEnv(): ValidatedEnv {
   const env: ValidatedEnv = {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+    GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
     DATABASE_URL: process.env.DATABASE_URL,
     LOG_LEVEL: process.env.LOG_LEVEL || 'info',
   };
 
-  const hasAnyKey = env.OPENAI_API_KEY || env.ANTHROPIC_API_KEY;
+  const hasAnyKey = env.OPENAI_API_KEY || env.ANTHROPIC_API_KEY || env.GOOGLE_API_KEY;
   if (!hasAnyKey) {
-    logger.warn('Nenhuma API key configurada. Configure OPENAI_API_KEY ou ANTHROPIC_API_KEY no .env');
+    logger.warn('Nenhuma API key configurada. Configure OPENAI_API_KEY, ANTHROPIC_API_KEY ou GOOGLE_API_KEY no .env');
   }
 
   return env;
@@ -877,6 +984,8 @@ COPY --from=builder /app/package.json ./
 COPY --from=builder /app/agents ./agents
 COPY --from=builder /app/squads ./squads
 COPY --from=builder /app/aios.config.yaml ./
+COPY --from=builder /app/.aios ./.aios
+COPY --from=builder /app/docs ./docs
 ENV NODE_ENV=production
 CMD ["node", "dist/main.js"]
 `,
@@ -896,12 +1005,13 @@ services:
     container_name: ${slug}
     restart: unless-stopped
     env_file: .env
-    ports:
-      - "\${PORT:-3000}:3000"
+    stdin_open: true
+    tty: true
     volumes:
       - ./agents:/app/agents:ro
       - ./squads:/app/squads:ro
       - ./aios.config.yaml:/app/aios.config.yaml:ro
+      - ./.aios:/app/.aios
 `,
   };
 }
@@ -970,13 +1080,34 @@ ${taskSection}
 ${workflowSection}`;
   }).join('\n\n');
 
+  // Build agent commands table (m6)
+  const agentCommandsTable = agents.map(a => {
+    const cmds = (a.commands || []).map(c => `\`${c}\``).join(', ') || '(nenhum)';
+    return `| @${a.slug} | ${a.category || 'Outros'} | ${cmds} |`;
+  }).join('\n');
+
   return {
     path: 'CLAUDE.md',
     type: 'md',
     complianceStatus: 'pending',
-    content: `# ${name}
+    content: `# ${name} — AIOS v1.0.0
 
 ${project.description || 'Sistema AIOS de orquestracao de agentes IA.'}
+Dominio: ${project.domain || 'software'} | Orquestracao: ${patternInfo?.name || pattern} | Runtime: Node.js 20+
+
+## Contexto do Dominio
+
+${project.domain && project.domain !== 'software' ? `Este sistema opera no dominio de **${project.domain}**. Todos os agentes devem gerar outputs contextualizados para este dominio, utilizando terminologia, padroes e regulamentacoes aplicaveis ao setor.` : 'Dominio de software. Os agentes devem seguir boas praticas de engenharia de software.'}
+
+${project.description ? `**Descricao do projeto**: ${project.description}` : ''}
+
+## Principios Constitucionais (nao-negociaveis)
+
+1. **CLI First**: toda funcionalidade deve operar 100% via CLI antes de qualquer UI
+2. **Story-Driven**: nenhum codigo sem Story ID associado em \`docs/stories/\`
+3. **Agent Authority**: apenas @devops executa deploy e push para producao
+4. **No Invention**: implementar exatamente o especificado na Story, sem adicoes
+5. **Quality Gates**: \`npm run lint && npm test\` devem passar antes de qualquer merge
 
 ## Stack
 
@@ -1011,6 +1142,13 @@ ${squads.map(s => `    ${s.slug}/\n      squad.yaml          → Manifesto do sq
   docs/
     setup.md               → Guia de instalacao
     architecture.md        → Documentacao de arquitetura
+    stories/
+      TEMPLATE.md          → Template padrao para stories
+  .aios/
+    memory/
+      project-status.yaml  → Status atual do projeto
+      decisions.json       → Decisoes arquiteturais
+      codebase-map.json    → Mapa do codebase
   scripts/
     setup.sh               → Script de setup automatizado
 \`\`\`
@@ -1080,11 +1218,28 @@ docker compose up --build    # Build e executar
 docker build -t ${slug} .    # Apenas build
 \`\`\`
 
+## Comandos por Agente
+
+| Agente | Categoria | Comandos |
+|--------|-----------|----------|
+${agentCommandsTable || '| (vazio) | - | - |'}
+
+## Memoria Institucional
+
+Diretorio \`.aios/memory/\` armazena estado persistente entre sessoes:
+
+- \`project-status.yaml\` — Status atual do projeto, fase, proximos passos
+- \`decisions.json\` — Registro de decisoes arquiteturais (ADRs)
+- \`codebase-map.json\` — Mapa de arquivos e componentes do projeto
+- \`patterns.json\` — Padroes identificados no codigo
+- \`gotchas.md\` — Armadilhas e problemas conhecidos
+
 ## Convencoes
 
-- Configuracao central em \`aios.config.yaml\` (YAML)
+- Configuracao central em \`aios.config.yaml\` (YAML) — unica fonte de verdade
 - Definicoes de agentes em \`agents/<slug>.yaml\` e \`agents/<slug>.md\`
 - Definicoes de squads em \`squads/<slug>/squad.yaml\`
+- Stories em \`docs/stories/\` — obrigatorio antes de implementar
 - Variaveis de ambiente em \`.env\` (nunca commitadas)
 - Logs estruturados via \`src/logger.ts\`
 - Tipos TypeScript centralizados em \`src/types.ts\`
@@ -1124,7 +1279,7 @@ function generateInstallationManual(
 - Defina no \`.env\`: \`GOOGLE_API_KEY=...\`
 - Modelos usados: ${agents.filter(a => a.llmModel.includes('gemini') || a.llmModel.includes('google')).map(a => `\`${a.llmModel}\` (${a.name})`).join(', ')}`);
   if (providerSections.length === 0) providerSections.push(`#### Provider padrao
-- Configure ao menos uma chave: \`OPENAI_API_KEY\` ou \`ANTHROPIC_API_KEY\``);
+- Configure ao menos uma chave: \`OPENAI_API_KEY\`, \`ANTHROPIC_API_KEY\` ou \`GOOGLE_API_KEY\``);
 
   const agentOpsSection = agents.map(a =>
     `| \`${a.slug}\` | ${a.name} | ${a.role} | \`${a.llmModel}\` | \`agents/${a.slug}.yaml\` |`
@@ -1252,6 +1407,7 @@ npm run dev
 |----------|-------------|-----------|
 | \`OPENAI_API_KEY\` | ${usesOpenAI ? 'Sim' : 'Condicional'} | Chave da API OpenAI |
 | \`ANTHROPIC_API_KEY\` | ${usesClaude ? 'Sim' : 'Condicional'} | Chave da API Anthropic |
+| \`GOOGLE_API_KEY\` | ${usesGemini ? 'Sim' : 'Condicional'} | Chave da API Google (Gemini) |
 | \`DATABASE_URL\` | Nao | URL de conexao do banco de dados |
 | \`LOG_LEVEL\` | Nao | Nivel de log: debug, info, warn, error (padrao: info) |
 | \`NODE_ENV\` | Nao | Ambiente: development, production (padrao: production) |
@@ -1288,7 +1444,7 @@ Cada agente possui dois arquivos em \`agents/\`:
 Para modificar o comportamento de um agente, edite seu arquivo YAML:
 \`\`\`yaml
 llm:
-  model: "google/gemini-3-flash-preview"  # Modelo LLM
+  model: "gemini-2.0-flash"  # Modelo LLM
   temperature: 0.7                         # Criatividade (0.0 a 1.0)
   max_tokens: 4096                         # Tamanho maximo da resposta
 
@@ -1412,7 +1568,7 @@ name: "Novo Agente"
 role: "Descricao do role"
 version: "1.0.0"
 llm:
-  model: "google/gemini-3-flash-preview"
+  model: "gemini-2.0-flash"
   temperature: 0.7
   max_tokens: 4096
 system_prompt: |
@@ -1428,18 +1584,17 @@ agents:
   - slug: "novo-agente"
     name: "Novo Agente"
     role: "Descricao do role"
-    model: "google/gemini-3-flash-preview"
+    model: "gemini-2.0-flash"
     config: "agents/novo-agente.yaml"
 \`\`\`
 
-3. Atualize \`src/main.ts\` no array \`agents\` do \`aiosConfig\`
+3. O \`src/main.ts\` carrega automaticamente do YAML — nenhuma alteracao necessaria
 
 ### 6.4 Removendo um agente
 
 1. Delete os arquivos \`agents/<slug>.yaml\` e \`agents/<slug>.md\`
 2. Remova a entrada de \`aios.config.yaml\`
 3. Remova de qualquer squad que o contenha
-4. Atualize \`src/main.ts\`
 
 ---
 
@@ -1518,8 +1673,8 @@ Tarefa → [Orchestrator] → seleciona → [Agente mais adequado] → Resultado
 Para mudar o padrao de orquestracao:
 
 1. Edite \`aios.config.yaml\`: altere \`orchestration.pattern\`
-2. Edite \`src/main.ts\`: altere \`pattern\` no \`aiosConfig\`
-3. Recompile: \`npm run build\`
+2. Recompile: \`npm run build\`
+3. O \`src/main.ts\` carrega automaticamente do YAML
 
 ---
 
@@ -1576,7 +1731,7 @@ llm:
 Modelos suportados:
 - OpenAI: \`gpt-4o\`, \`gpt-4o-mini\`
 - Anthropic: \`claude-opus-4-20250514\`, \`claude-sonnet-4-20250514\`, \`claude-haiku-4-5-20251001\`
-- Google: \`google/gemini-3-flash-preview\`, \`google/gemini-2.5-pro-preview\`
+- Google: \`gemini-2.0-flash\`, \`gemini-1.5-flash\`, \`gemini-2.5-pro-preview-06-05\`
 
 ### 10.3 Ajustar politica de retry
 
@@ -1613,7 +1768,7 @@ LOG_LEVEL=info   # Para operacao normal
 \`\`\`
 [2024-01-15T10:30:00.000Z] [INFO] Iniciando ${name} (padrao: ${pattern})
 [2024-01-15T10:30:00.050Z] [INFO] Variaveis de ambiente validadas
-[2024-01-15T10:30:00.100Z] [DEBUG] [Agent:dev] Invocando modelo google/gemini-3-flash-preview
+[2024-01-15T10:30:00.100Z] [DEBUG] [Agent:dev] Invocando modelo gemini-2.0-flash
 \`\`\`
 
 ---
@@ -1680,8 +1835,6 @@ function generateReadme(
 
 ${project.description || 'Sistema AIOS de orquestracao de agentes IA.'}
 
-## Visao Geral
-
 | Propriedade | Valor |
 |-------------|-------|
 | Dominio | ${project.domain || 'software'} |
@@ -1692,60 +1845,17 @@ ${project.description || 'Sistema AIOS de orquestracao de agentes IA.'}
 ## Quick Start
 
 \`\`\`bash
-# 1. Instale as dependencias
 npm install
-
-# 2. Configure as variaveis de ambiente
-cp .env.example .env
-# Edite .env com suas API keys
-
-# 3. Execute em modo desenvolvimento
-npm run dev
-
-# 4. Ou compile e execute
-npm run build
-npm start
+cp .env.example .env   # Edite com suas API keys
+npm run dev             # Inicia modo interativo
 \`\`\`
 
-## Docker
+## Documentacao
 
-\`\`\`bash
-# Build e execute
-docker compose up --build
-
-# Ou apenas build
-docker build -t ${name.toLowerCase().replace(/\s+/g, '-')} .
-\`\`\`
-
-## Agentes
-
-${agents.map(a => `- **${a.name}** - ${a.role} (\`${a.llmModel}\`)`).join('\n') || '(nenhum agente configurado)'}
-
-## Squads
-
-${squads.map(s => `- **${s.name}** - ${s.description || s.slug} (${(s.agentIds || []).length} agentes)`).join('\n') || '(nenhum squad configurado)'}
-
-## Estrutura de Arquivos
-
-\`\`\`
-.
-├── aios.config.yaml      # Configuracao principal
-├── package.json           # Dependencias
-├── tsconfig.json          # Configuracao TypeScript
-├── Dockerfile             # Container Docker
-├── docker-compose.yaml    # Orquestracao Docker
-├── src/
-│   ├── main.ts            # Entry point
-│   ├── orchestrator.ts    # Motor de orquestracao
-│   ├── agent-runner.ts    # Executor de agentes (LLM)
-│   ├── logger.ts          # Logging estruturado
-│   ├── env.ts             # Validacao de ambiente
-│   └── types.ts           # Definicoes de tipos
-├── agents/                # Definicoes de agentes
-${agents.map(a => `│   ├── ${a.slug}.md\n│   └── ${a.slug}.yaml`).join('\n')}
-└── squads/                # Definicoes de squads
-${squads.map(s => `    └── ${s.slug}/\n        ├── squad.yaml\n        └── README.md`).join('\n')}
-\`\`\`
+- **[Manual de Instalacao e Operacao](docs/manual.md)** — Guia completo
+- **[Guia de Setup](docs/setup.md)** — Instalacao passo a passo
+- **[Arquitetura](docs/architecture.md)** — Diagramas e decisoes tecnicas
+- **[CLAUDE.md](CLAUDE.md)** — Contexto para instancias IA
 
 ## Licenca
 
@@ -1785,6 +1895,7 @@ Edite o arquivo \`.env\` e configure pelo menos uma API key:
 
 - \`OPENAI_API_KEY\` - Para modelos GPT
 - \`ANTHROPIC_API_KEY\` - Para modelos Claude
+- \`GOOGLE_API_KEY\` - Para modelos Gemini
 
 ### 3. Verificar Configuracao
 
@@ -1892,6 +2003,104 @@ function generateAsciiDiagram(
   }
 }
 
+function generateProjectStatus(name: string, pattern: string): GeneratedFile {
+  return {
+    path: '.aios/memory/project-status.yaml',
+    type: 'yaml',
+    complianceStatus: 'pending',
+    content: `# AIOS Institutional Memory - Project Status
+# Updated automatically by agents during execution
+
+project: "${name}"
+version: "1.0.0"
+phase: "setup"
+pattern: "${pattern}"
+created_at: "${new Date().toISOString().split('T')[0]}"
+
+current_sprint:
+  number: 0
+  goal: "Setup inicial do sistema AIOS"
+  status: "not_started"
+
+next_steps:
+  - "Configurar variaveis de ambiente (.env)"
+  - "Validar conexao com API do LLM"
+  - "Executar primeira tarefa de teste"
+  - "Definir stories iniciais em docs/stories/"
+
+blockers: []
+
+notes: |
+  Pacote recem-gerado. Executar setup inicial antes de operar.
+`,
+  };
+}
+
+function generateDecisionsJson(): GeneratedFile {
+  return {
+    path: '.aios/memory/decisions.json',
+    type: 'json',
+    complianceStatus: 'pending',
+    content: JSON.stringify([], null, 2) + '\n',
+  };
+}
+
+function generateCodebaseMap(agents: AiosAgent[], squads: AiosSquad[]): GeneratedFile {
+  const map = {
+    generated_at: new Date().toISOString(),
+    structure: {
+      config: ['aios.config.yaml', '.env.example'],
+      runtime: ['src/main.ts', 'src/orchestrator.ts', 'src/agent-runner.ts', 'src/logger.ts', 'src/env.ts', 'src/types.ts'],
+      agents: agents.map(a => ({ slug: a.slug, files: [`agents/${a.slug}.yaml`, `agents/${a.slug}.md`] })),
+      squads: squads.map(s => ({ slug: s.slug, files: [`squads/${s.slug}/squad.yaml`, `squads/${s.slug}/README.md`] })),
+      docs: ['docs/manual.md', 'docs/setup.md', 'docs/architecture.md', 'docs/stories/'],
+      infra: ['Dockerfile', 'docker-compose.yaml', 'scripts/setup.sh'],
+    },
+    patterns: [],
+    gotchas: [],
+  };
+  return {
+    path: '.aios/memory/codebase-map.json',
+    type: 'json',
+    complianceStatus: 'pending',
+    content: JSON.stringify(map, null, 2) + '\n',
+  };
+}
+
+function generateStoryTemplate(): GeneratedFile {
+  return {
+    path: 'docs/stories/TEMPLATE.md',
+    type: 'md',
+    complianceStatus: 'pending',
+    content: `# Story: [STORY-ID] — [Titulo]
+
+## Descricao
+Como [persona], eu quero [acao], para que [beneficio].
+
+## Criterios de Aceite
+- [ ] Criterio 1
+- [ ] Criterio 2
+- [ ] Criterio 3
+
+## Agente Responsavel
+@dev (ou o agente designado)
+
+## Dependencias
+- Nenhuma
+
+## Notas Tecnicas
+(detalhes de implementacao, se necessario)
+
+## Status
+- [ ] Em analise
+- [ ] Aprovada pelo @po
+- [ ] Em desenvolvimento
+- [ ] Em teste (@qa)
+- [ ] Concluida
+`,
+  };
+}
+
 function generateGitignore(): GeneratedFile {
   return {
     path: '.gitignore',
@@ -1902,6 +2111,7 @@ dist/
 .env
 *.log
 .DS_Store
+.aios/memory/*.json
 `,
   };
 }
