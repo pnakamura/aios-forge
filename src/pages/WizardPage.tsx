@@ -629,41 +629,54 @@ export default function WizardPage() {
         <div className="w-[45%] flex flex-col min-w-0">
           {/* Evolution status header */}
           <div className="px-4 py-3 border-b border-border/50 bg-card/40 shrink-0">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <Package className="w-3.5 h-3.5 text-primary" />
-                <span className="text-[11px] font-semibold">Construindo seu AIOS</span>
+            <div className="flex items-center gap-4">
+              {/* Circular progress ring */}
+              <div className="relative w-11 h-11 shrink-0">
+                <svg className="w-11 h-11 -rotate-90" viewBox="0 0 44 44">
+                  <circle cx="22" cy="22" r="18" fill="none" stroke="hsl(var(--secondary))" strokeWidth="3" />
+                  <motion.circle
+                    cx="22" cy="22" r="18" fill="none"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeDasharray={113.1}
+                    animate={{ strokeDashoffset: 113.1 - (113.1 * ((stepIdx + 1) / 7)) }}
+                    transition={{ duration: 0.5, ease: 'easeOut' }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-[10px] font-bold text-primary">{stepIdx + 1}/7</span>
+                </div>
               </div>
-              <Badge variant="outline" className="text-[10px]">
-                Etapa {stepIdx + 1} de 7
-              </Badge>
-            </div>
-            <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden mb-2.5">
-              <motion.div
-                className="h-full rounded-full bg-primary"
-                animate={{ width: `${((stepIdx + 1) / 7) * 100}%` }}
-                transition={{ duration: 0.4 }}
-              />
-            </div>
-            <div className="flex gap-4 text-[10px]">
-              <span className={cn(
-                'flex items-center gap-1 transition-colors',
-                store.agents.length > 0 ? 'text-glow-success' : 'text-muted-foreground'
-              )}>
-                <Bot className="w-3 h-3" />
-                <span className="font-mono">{store.agents.length}</span> agentes
-              </span>
-              <span className={cn(
-                'flex items-center gap-1 transition-colors',
-                store.squads.length > 0 ? 'text-glow-success' : 'text-muted-foreground'
-              )}>
-                <Users className="w-3 h-3" />
-                <span className="font-mono">{store.squads.length}</span> squads
-              </span>
-              <span className="flex items-center gap-1 text-primary">
-                <FileText className="w-3 h-3" />
-                <span className="font-mono">{fileCount}</span> arquivos
-              </span>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-[11px] font-semibold truncate">
+                    {store.project.name || 'Novo AIOS'}
+                  </span>
+                </div>
+                <div className="flex gap-3 text-[10px]">
+                  <span className={cn(
+                    'flex items-center gap-1 transition-colors',
+                    store.agents.length > 0 ? 'text-glow-success' : 'text-muted-foreground/50'
+                  )}>
+                    <Bot className="w-3 h-3" />
+                    <span className="font-mono font-bold">{store.agents.length}</span>
+                  </span>
+                  <span className={cn(
+                    'flex items-center gap-1 transition-colors',
+                    store.squads.length > 0 ? 'text-glow-success' : 'text-muted-foreground/50'
+                  )}>
+                    <Users className="w-3 h-3" />
+                    <span className="font-mono font-bold">{store.squads.length}</span>
+                  </span>
+                  <span className="flex items-center gap-1 text-primary">
+                    <FileText className="w-3 h-3" />
+                    <span className="font-mono font-bold">{fileCount}</span>
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
