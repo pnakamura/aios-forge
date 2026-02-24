@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -655,99 +656,107 @@ export default function WizardPage() {
         </div>
       </header>
 
-      {/* Main content */}
-      <div className="flex-1 flex overflow-hidden bg-muted/30">
-        {/* Left panel */}
-        <div className="flex-1 flex flex-col min-w-0 m-2 mr-1 rounded-xl border border-border/60 bg-background overflow-hidden shadow-sm">
-          <StepContextPanel />
-          {renderStepContent()}
-        </div>
-
-        {/* Right panel */}
-        <div className="w-[45%] flex flex-col min-w-0 m-2 ml-1 rounded-xl border border-border/60 bg-background overflow-hidden shadow-sm">
-          {/* Evolution status header */}
-          <div className="px-4 py-3 border-b border-border/50 bg-card/60 shrink-0">
-            <div className="flex items-center gap-4">
-              {/* Circular progress ring */}
-              <div className="relative w-11 h-11 shrink-0">
-                <svg className="w-11 h-11 -rotate-90" viewBox="0 0 44 44">
-                  <circle cx="22" cy="22" r="18" fill="none" stroke="hsl(var(--secondary))" strokeWidth="3" />
-                  <motion.circle
-                    cx="22" cy="22" r="18" fill="none"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeDasharray={113.1}
-                    animate={{ strokeDashoffset: 113.1 - (113.1 * ((highestIdx + 1) / 7)) }}
-                    transition={{ duration: 0.5, ease: 'easeOut' }}
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-[10px] font-bold text-primary">{highestIdx + 1}/7</span>
-                </div>
-              </div>
-
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-[11px] font-semibold truncate">
-                    {store.project.name || 'Novo AIOS'}
-                  </span>
-                </div>
-                <div className="flex gap-3 text-[10px]">
-                  <span className={cn(
-                    'flex items-center gap-1 px-1.5 py-0.5 rounded-md transition-colors',
-                    store.agents.length > 0 ? 'text-glow-success bg-glow-success/10' : 'text-muted-foreground/50'
-                  )}>
-                    <Bot className="w-3 h-3" />
-                    <span className="font-mono font-bold">{store.agents.length}</span>
-                  </span>
-                  <span className={cn(
-                    'flex items-center gap-1 px-1.5 py-0.5 rounded-md transition-colors',
-                    store.squads.length > 0 ? 'text-glow-success bg-glow-success/10' : 'text-muted-foreground/50'
-                  )}>
-                    <Users className="w-3 h-3" />
-                    <span className="font-mono font-bold">{store.squads.length}</span>
-                  </span>
-                  <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-primary bg-primary/10">
-                    <FileText className="w-3 h-3" />
-                    <span className="font-mono font-bold">{fileCount}</span>
-                  </span>
-                </div>
-              </div>
+      {/* Main content — resizable panels */}
+      <div className="flex-1 overflow-hidden bg-muted/30 p-2">
+        <ResizablePanelGroup direction="horizontal" className="h-full gap-2">
+          {/* Left panel */}
+          <ResizablePanel defaultSize={55} minSize={30} maxSize={75} className="rounded-xl border border-border/60 bg-background overflow-hidden shadow-sm">
+            <div className="flex flex-col h-full min-w-0">
+              <StepContextPanel />
+              {renderStepContent()}
             </div>
-          </div>
+          </ResizablePanel>
 
-          <Tabs value={rightPanel} onValueChange={(v) => setRightPanel(v as any)} className="flex flex-col flex-1 min-h-0">
-            <TabsList className="mx-3 mt-3 shrink-0 bg-muted/50 p-1 rounded-lg">
-              <TabsTrigger value="agents" className="gap-1.5 text-xs rounded-md">
-                <Bot className="w-3.5 h-3.5" /> Agentes
-                <span className={cn(
-                  'ml-1 w-4 h-4 rounded-full text-[10px] flex items-center justify-center',
-                  store.agents.length > 0 ? 'bg-glow-success/20 text-glow-success' : 'bg-secondary text-muted-foreground'
-                )}>{store.agents.length}</span>
-              </TabsTrigger>
-              <TabsTrigger value="squads" className="gap-1.5 text-xs rounded-md">
-                <Users className="w-3.5 h-3.5" /> Squads
-                <span className={cn(
-                  'ml-1 w-4 h-4 rounded-full text-[10px] flex items-center justify-center',
-                  store.squads.length > 0 ? 'bg-glow-success/20 text-glow-success' : 'bg-secondary text-muted-foreground'
-                )}>{store.squads.length}</span>
-              </TabsTrigger>
-              <TabsTrigger value="diagram" className="gap-1.5 text-xs rounded-md"><GitBranch className="w-3.5 h-3.5" /> Diagrama</TabsTrigger>
-              <TabsTrigger value="preview" className="gap-1.5 text-xs rounded-md">
-                <FileText className="w-3.5 h-3.5" /> Arquivos
-                <span className="ml-1 w-5 h-4 rounded-full bg-primary/20 text-primary text-[10px] flex items-center justify-center">{fileCount}</span>
-              </TabsTrigger>
-              <TabsTrigger value="manual" className="gap-1.5 text-xs rounded-md"><BookOpen className="w-3.5 h-3.5" /> Manual</TabsTrigger>
-            </TabsList>
-            <TabsContent value="agents" className="flex-1 overflow-hidden m-0"><AgentCatalog /></TabsContent>
-            <TabsContent value="squads" className="flex-1 overflow-hidden m-0"><SquadBuilder /></TabsContent>
-            <TabsContent value="diagram" className="flex-1 overflow-hidden m-0"><ArchitectureDiagram /></TabsContent>
-            <TabsContent value="preview" className="flex-1 overflow-hidden m-0"><FilePreview /></TabsContent>
-            <TabsContent value="manual" className="flex-1 overflow-hidden m-0"><ManualPanel /></TabsContent>
-          </Tabs>
-        </div>
+          <ResizableHandle withHandle className="bg-transparent w-2 hover:bg-primary/10 active:bg-primary/20 transition-colors rounded-full data-[resize-handle-active]:bg-primary/20" />
+
+          {/* Right panel */}
+          <ResizablePanel defaultSize={45} minSize={25} maxSize={70} className="rounded-xl border border-border/60 bg-background overflow-hidden shadow-sm">
+            <div className="flex flex-col h-full min-w-0">
+              {/* Evolution status header */}
+              <div className="px-4 py-3 border-b border-border/50 bg-card/60 shrink-0">
+                <div className="flex items-center gap-4">
+                  {/* Circular progress ring */}
+                  <div className="relative w-11 h-11 shrink-0">
+                    <svg className="w-11 h-11 -rotate-90" viewBox="0 0 44 44">
+                      <circle cx="22" cy="22" r="18" fill="none" stroke="hsl(var(--secondary))" strokeWidth="3" />
+                      <motion.circle
+                        cx="22" cy="22" r="18" fill="none"
+                        stroke="hsl(var(--primary))"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeDasharray={113.1}
+                        animate={{ strokeDashoffset: 113.1 - (113.1 * ((highestIdx + 1) / 7)) }}
+                        transition={{ duration: 0.5, ease: 'easeOut' }}
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-[10px] font-bold text-primary">{highestIdx + 1}/7</span>
+                    </div>
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-[11px] font-semibold truncate">
+                        {store.project.name || 'Novo AIOS'}
+                      </span>
+                    </div>
+                    <div className="flex gap-3 text-[10px]">
+                      <span className={cn(
+                        'flex items-center gap-1 px-1.5 py-0.5 rounded-md transition-colors',
+                        store.agents.length > 0 ? 'text-glow-success bg-glow-success/10' : 'text-muted-foreground/50'
+                      )}>
+                        <Bot className="w-3 h-3" />
+                        <span className="font-mono font-bold">{store.agents.length}</span>
+                      </span>
+                      <span className={cn(
+                        'flex items-center gap-1 px-1.5 py-0.5 rounded-md transition-colors',
+                        store.squads.length > 0 ? 'text-glow-success bg-glow-success/10' : 'text-muted-foreground/50'
+                      )}>
+                        <Users className="w-3 h-3" />
+                        <span className="font-mono font-bold">{store.squads.length}</span>
+                      </span>
+                      <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-primary bg-primary/10">
+                        <FileText className="w-3 h-3" />
+                        <span className="font-mono font-bold">{fileCount}</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Tabs value={rightPanel} onValueChange={(v) => setRightPanel(v as any)} className="flex flex-col flex-1 min-h-0">
+                <TabsList className="mx-3 mt-3 shrink-0 bg-muted/50 p-1 rounded-lg">
+                  <TabsTrigger value="agents" className="gap-1.5 text-xs rounded-md">
+                    <Bot className="w-3.5 h-3.5" /> Agentes
+                    <span className={cn(
+                      'ml-1 w-4 h-4 rounded-full text-[10px] flex items-center justify-center',
+                      store.agents.length > 0 ? 'bg-glow-success/20 text-glow-success' : 'bg-secondary text-muted-foreground'
+                    )}>{store.agents.length}</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="squads" className="gap-1.5 text-xs rounded-md">
+                    <Users className="w-3.5 h-3.5" /> Squads
+                    <span className={cn(
+                      'ml-1 w-4 h-4 rounded-full text-[10px] flex items-center justify-center',
+                      store.squads.length > 0 ? 'bg-glow-success/20 text-glow-success' : 'bg-secondary text-muted-foreground'
+                    )}>{store.squads.length}</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="diagram" className="gap-1.5 text-xs rounded-md"><GitBranch className="w-3.5 h-3.5" /> Diagrama</TabsTrigger>
+                  <TabsTrigger value="preview" className="gap-1.5 text-xs rounded-md">
+                    <FileText className="w-3.5 h-3.5" /> Arquivos
+                    <span className="ml-1 w-5 h-4 rounded-full bg-primary/20 text-primary text-[10px] flex items-center justify-center">{fileCount}</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="manual" className="gap-1.5 text-xs rounded-md"><BookOpen className="w-3.5 h-3.5" /> Manual</TabsTrigger>
+                </TabsList>
+                <TabsContent value="agents" className="flex-1 overflow-hidden m-0"><AgentCatalog /></TabsContent>
+                <TabsContent value="squads" className="flex-1 overflow-hidden m-0"><SquadBuilder /></TabsContent>
+                <TabsContent value="diagram" className="flex-1 overflow-hidden m-0"><ArchitectureDiagram /></TabsContent>
+                <TabsContent value="preview" className="flex-1 overflow-hidden m-0"><FilePreview /></TabsContent>
+                <TabsContent value="manual" className="flex-1 overflow-hidden m-0"><ManualPanel /></TabsContent>
+              </Tabs>
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </div>
     </div>
   );
