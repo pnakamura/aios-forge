@@ -26,20 +26,21 @@ import {
 import '@xyflow/react/dist/style.css';
 import { Network, Bot, Users, Trash2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/lib/theme';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-// ── Relationship types ──
+// ── Relationship types (dark + light color variants) ──
 
-const RELATIONS: Record<string, { label: string; color: string; dash: string; animated: boolean }> = {
-  orquestra:    { label: 'Orquestra',     color: 'hsl(190 95% 50%)',  dash: '',    animated: true },
-  delega:       { label: 'Delega',        color: 'hsl(265 80% 60%)',  dash: '6 3', animated: false },
-  supervisiona: { label: 'Supervisiona',  color: 'hsl(40 95% 55%)',   dash: '',    animated: false },
-  reporta:      { label: 'Reporta',       color: 'hsl(200 80% 60%)',  dash: '4 4', animated: false },
-  coordena:     { label: 'Coordena',      color: 'hsl(220 80% 65%)',  dash: '',    animated: false },
-  membro:       { label: 'Membro',        color: 'hsl(150 80% 45%)',  dash: '',    animated: false },
+const RELATIONS: Record<string, { label: string; dark: string; light: string; dash: string; animated: boolean }> = {
+  orquestra:    { label: 'Orquestra',     dark: 'hsl(190 95% 55%)',  light: 'hsl(190 85% 32%)', dash: '',    animated: true },
+  delega:       { label: 'Delega',        dark: 'hsl(265 80% 65%)',  light: 'hsl(265 65% 38%)', dash: '6 3', animated: false },
+  supervisiona: { label: 'Supervisiona',  dark: 'hsl(40 95% 60%)',   light: 'hsl(35 80% 35%)',  dash: '',    animated: false },
+  reporta:      { label: 'Reporta',       dark: 'hsl(200 80% 65%)',  light: 'hsl(200 70% 32%)', dash: '4 4', animated: false },
+  coordena:     { label: 'Coordena',      dark: 'hsl(220 80% 70%)',  light: 'hsl(220 70% 35%)', dash: '',    animated: false },
+  membro:       { label: 'Membro',        dark: 'hsl(150 80% 50%)',  light: 'hsl(150 65% 28%)', dash: '',    animated: false },
 };
 
 const RELATION_OPTIONS = [
@@ -59,41 +60,64 @@ const NODE_GAP = 20;
 
 // ── Shared handle styles ──
 
-const H_SIZE = '!w-2 !h-2 !min-w-0 !min-h-0';
+const H_SIZE = '!w-2.5 !h-2.5 !min-w-0 !min-h-0';
 
 function FourHandles({ color }: { color: string }) {
-  const cls = `${H_SIZE} !bg-[${color}] !border !border-[${color}] !opacity-0 hover:!opacity-100 transition-opacity`;
-  // Use inline style for reliable color since Tailwind can't use dynamic bracket values in JIT
-  const s = { background: color, borderColor: color, opacity: 0 };
-  const sHover = { background: color, borderColor: color };
+  const s: React.CSSProperties = { background: color, borderColor: color, opacity: 0 };
   return (
     <>
-      <Handle type="source" position={Position.Top}    id="top"    className={H_SIZE} style={s} />
-      <Handle type="source" position={Position.Bottom} id="bottom" className={H_SIZE} style={s} />
-      <Handle type="source" position={Position.Left}   id="left"   className={H_SIZE} style={s} />
-      <Handle type="source" position={Position.Right}  id="right"  className={H_SIZE} style={s} />
+      <Handle type="source" position={Position.Top}    id="top"    className={`${H_SIZE} hover:!opacity-100 transition-opacity`} style={s} />
+      <Handle type="source" position={Position.Bottom} id="bottom" className={`${H_SIZE} hover:!opacity-100 transition-opacity`} style={s} />
+      <Handle type="source" position={Position.Left}   id="left"   className={`${H_SIZE} hover:!opacity-100 transition-opacity`} style={s} />
+      <Handle type="source" position={Position.Right}  id="right"  className={`${H_SIZE} hover:!opacity-100 transition-opacity`} style={s} />
     </>
   );
+}
+
+// ── Theme-aware palettes ──
+
+function useNodeColors() {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
+  return useMemo(() => ({
+    isLight,
+    orch: isLight
+      ? { bg: 'hsl(190 85% 94%)', border: 'hsl(190 80% 38%)', text: 'hsl(190 85% 18%)', sub: 'hsl(190 50% 32%)', shadow: '0 2px 12px -3px hsl(190 80% 38% / 0.2)', handle: 'hsl(190 80% 38%)' }
+      : { bg: 'hsl(190 95% 50% / 0.15)', border: 'hsl(190 95% 50% / 0.6)', text: 'hsl(190 90% 82%)', sub: 'hsl(190 60% 68%)', shadow: '0 0 24px -4px hsl(190 95% 50% / 0.3)', handle: 'hsl(190 95% 50%)' },
+    agent: isLight
+      ? { bg: 'hsl(265 60% 96%)', border: 'hsl(265 60% 48%)', borderSel: 'hsl(265 65% 40%)', text: 'hsl(265 65% 18%)', sub: 'hsl(265 30% 38%)', cat: 'hsl(265 25% 48%)', handle: 'hsl(265 60% 48%)' }
+      : { bg: 'hsl(265 80% 60% / 0.12)', border: 'hsl(265 80% 60% / 0.5)', borderSel: 'hsl(265 80% 60% / 0.8)', text: 'hsl(265 80% 88%)', sub: 'hsl(265 50% 70%)', cat: 'hsl(265 40% 58%)', handle: 'hsl(265 80% 60%)' },
+    squad: isLight
+      ? { bg: 'hsl(150 55% 95%)', border: 'hsl(150 55% 35%)', borderSel: 'hsl(150 60% 28%)', text: 'hsl(150 60% 16%)', sub: 'hsl(150 30% 32%)', divider: 'hsl(150 55% 35% / 0.3)', handle: 'hsl(150 55% 35%)' }
+      : { bg: 'hsl(150 80% 45% / 0.12)', border: 'hsl(150 80% 45% / 0.55)', borderSel: 'hsl(150 80% 45% / 0.8)', text: 'hsl(150 75% 82%)', sub: 'hsl(150 50% 62%)', divider: 'hsl(150 80% 45% / 0.3)', handle: 'hsl(150 80% 45%)' },
+    chip: isLight
+      ? { bg: 'hsl(265 60% 48% / 0.12)', text: 'hsl(265 60% 25%)' }
+      : { bg: 'hsl(265 80% 60% / 0.22)', text: 'hsl(265 80% 88%)' },
+    empty: isLight
+      ? { text: 'hsl(220 15% 45%)' }
+      : { text: 'hsl(220 15% 50%)' },
+  }), [isLight]);
 }
 
 // ── Custom Node: Orchestrator ──
 
 function OrchestratorNode({ data }: NodeProps) {
+  const p = useNodeColors();
   return (
     <div className="px-5 py-3 rounded-xl border-2 text-center min-w-[180px]"
       style={{
-        background: 'hsl(190 95% 50% / 0.12)',
-        borderColor: 'hsl(190 95% 50% / 0.5)',
-        color: 'hsl(190 95% 70%)',
-        boxShadow: '0 0 20px -5px hsl(190 95% 50% / 0.2)',
+        background: p.orch.bg,
+        borderColor: p.orch.border,
+        color: p.orch.text,
+        boxShadow: p.orch.shadow,
       }}
     >
-      <FourHandles color="hsl(190,95%,50%)" />
+      <FourHandles color={p.orch.handle} />
       <div className="flex items-center gap-1.5 justify-center">
-        <Network className="w-3.5 h-3.5 opacity-60" />
+        <Network className="w-3.5 h-3.5" style={{ opacity: 0.7 }} />
         <span className="text-xs font-bold">{data.label as string}</span>
       </div>
-      <div className="text-[10px] opacity-60 mt-0.5">{data.sublabel as string}</div>
+      <div className="text-[10px] mt-0.5" style={{ color: p.orch.sub }}>{data.sublabel as string}</div>
     </div>
   );
 }
@@ -102,12 +126,13 @@ function OrchestratorNode({ data }: NodeProps) {
 
 function AgentNode({ data, id, selected }: NodeProps) {
   const { removeAgent } = useWizardStore();
+  const p = useNodeColors();
   const agentSlug = (id as string).replace('agent-', '');
 
   return (
     <>
       <NodeToolbar isVisible={selected} position={Position.Top}>
-        <div className="flex gap-1 bg-card/90 backdrop-blur-sm border border-border/50 rounded-lg p-1 shadow-lg">
+        <div className="flex gap-1 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-1 shadow-lg">
           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive"
             onClick={() => removeAgent(agentSlug)} title="Remover agente">
             <Trash2 className="w-3 h-3" />
@@ -116,19 +141,20 @@ function AgentNode({ data, id, selected }: NodeProps) {
       </NodeToolbar>
       <div className={cn(
         'px-4 py-2.5 rounded-lg border text-center min-w-[140px] transition-shadow',
-        selected ? 'shadow-[0_0_12px_-3px_hsl(265,80%,60%/0.5)]' : ''
+        selected ? 'border-2' : ''
       )} style={{
-        background: 'hsl(265 80% 60% / 0.08)',
-        borderColor: selected ? 'hsl(265 80% 60% / 0.6)' : 'hsl(265 80% 60% / 0.35)',
-        color: 'hsl(265 80% 80%)',
+        background: p.agent.bg,
+        borderColor: selected ? p.agent.borderSel : p.agent.border,
+        color: p.agent.text,
+        boxShadow: selected ? `0 0 14px -3px ${p.agent.borderSel}` : undefined,
       }}>
-        <FourHandles color="hsl(265,80%,60%)" />
+        <FourHandles color={p.agent.handle} />
         <div className="flex items-center gap-1.5 justify-center">
-          <Bot className="w-3 h-3 opacity-60" />
+          <Bot className="w-3 h-3" style={{ opacity: 0.7 }} />
           <span className="text-[11px] font-semibold">{data.label as string}</span>
         </div>
-        <div className="text-[9px] opacity-50 mt-0.5 truncate max-w-[130px]">{data.sublabel as string}</div>
-        {data.category && <div className="text-[8px] opacity-40 mt-1">{data.category as string}</div>}
+        <div className="text-[9px] mt-0.5 truncate max-w-[130px]" style={{ color: p.agent.sub }}>{data.sublabel as string}</div>
+        {data.category && <div className="text-[8px] mt-1" style={{ color: p.agent.cat }}>{data.category as string}</div>}
       </div>
     </>
   );
@@ -138,13 +164,14 @@ function AgentNode({ data, id, selected }: NodeProps) {
 
 function SquadNode({ data, id, selected }: NodeProps) {
   const { removeSquad } = useWizardStore();
+  const p = useNodeColors();
   const squadSlug = (id as string).replace('squad-', '');
   const members = (data.members as string[]) || [];
 
   return (
     <>
       <NodeToolbar isVisible={selected} position={Position.Bottom}>
-        <div className="flex gap-1 bg-card/90 backdrop-blur-sm border border-border/50 rounded-lg p-1 shadow-lg">
+        <div className="flex gap-1 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-1 shadow-lg">
           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive"
             onClick={() => removeSquad(squadSlug)} title="Remover squad">
             <Trash2 className="w-3 h-3" />
@@ -153,30 +180,32 @@ function SquadNode({ data, id, selected }: NodeProps) {
       </NodeToolbar>
       <div className={cn(
         'px-4 py-3 rounded-lg border min-w-[160px] transition-shadow',
-        selected ? 'shadow-[0_0_12px_-3px_hsl(150,80%,45%/0.5)]' : ''
+        selected ? 'border-2' : ''
       )} style={{
-        background: 'hsl(150 80% 45% / 0.08)',
-        borderColor: selected ? 'hsl(150 80% 45% / 0.6)' : 'hsl(150 80% 45% / 0.35)',
-        color: 'hsl(150 80% 70%)',
+        background: p.squad.bg,
+        borderColor: selected ? p.squad.borderSel : p.squad.border,
+        color: p.squad.text,
+        boxShadow: selected ? `0 0 14px -3px ${p.squad.borderSel}` : undefined,
       }}>
-        <FourHandles color="hsl(150,80%,45%)" />
+        <FourHandles color={p.squad.handle} />
         <div className="flex items-center gap-1.5 justify-center">
-          <Users className="w-3 h-3 opacity-60" />
+          <Users className="w-3 h-3" style={{ opacity: 0.7 }} />
           <span className="text-[11px] font-semibold">{data.label as string}</span>
         </div>
         {members.length > 0 ? (
-          <div className="mt-2 pt-2 border-t border-[hsl(150,80%,45%,0.2)] flex flex-wrap gap-1 justify-center max-w-[180px]">
+          <div className="mt-2 pt-2 flex flex-wrap gap-1 justify-center max-w-[180px]"
+            style={{ borderTop: `1px solid ${p.squad.divider}` }}>
             {members.map((m: string) => (
-              <span key={m} className="text-[8px] px-1.5 py-0.5 rounded-full"
-                style={{ background: 'hsl(265 80% 60% / 0.15)', color: 'hsl(265 80% 80%)' }}>
+              <span key={m} className="text-[8px] px-1.5 py-0.5 rounded-full font-medium"
+                style={{ background: p.chip.bg, color: p.chip.text }}>
                 {m}
               </span>
             ))}
           </div>
         ) : (
-          <div className="text-[9px] opacity-40 mt-1 text-center">sem agentes</div>
+          <div className="text-[9px] mt-1 text-center" style={{ color: p.empty.text }}>sem agentes</div>
         )}
-        <div className="text-[9px] opacity-50 mt-1.5 text-center">{data.taskCount as number} tasks</div>
+        <div className="text-[9px] mt-1.5 text-center" style={{ color: p.squad.sub }}>{data.taskCount as number} tasks</div>
       </div>
     </>
   );
@@ -185,10 +214,19 @@ function SquadNode({ data, id, selected }: NodeProps) {
 // ── Custom Edge: RelationEdge (with label) ──
 
 function RelationEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data }: EdgeProps) {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
   const relType = (data?.relationType as string) || 'coordena';
   const cfg = RELATIONS[relType] || RELATIONS.coordena;
+  const color = isLight ? cfg.light : cfg.dark;
   const customLabel = data?.customLabel as string | undefined;
   const [edgePath, labelX, labelY] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+
+  // Edge label styling: opaque background for readability
+  const labelBg = isLight
+    ? `hsl(210 30% 98% / 0.92)`
+    : `hsl(220 20% 8% / 0.92)`;
+  const labelBorder = isLight ? `${color}44` : `${color}66`;
 
   return (
     <>
@@ -196,10 +234,10 @@ function RelationEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, 
         id={id}
         path={edgePath}
         style={{
-          stroke: cfg.color,
+          stroke: color,
           strokeDasharray: cfg.dash || undefined,
           strokeWidth: selected ? 2.5 : 1.5,
-          opacity: selected ? 1 : 0.6,
+          opacity: selected ? 1 : (isLight ? 0.85 : 0.75),
         }}
       />
       <EdgeLabelRenderer>
@@ -210,11 +248,12 @@ function RelationEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, 
           }}
           className="nodrag nopan absolute"
         >
-          <span className="text-[8px] font-medium px-1.5 py-0.5 rounded-full select-none whitespace-nowrap"
+          <span className="text-[8px] font-semibold px-1.5 py-0.5 rounded-full select-none whitespace-nowrap"
             style={{
-              background: cfg.color + '22',
-              border: `1px solid ${cfg.color}55`,
-              color: cfg.color,
+              background: labelBg,
+              border: `1px solid ${labelBorder}`,
+              color: color,
+              backdropFilter: 'blur(4px)',
             }}>
             {customLabel || cfg.label}
           </span>
@@ -317,6 +356,8 @@ function buildDiagramData(agents: AiosAgent[], squads: AiosSquad[], pattern: str
 export function ArchitectureDiagram() {
   const store = useWizardStore();
   const { agents, squads, project, updateSquad, addSquad } = store;
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
 
   const [showCreateSquad, setShowCreateSquad] = useState(false);
   const [newSquadName, setNewSquadName] = useState('');
@@ -433,6 +474,11 @@ export function ArchitectureDiagram() {
     setNewSquadName('');
   };
 
+  // ── Theme-aware colors for non-component elements ──
+  const tierColor = (relKey: string) => isLight ? RELATIONS[relKey].light : RELATIONS[relKey].dark;
+  const connLineColor = isLight ? 'hsl(220 60% 45% / 0.5)' : 'hsl(220 80% 65% / 0.5)';
+  const bgDotColor = isLight ? 'hsl(220 15% 78%)' : 'hsl(var(--border))';
+
   // ── Empty state ──
   if (agents.length === 0) {
     return (
@@ -467,40 +513,39 @@ export function ArchitectureDiagram() {
         connectionMode={ConnectionMode.Loose}
         fitView
         fitViewOptions={{ padding: 0.3 }}
-        connectionLineStyle={{ stroke: 'hsl(220 80% 65% / 0.5)', strokeWidth: 2 }}
+        connectionLineStyle={{ stroke: connLineColor, strokeWidth: 2 }}
         connectionLineType="smoothstep"
         deleteKeyCode="Delete"
         proOptions={{ hideAttribution: true }}
+        className="aios-diagram"
         style={{ background: 'transparent' }}
       >
-        <Background color="hsl(var(--border))" gap={30} size={1} />
-        <Controls
-          style={{
-            background: 'hsl(var(--card))',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: '8px',
-          }}
-        />
+        <Background color={bgDotColor} gap={30} size={1} />
+        <Controls />
         <MiniMap
-          style={{
-            background: 'hsl(var(--background))',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: '8px',
-          }}
-          maskColor="hsl(var(--background) / 0.8)"
+          maskColor={isLight ? 'hsl(210 30% 98% / 0.75)' : 'hsl(220 20% 4% / 0.8)'}
         />
 
         {/* Legend */}
         <Panel position="top-left">
           <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground bg-card/80 backdrop-blur-sm rounded-lg px-3 py-2 border border-border/50">
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: RELATIONS.orquestra.color }} /> Orquestrador</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: RELATIONS.delega.color }} /> Agentes</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: RELATIONS.membro.color }} /> Squads</span>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-medium text-foreground/80 bg-card/90 backdrop-blur-sm rounded-lg px-3 py-2 border border-border shadow-sm">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full ring-1 ring-black/10" style={{ background: tierColor('orquestra') }} />
+                Orquestrador
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full ring-1 ring-black/10" style={{ background: tierColor('delega') }} />
+                Agentes
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full ring-1 ring-black/10" style={{ background: tierColor('membro') }} />
+                Squads
+              </span>
             </div>
-            <div className="text-[10px] text-muted-foreground/60 bg-card/60 backdrop-blur-sm rounded-lg px-3 py-2 border border-border/30 max-w-[240px]">
-              <p className="font-medium text-muted-foreground mb-1">Interacao:</p>
-              <ul className="space-y-0.5">
+            <div className="text-[10px] text-foreground/60 bg-card/85 backdrop-blur-sm rounded-lg px-3 py-2 border border-border shadow-sm max-w-[240px]">
+              <p className="font-semibold text-foreground/80 mb-1">Interacao:</p>
+              <ul className="space-y-0.5 leading-relaxed">
                 <li>Arraste de qualquer lado de um no para conectar</li>
                 <li>Arraste a ponta de uma linha para mover conexao</li>
                 <li>Selecione uma linha e Delete para remover</li>
@@ -512,7 +557,7 @@ export function ArchitectureDiagram() {
 
         <Panel position="top-right">
           <div className="flex gap-1.5">
-            <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1 bg-card/80 backdrop-blur-sm"
+            <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1 bg-card/90 backdrop-blur-sm border-border shadow-sm"
               onClick={() => setShowCreateSquad(true)}>
               <Plus className="w-3 h-3" /> Squad
             </Button>
@@ -522,14 +567,23 @@ export function ArchitectureDiagram() {
 
       {/* Tier labels */}
       <div className="absolute left-1 pointer-events-none" style={{ top: TIER_Y.orchestrator + 'px' }}>
-        <span className="text-[9px] font-bold uppercase tracking-widest opacity-40 select-none" style={{ color: RELATIONS.orquestra.color }}>Tier 1</span>
+        <span className="text-[9px] font-bold uppercase tracking-widest select-none"
+          style={{ color: tierColor('orquestra'), opacity: isLight ? 0.8 : 0.65 }}>
+          Tier 1
+        </span>
       </div>
       <div className="absolute left-1 pointer-events-none" style={{ top: TIER_Y.agents + 'px' }}>
-        <span className="text-[9px] font-bold uppercase tracking-widest opacity-40 select-none" style={{ color: RELATIONS.delega.color }}>Tier 2</span>
+        <span className="text-[9px] font-bold uppercase tracking-widest select-none"
+          style={{ color: tierColor('delega'), opacity: isLight ? 0.8 : 0.65 }}>
+          Tier 2
+        </span>
       </div>
       {squads.length > 0 && (
         <div className="absolute left-1 pointer-events-none" style={{ top: TIER_Y.squads + 'px' }}>
-          <span className="text-[9px] font-bold uppercase tracking-widest opacity-40 select-none" style={{ color: RELATIONS.membro.color }}>Tier 3</span>
+          <span className="text-[9px] font-bold uppercase tracking-widest select-none"
+            style={{ color: tierColor('membro'), opacity: isLight ? 0.8 : 0.65 }}>
+            Tier 3
+          </span>
         </div>
       )}
 
@@ -551,15 +605,19 @@ export function ArchitectureDiagram() {
           <div className="grid grid-cols-2 gap-2">
             {RELATION_OPTIONS.map(opt => {
               const cfg = RELATIONS[opt.type];
+              const clr = isLight ? cfg.light : cfg.dark;
               return (
                 <button key={opt.type}
                   onClick={() => confirmRelation(opt.type)}
                   className="flex items-center gap-2 p-2.5 rounded-lg border transition-all hover:scale-[1.02] active:scale-[0.98] text-left"
-                  style={{ borderColor: cfg.color + '44', background: cfg.color + '0a' }}
+                  style={{
+                    borderColor: clr + (isLight ? '55' : '44'),
+                    background: clr + (isLight ? '10' : '0a'),
+                  }}
                 >
-                  <span className="w-3 h-3 rounded-full shrink-0" style={{ background: cfg.color }} />
+                  <span className="w-3 h-3 rounded-full shrink-0 ring-1 ring-black/10" style={{ background: clr }} />
                   <div>
-                    <div className="text-[11px] font-semibold" style={{ color: cfg.color }}>{cfg.label}</div>
+                    <div className="text-[11px] font-semibold" style={{ color: clr }}>{cfg.label}</div>
                     <div className="text-[9px] text-muted-foreground">{opt.desc}</div>
                   </div>
                 </button>
