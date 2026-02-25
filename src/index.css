@@ -236,8 +236,8 @@
 .react-flow__controls {
   background: hsl(var(--card)) !important;
   border: 1px solid hsl(var(--border)) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 2px 8px -2px hsl(0 0% 0% / 0.15) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 2px 12px -3px hsl(0 0% 0% / 0.15) !important;
   overflow: hidden;
 }
 
@@ -245,9 +245,9 @@
 .react-flow__controls-button {
   background: hsl(var(--card)) !important;
   border-bottom: 1px solid hsl(var(--border)) !important;
-  width: 28px !important;
-  height: 28px !important;
-  padding: 5px !important;
+  width: 30px !important;
+  height: 30px !important;
+  padding: 6px !important;
 }
 .react-flow__controls-button:hover {
   background: hsl(var(--secondary)) !important;
@@ -260,11 +260,14 @@
 .react-flow__minimap {
   background: hsl(var(--card)) !important;
   border: 1px solid hsl(var(--border)) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 2px 8px -2px hsl(0 0% 0% / 0.12) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 2px 12px -3px hsl(0 0% 0% / 0.12) !important;
 }
 
-/* Edge path: ensure proper pointer cursor on hover */
+/* Edge path: proper hover state */
+.react-flow__edge .react-flow__edge-path {
+  transition: stroke-opacity 0.15s, stroke-width 0.15s;
+}
 .react-flow__edge:hover .react-flow__edge-path {
   stroke-opacity: 1;
   cursor: pointer;
@@ -279,4 +282,22 @@
 .react-flow__selection {
   border: 1px solid hsl(var(--primary)) !important;
   background: hsl(var(--primary) / 0.08) !important;
+}
+
+/* Node selection glow */
+.react-flow__node.selected {
+  filter: none !important;
+}
+
+/* Handle visibility on node hover */
+.react-flow__node:hover .react-flow__handle {
+  opacity: 0.65 !important;
+}
+.react-flow__handle:hover {
+  opacity: 1 !important;
+}
+
+/* Smooth node transitions */
+.react-flow__node {
+  transition: filter 0.15s;
 }

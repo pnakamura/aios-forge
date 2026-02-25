@@ -24,7 +24,7 @@ import {
   BaseEdge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Network, Bot, Users, Trash2, Plus } from 'lucide-react';
+import { Network, Bot, Users, Trash2, Plus, Info, ChevronDown, ChevronRight, Zap, Crown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/lib/theme';
 import { Button } from '@/components/ui/button';
@@ -54,22 +54,27 @@ const RELATION_OPTIONS = [
 
 // ── Tier layout constants ──
 
-const TIER_Y = { orchestrator: 30, agents: 200, squads: 420 };
-const NODE_WIDTH = 160;
-const NODE_GAP = 20;
+const TIER_Y = { orchestrator: 40, agents: 220, squads: 440 };
+const NODE_WIDTH = 170;
+const NODE_GAP = 24;
 
-// ── Shared handle styles ──
+// ── Shared handle component with permanent visibility ──
 
-const H_SIZE = '!w-2.5 !h-2.5 !min-w-0 !min-h-0';
+const H_SIZE = '!w-3 !h-3 !min-w-0 !min-h-0';
 
 function FourHandles({ color }: { color: string }) {
-  const s: React.CSSProperties = { background: color, borderColor: color, opacity: 0 };
+  const base: React.CSSProperties = {
+    background: color,
+    borderColor: color,
+    opacity: 0.35,
+    transition: 'opacity 0.2s, transform 0.2s',
+  };
   return (
     <>
-      <Handle type="source" position={Position.Top}    id="top"    className={`${H_SIZE} hover:!opacity-100 transition-opacity`} style={s} />
-      <Handle type="source" position={Position.Bottom} id="bottom" className={`${H_SIZE} hover:!opacity-100 transition-opacity`} style={s} />
-      <Handle type="source" position={Position.Left}   id="left"   className={`${H_SIZE} hover:!opacity-100 transition-opacity`} style={s} />
-      <Handle type="source" position={Position.Right}  id="right"  className={`${H_SIZE} hover:!opacity-100 transition-opacity`} style={s} />
+      <Handle type="source" position={Position.Top}    id="top"    className={`${H_SIZE} hover:!opacity-100 hover:!scale-125`} style={base} />
+      <Handle type="source" position={Position.Bottom} id="bottom" className={`${H_SIZE} hover:!opacity-100 hover:!scale-125`} style={base} />
+      <Handle type="source" position={Position.Left}   id="left"   className={`${H_SIZE} hover:!opacity-100 hover:!scale-125`} style={base} />
+      <Handle type="source" position={Position.Right}  id="right"  className={`${H_SIZE} hover:!opacity-100 hover:!scale-125`} style={base} />
     </>
   );
 }
@@ -82,20 +87,76 @@ function useNodeColors() {
   return useMemo(() => ({
     isLight,
     orch: isLight
-      ? { bg: 'hsl(190 85% 94%)', border: 'hsl(190 80% 38%)', text: 'hsl(190 85% 18%)', sub: 'hsl(190 50% 32%)', shadow: '0 2px 12px -3px hsl(190 80% 38% / 0.2)', handle: 'hsl(190 80% 38%)' }
-      : { bg: 'hsl(190 95% 50% / 0.15)', border: 'hsl(190 95% 50% / 0.6)', text: 'hsl(190 90% 82%)', sub: 'hsl(190 60% 68%)', shadow: '0 0 24px -4px hsl(190 95% 50% / 0.3)', handle: 'hsl(190 95% 50%)' },
+      ? {
+          bg: 'linear-gradient(135deg, hsl(190 85% 95%), hsl(200 80% 92%))',
+          bgSolid: 'hsl(190 85% 94%)',
+          border: 'hsl(190 75% 35%)',
+          text: 'hsl(190 80% 15%)',
+          sub: 'hsl(190 45% 30%)',
+          shadow: '0 4px 20px -4px hsl(190 80% 38% / 0.25)',
+          handle: 'hsl(190 75% 35%)',
+          glow: 'hsl(190 80% 50% / 0.12)',
+        }
+      : {
+          bg: 'linear-gradient(135deg, hsl(190 95% 50% / 0.18), hsl(200 90% 50% / 0.12))',
+          bgSolid: 'hsl(190 50% 12%)',
+          border: 'hsl(190 90% 48%)',
+          text: 'hsl(190 85% 85%)',
+          sub: 'hsl(190 55% 65%)',
+          shadow: '0 0 30px -6px hsl(190 95% 50% / 0.35)',
+          handle: 'hsl(190 90% 48%)',
+          glow: 'hsl(190 95% 50% / 0.08)',
+        },
     agent: isLight
-      ? { bg: 'hsl(265 60% 96%)', border: 'hsl(265 60% 48%)', borderSel: 'hsl(265 65% 40%)', text: 'hsl(265 65% 18%)', sub: 'hsl(265 30% 38%)', cat: 'hsl(265 25% 48%)', handle: 'hsl(265 60% 48%)' }
-      : { bg: 'hsl(265 80% 60% / 0.12)', border: 'hsl(265 80% 60% / 0.5)', borderSel: 'hsl(265 80% 60% / 0.8)', text: 'hsl(265 80% 88%)', sub: 'hsl(265 50% 70%)', cat: 'hsl(265 40% 58%)', handle: 'hsl(265 80% 60%)' },
+      ? {
+          bg: 'hsl(265 55% 97%)',
+          border: 'hsl(265 55% 52%)',
+          borderSel: 'hsl(265 60% 42%)',
+          text: 'hsl(265 60% 15%)',
+          sub: 'hsl(265 25% 38%)',
+          cat: 'hsl(265 30% 50%)',
+          catBg: 'hsl(265 50% 52% / 0.1)',
+          handle: 'hsl(265 55% 52%)',
+          shadow: '0 2px 10px -3px hsl(265 60% 48% / 0.15)',
+        }
+      : {
+          bg: 'hsl(265 80% 60% / 0.12)',
+          border: 'hsl(265 75% 58%)',
+          borderSel: 'hsl(265 80% 65%)',
+          text: 'hsl(265 75% 90%)',
+          sub: 'hsl(265 45% 72%)',
+          cat: 'hsl(265 45% 62%)',
+          catBg: 'hsl(265 80% 60% / 0.18)',
+          handle: 'hsl(265 75% 58%)',
+          shadow: '0 0 18px -4px hsl(265 80% 60% / 0.25)',
+        },
     squad: isLight
-      ? { bg: 'hsl(150 55% 95%)', border: 'hsl(150 55% 35%)', borderSel: 'hsl(150 60% 28%)', text: 'hsl(150 60% 16%)', sub: 'hsl(150 30% 32%)', divider: 'hsl(150 55% 35% / 0.3)', handle: 'hsl(150 55% 35%)' }
-      : { bg: 'hsl(150 80% 45% / 0.12)', border: 'hsl(150 80% 45% / 0.55)', borderSel: 'hsl(150 80% 45% / 0.8)', text: 'hsl(150 75% 82%)', sub: 'hsl(150 50% 62%)', divider: 'hsl(150 80% 45% / 0.3)', handle: 'hsl(150 80% 45%)' },
+      ? {
+          bg: 'hsl(150 50% 96%)',
+          border: 'hsl(150 50% 38%)',
+          borderSel: 'hsl(150 55% 30%)',
+          text: 'hsl(150 55% 14%)',
+          sub: 'hsl(150 28% 32%)',
+          divider: 'hsl(150 50% 38% / 0.25)',
+          handle: 'hsl(150 50% 38%)',
+          shadow: '0 2px 10px -3px hsl(150 55% 35% / 0.15)',
+        }
+      : {
+          bg: 'hsl(150 80% 45% / 0.12)',
+          border: 'hsl(150 70% 42%)',
+          borderSel: 'hsl(150 75% 50%)',
+          text: 'hsl(150 70% 85%)',
+          sub: 'hsl(150 45% 65%)',
+          divider: 'hsl(150 70% 42% / 0.3)',
+          handle: 'hsl(150 70% 42%)',
+          shadow: '0 0 18px -4px hsl(150 80% 45% / 0.25)',
+        },
     chip: isLight
-      ? { bg: 'hsl(265 60% 48% / 0.12)', text: 'hsl(265 60% 25%)' }
-      : { bg: 'hsl(265 80% 60% / 0.22)', text: 'hsl(265 80% 88%)' },
+      ? { bg: 'hsl(265 50% 52% / 0.1)', text: 'hsl(265 55% 28%)', border: 'hsl(265 50% 52% / 0.2)' }
+      : { bg: 'hsl(265 80% 60% / 0.2)', text: 'hsl(265 75% 88%)', border: 'hsl(265 80% 60% / 0.3)' },
     empty: isLight
-      ? { text: 'hsl(220 15% 45%)' }
-      : { text: 'hsl(220 15% 50%)' },
+      ? { text: 'hsl(220 12% 50%)' }
+      : { text: 'hsl(220 12% 55%)' },
   }), [isLight]);
 }
 
@@ -104,7 +165,7 @@ function useNodeColors() {
 function OrchestratorNode({ data }: NodeProps) {
   const p = useNodeColors();
   return (
-    <div className="px-5 py-3 rounded-xl border-2 text-center min-w-[180px]"
+    <div className="px-6 py-4 rounded-2xl border-2 text-center min-w-[200px] relative"
       style={{
         background: p.orch.bg,
         borderColor: p.orch.border,
@@ -113,11 +174,18 @@ function OrchestratorNode({ data }: NodeProps) {
       }}
     >
       <FourHandles color={p.orch.handle} />
-      <div className="flex items-center gap-1.5 justify-center">
-        <Network className="w-3.5 h-3.5" style={{ opacity: 0.7 }} />
-        <span className="text-xs font-bold">{data.label as string}</span>
+      {/* Subtle glow ring */}
+      <div className="absolute -inset-1 rounded-[18px] pointer-events-none"
+        style={{ background: p.orch.glow, filter: 'blur(8px)' }} />
+      <div className="relative">
+        <div className="flex items-center gap-2 justify-center mb-1">
+          <Crown className="w-4 h-4" style={{ color: p.orch.border }} />
+          <span className="text-sm font-bold tracking-tight">{data.label as string}</span>
+        </div>
+        <div className="text-[11px] font-medium" style={{ color: p.orch.sub }}>
+          {data.sublabel as string}
+        </div>
       </div>
-      <div className="text-[10px] mt-0.5" style={{ color: p.orch.sub }}>{data.sublabel as string}</div>
     </div>
   );
 }
@@ -132,29 +200,36 @@ function AgentNode({ data, id, selected }: NodeProps) {
   return (
     <>
       <NodeToolbar isVisible={selected} position={Position.Top}>
-        <div className="flex gap-1 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-1 shadow-lg">
-          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+        <div className="flex gap-1 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-1 shadow-lg">
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
             onClick={() => removeAgent(agentSlug)} title="Remover agente">
             <Trash2 className="w-3 h-3" />
           </Button>
         </div>
       </NodeToolbar>
       <div className={cn(
-        'px-4 py-2.5 rounded-lg border text-center min-w-[140px] transition-shadow',
+        'px-4 py-3 rounded-xl border text-center min-w-[150px] transition-all',
         selected ? 'border-2' : ''
       )} style={{
         background: p.agent.bg,
         borderColor: selected ? p.agent.borderSel : p.agent.border,
         color: p.agent.text,
-        boxShadow: selected ? `0 0 14px -3px ${p.agent.borderSel}` : undefined,
+        boxShadow: selected ? `0 0 20px -4px ${p.agent.borderSel}` : p.agent.shadow,
       }}>
         <FourHandles color={p.agent.handle} />
-        <div className="flex items-center gap-1.5 justify-center">
-          <Bot className="w-3 h-3" style={{ opacity: 0.7 }} />
-          <span className="text-[11px] font-semibold">{data.label as string}</span>
+        <div className="flex items-center gap-1.5 justify-center mb-0.5">
+          <Bot className="w-3.5 h-3.5" style={{ color: p.agent.border }} />
+          <span className="text-xs font-bold">{data.label as string}</span>
         </div>
-        <div className="text-[9px] mt-0.5 truncate max-w-[130px]" style={{ color: p.agent.sub }}>{data.sublabel as string}</div>
-        {data.category && <div className="text-[8px] mt-1" style={{ color: p.agent.cat }}>{data.category as string}</div>}
+        <div className="text-[10px] truncate max-w-[140px] leading-tight" style={{ color: p.agent.sub }}>
+          {data.sublabel as string}
+        </div>
+        {data.category && (
+          <div className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded-full text-[9px] font-semibold"
+            style={{ background: p.agent.catBg, color: p.agent.cat }}>
+            {data.category as string}
+          </div>
+        )}
       </div>
     </>
   );
@@ -171,41 +246,44 @@ function SquadNode({ data, id, selected }: NodeProps) {
   return (
     <>
       <NodeToolbar isVisible={selected} position={Position.Bottom}>
-        <div className="flex gap-1 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-1 shadow-lg">
-          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+        <div className="flex gap-1 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-1 shadow-lg">
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
             onClick={() => removeSquad(squadSlug)} title="Remover squad">
             <Trash2 className="w-3 h-3" />
           </Button>
         </div>
       </NodeToolbar>
       <div className={cn(
-        'px-4 py-3 rounded-lg border min-w-[160px] transition-shadow',
+        'px-4 py-3 rounded-xl border min-w-[170px] transition-all',
         selected ? 'border-2' : ''
       )} style={{
         background: p.squad.bg,
         borderColor: selected ? p.squad.borderSel : p.squad.border,
         color: p.squad.text,
-        boxShadow: selected ? `0 0 14px -3px ${p.squad.borderSel}` : undefined,
+        boxShadow: selected ? `0 0 20px -4px ${p.squad.borderSel}` : p.squad.shadow,
       }}>
         <FourHandles color={p.squad.handle} />
-        <div className="flex items-center gap-1.5 justify-center">
-          <Users className="w-3 h-3" style={{ opacity: 0.7 }} />
-          <span className="text-[11px] font-semibold">{data.label as string}</span>
+        <div className="flex items-center gap-1.5 justify-center mb-0.5">
+          <Users className="w-3.5 h-3.5" style={{ color: p.squad.border }} />
+          <span className="text-xs font-bold">{data.label as string}</span>
         </div>
         {members.length > 0 ? (
-          <div className="mt-2 pt-2 flex flex-wrap gap-1 justify-center max-w-[180px]"
+          <div className="mt-2 pt-2 flex flex-wrap gap-1 justify-center max-w-[190px]"
             style={{ borderTop: `1px solid ${p.squad.divider}` }}>
             {members.map((m: string) => (
-              <span key={m} className="text-[8px] px-1.5 py-0.5 rounded-full font-medium"
-                style={{ background: p.chip.bg, color: p.chip.text }}>
+              <span key={m} className="text-[9px] px-2 py-0.5 rounded-full font-medium border"
+                style={{ background: p.chip.bg, color: p.chip.text, borderColor: p.chip.border }}>
                 {m}
               </span>
             ))}
           </div>
         ) : (
-          <div className="text-[9px] mt-1 text-center" style={{ color: p.empty.text }}>sem agentes</div>
+          <div className="text-[10px] mt-1.5 text-center italic" style={{ color: p.empty.text }}>sem agentes</div>
         )}
-        <div className="text-[9px] mt-1.5 text-center" style={{ color: p.squad.sub }}>{data.taskCount as number} tasks</div>
+        <div className="text-[10px] mt-2 text-center font-medium flex items-center justify-center gap-1" style={{ color: p.squad.sub }}>
+          <Zap className="w-3 h-3" />
+          {data.taskCount as number} tasks
+        </div>
       </div>
     </>
   );
@@ -222,11 +300,8 @@ function RelationEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, 
   const customLabel = data?.customLabel as string | undefined;
   const [edgePath, labelX, labelY] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
 
-  // Edge label styling: opaque background for readability
-  const labelBg = isLight
-    ? `hsl(210 30% 98% / 0.92)`
-    : `hsl(220 20% 8% / 0.92)`;
-  const labelBorder = isLight ? `${color}44` : `${color}66`;
+  const labelBg = isLight ? 'hsl(210 30% 99%)' : 'hsl(220 20% 8%)';
+  const labelBorder = isLight ? `${color}40` : `${color}55`;
 
   return (
     <>
@@ -236,8 +311,9 @@ function RelationEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, 
         style={{
           stroke: color,
           strokeDasharray: cfg.dash || undefined,
-          strokeWidth: selected ? 2.5 : 1.5,
-          opacity: selected ? 1 : (isLight ? 0.85 : 0.75),
+          strokeWidth: selected ? 3 : 2,
+          opacity: selected ? 1 : (isLight ? 0.9 : 0.8),
+          filter: selected ? `drop-shadow(0 0 4px ${color})` : undefined,
         }}
       />
       <EdgeLabelRenderer>
@@ -248,12 +324,12 @@ function RelationEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, 
           }}
           className="nodrag nopan absolute"
         >
-          <span className="text-[8px] font-semibold px-1.5 py-0.5 rounded-full select-none whitespace-nowrap"
+          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full select-none whitespace-nowrap border shadow-sm"
             style={{
               background: labelBg,
-              border: `1px solid ${labelBorder}`,
+              borderColor: labelBorder,
               color: color,
-              backdropFilter: 'blur(4px)',
+              backdropFilter: 'blur(6px)',
             }}>
             {customLabel || cfg.label}
           </span>
@@ -282,12 +358,12 @@ function buildDiagramData(agents: AiosAgent[], squads: AiosSquad[], pattern: str
   const squadCount = squads.length;
   const agentTotalWidth = agentCount * (NODE_WIDTH + NODE_GAP) - NODE_GAP;
   const squadTotalWidth = squadCount * (NODE_WIDTH + 40 + NODE_GAP) - NODE_GAP;
-  const maxWidth = Math.max(agentTotalWidth, squadTotalWidth, 200);
+  const maxWidth = Math.max(agentTotalWidth, squadTotalWidth, 250);
 
   // Tier 1: Orchestrator
   nodes.push({
     id: 'orchestrator', type: 'orchestrator',
-    position: { x: maxWidth / 2 - 90, y: TIER_Y.orchestrator },
+    position: { x: maxWidth / 2 - 100, y: TIER_Y.orchestrator },
     data: { label: patternLabels[pattern] || pattern, sublabel: 'Orquestrador' },
     draggable: true,
   });
@@ -363,6 +439,7 @@ export function ArchitectureDiagram() {
   const [newSquadName, setNewSquadName] = useState('');
   const [pendingConn, setPendingConn] = useState<Connection | null>(null);
   const [customLabel, setCustomLabel] = useState('');
+  const [showHelp, setShowHelp] = useState(false);
   const customEdgesRef = useRef<Edge[]>([]);
   let nextCustomId = useRef(0);
 
@@ -477,21 +554,54 @@ export function ArchitectureDiagram() {
   // ── Theme-aware colors for non-component elements ──
   const tierColor = (relKey: string) => isLight ? RELATIONS[relKey].light : RELATIONS[relKey].dark;
   const connLineColor = isLight ? 'hsl(220 60% 45% / 0.5)' : 'hsl(220 80% 65% / 0.5)';
-  const bgDotColor = isLight ? 'hsl(220 15% 78%)' : 'hsl(var(--border))';
+  const bgDotColor = isLight ? 'hsl(220 15% 82%)' : 'hsl(var(--border))';
+
+  // ── MiniMap node color callback ──
+  const miniMapNodeColor = useCallback((node: Node) => {
+    if (node.type === 'orchestrator') return isLight ? 'hsl(190 75% 50%)' : 'hsl(190 90% 55%)';
+    if (node.type === 'agent') return isLight ? 'hsl(265 55% 55%)' : 'hsl(265 75% 62%)';
+    if (node.type === 'squad') return isLight ? 'hsl(150 50% 42%)' : 'hsl(150 70% 48%)';
+    return isLight ? 'hsl(220 10% 70%)' : 'hsl(220 15% 35%)';
+  }, [isLight]);
 
   // ── Empty state ──
   if (agents.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-center p-8 gap-4">
-        <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-          <Network className="w-7 h-7 text-primary/50" />
+      <div className="h-full flex flex-col items-center justify-center text-center p-8 gap-5">
+        <div className="relative">
+          <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/25 flex items-center justify-center">
+            <Network className="w-8 h-8 text-primary" />
+          </div>
+          <div className="absolute -inset-3 rounded-3xl bg-primary/5 -z-10 blur-md" />
         </div>
         <div>
-          <p className="text-sm text-muted-foreground mb-1">Diagrama de Arquitetura</p>
-          <p className="text-xs text-muted-foreground max-w-xs">
-            Quando voce adicionar agentes (etapa 3), o diagrama mostrara a hierarquia
-            com orquestrador, agentes e squads em niveis (tiers).
+          <p className="text-sm font-semibold text-foreground mb-1.5">Diagrama de Arquitetura</p>
+          <p className="text-xs text-muted-foreground max-w-[280px] leading-relaxed">
+            Adicione agentes na etapa 3 para visualizar a hierarquia completa:
+            orquestrador, agentes e squads organizados em tiers.
           </p>
+        </div>
+        <div className="flex items-center gap-6 text-[10px] text-muted-foreground">
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="w-8 h-8 rounded-lg bg-secondary/50 border border-border/50 flex items-center justify-center">
+              <Crown className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <span>Tier 1</span>
+          </div>
+          <div className="w-6 h-px bg-border" />
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="w-8 h-8 rounded-lg bg-secondary/50 border border-border/50 flex items-center justify-center">
+              <Bot className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <span>Tier 2</span>
+          </div>
+          <div className="w-6 h-px bg-border" />
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="w-8 h-8 rounded-lg bg-secondary/50 border border-border/50 flex items-center justify-center">
+              <Users className="w-4 h-4 text-muted-foreground" />
+            </div>
+            <span>Tier 3</span>
+          </div>
         </div>
       </div>
     );
@@ -512,7 +622,7 @@ export function ArchitectureDiagram() {
         edgeTypes={edgeTypes}
         connectionMode={ConnectionMode.Loose}
         fitView
-        fitViewOptions={{ padding: 0.3 }}
+        fitViewOptions={{ padding: 0.35 }}
         connectionLineStyle={{ stroke: connLineColor, strokeWidth: 2 }}
         connectionLineType="smoothstep"
         deleteKeyCode="Delete"
@@ -520,72 +630,85 @@ export function ArchitectureDiagram() {
         className="aios-diagram"
         style={{ background: 'transparent' }}
       >
-        <Background color={bgDotColor} gap={30} size={1} />
-        <Controls />
+        <Background color={bgDotColor} gap={28} size={1.2} />
+        <Controls showInteractive={false} />
         <MiniMap
-          maskColor={isLight ? 'hsl(210 30% 98% / 0.75)' : 'hsl(220 20% 4% / 0.8)'}
+          nodeColor={miniMapNodeColor}
+          maskColor={isLight ? 'hsl(210 30% 98% / 0.8)' : 'hsl(220 20% 4% / 0.85)'}
+          style={{ borderRadius: 8 }}
+          pannable
+          zoomable
         />
 
-        {/* Legend */}
+        {/* Tier indicators + legend + actions */}
         <Panel position="top-left">
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-medium text-foreground bg-card/90 backdrop-blur-sm rounded-lg px-3 py-2 border border-border shadow-sm">
+          <div className="flex flex-col gap-1.5">
+            {/* Tier legend row */}
+            <div className="flex items-center gap-3 text-[10px] font-semibold bg-card/95 backdrop-blur-sm rounded-lg px-3 py-2 border border-border shadow-sm">
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full ring-1 ring-black/10" style={{ background: tierColor('orquestra') }} />
-                Orquestrador
+                <Crown className="w-3 h-3" style={{ color: tierColor('orquestra') }} />
+                <span style={{ color: tierColor('orquestra') }}>Orquestrador</span>
               </span>
+              <span className="w-px h-3 bg-border" />
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full ring-1 ring-black/10" style={{ background: tierColor('delega') }} />
-                Agentes
+                <Bot className="w-3 h-3" style={{ color: tierColor('delega') }} />
+                <span style={{ color: tierColor('delega') }}>Agentes</span>
               </span>
+              <span className="w-px h-3 bg-border" />
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full ring-1 ring-black/10" style={{ background: tierColor('membro') }} />
-                Squads
+                <Users className="w-3 h-3" style={{ color: tierColor('membro') }} />
+                <span style={{ color: tierColor('membro') }}>Squads</span>
               </span>
             </div>
-            <div className="text-[10px] text-foreground bg-card/90 backdrop-blur-sm rounded-lg px-3 py-2 border border-border shadow-sm max-w-[240px]">
-              <p className="font-semibold mb-1">Interacao:</p>
-              <ul className="space-y-0.5 leading-relaxed">
-                <li>Arraste de qualquer lado de um no para conectar</li>
-                <li>Arraste a ponta de uma linha para mover conexao</li>
-                <li>Selecione uma linha e Delete para remover</li>
-                <li>Selecione um no e Delete para remover</li>
-              </ul>
-            </div>
+
+            {/* Collapsible interaction help */}
+            <button
+              onClick={() => setShowHelp(!showHelp)}
+              className="flex items-center gap-1.5 text-[10px] text-muted-foreground bg-card/95 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-border shadow-sm hover:bg-secondary/30 transition-colors w-fit"
+            >
+              <Info className="w-3 h-3" />
+              <span className="font-medium">Ajuda</span>
+              {showHelp
+                ? <ChevronDown className="w-3 h-3" />
+                : <ChevronRight className="w-3 h-3" />
+              }
+            </button>
+            {showHelp && (
+              <div className="text-[10px] text-foreground bg-card/95 backdrop-blur-sm rounded-lg px-3 py-2 border border-border shadow-sm max-w-[220px] space-y-1 leading-relaxed">
+                <p>Arraste de um lado do no para conectar</p>
+                <p>Arraste a ponta de uma linha para mover</p>
+                <p>Selecione + <kbd className="px-1 py-0.5 rounded bg-secondary border border-border text-[9px] font-mono">Del</kbd> para remover</p>
+              </div>
+            )}
           </div>
         </Panel>
 
+        {/* Top-right action bar */}
         <Panel position="top-right">
           <div className="flex gap-1.5">
-            <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1 bg-card/90 backdrop-blur-sm border-border shadow-sm"
+            <Button variant="outline" size="sm"
+              className="h-7 text-[10px] gap-1.5 bg-card/95 backdrop-blur-sm border-border shadow-sm font-semibold"
               onClick={() => setShowCreateSquad(true)}>
               <Plus className="w-3 h-3" /> Squad
             </Button>
           </div>
         </Panel>
-      </ReactFlow>
 
-      {/* Tier labels */}
-      <div className="absolute left-1 pointer-events-none" style={{ top: TIER_Y.orchestrator + 'px' }}>
-        <span className="text-[9px] font-bold uppercase tracking-widest select-none"
-          style={{ color: tierColor('orquestra'), opacity: isLight ? 0.8 : 0.65 }}>
-          Tier 1
-        </span>
-      </div>
-      <div className="absolute left-1 pointer-events-none" style={{ top: TIER_Y.agents + 'px' }}>
-        <span className="text-[9px] font-bold uppercase tracking-widest select-none"
-          style={{ color: tierColor('delega'), opacity: isLight ? 0.8 : 0.65 }}>
-          Tier 2
-        </span>
-      </div>
-      {squads.length > 0 && (
-        <div className="absolute left-1 pointer-events-none" style={{ top: TIER_Y.squads + 'px' }}>
-          <span className="text-[9px] font-bold uppercase tracking-widest select-none"
-            style={{ color: tierColor('membro'), opacity: isLight ? 0.8 : 0.65 }}>
-            Tier 3
-          </span>
-        </div>
-      )}
+        {/* Bottom-left tier annotations */}
+        <Panel position="bottom-left">
+          <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest bg-card/90 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-border shadow-sm select-none">
+            <span style={{ color: tierColor('orquestra') }}>T1</span>
+            <span className="w-px h-2.5 bg-border" />
+            <span style={{ color: tierColor('delega') }}>T2</span>
+            {squads.length > 0 && (
+              <>
+                <span className="w-px h-2.5 bg-border" />
+                <span style={{ color: tierColor('membro') }}>T3</span>
+              </>
+            )}
+          </div>
+        </Panel>
+      </ReactFlow>
 
       {/* ── Relationship picker dialog ── */}
       <Dialog open={!!pendingConn} onOpenChange={(open) => { if (!open) setPendingConn(null); }}>
