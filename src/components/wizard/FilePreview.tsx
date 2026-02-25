@@ -296,7 +296,7 @@ export function FilePreview() {
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground text-sm gap-3 p-8">
-              <File className="w-10 h-10 text-muted-foreground/50" />
+              <File className="w-10 h-10 text-muted-foreground" />
               <div className="text-center">
                 <p className="font-medium mb-1">Selecione um arquivo para visualizar</p>
                 <p className="text-xs text-muted-foreground mb-3">O pacote contem {files.length} arquivos que evoluem a cada etapa</p>

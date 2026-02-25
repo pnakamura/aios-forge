@@ -310,20 +310,20 @@ export default function LandingPage() {
               <div className="p-6">
                 <pre className="text-xs font-mono leading-[1.8] text-muted-foreground">
                   <span className="text-primary">meu-aios/</span>{'\n'}
-                  <span className="text-yellow-600 dark:text-yellow-400">├──</span> aios.config.yaml       <span className="text-muted-foreground/70"># Configuracao principal</span>{'\n'}
-                  <span className="text-yellow-600 dark:text-yellow-400">├──</span> CLAUDE.md               <span className="text-muted-foreground/70"># Documentacao para IA</span>{'\n'}
-                  <span className="text-yellow-600 dark:text-yellow-400">├──</span> package.json            <span className="text-muted-foreground/70"># Dependencias Node.js</span>{'\n'}
-                  <span className="text-yellow-600 dark:text-yellow-400">├──</span> Dockerfile              <span className="text-muted-foreground/70"># Container Docker</span>{'\n'}
+                  <span className="text-yellow-600 dark:text-yellow-400">├──</span> aios.config.yaml       <span className="text-muted-foreground"># Configuracao principal</span>{'\n'}
+                  <span className="text-yellow-600 dark:text-yellow-400">├──</span> CLAUDE.md               <span className="text-muted-foreground"># Documentacao para IA</span>{'\n'}
+                  <span className="text-yellow-600 dark:text-yellow-400">├──</span> package.json            <span className="text-muted-foreground"># Dependencias Node.js</span>{'\n'}
+                  <span className="text-yellow-600 dark:text-yellow-400">├──</span> Dockerfile              <span className="text-muted-foreground"># Container Docker</span>{'\n'}
                   <span className="text-cyan-600 dark:text-cyan-400">├── src/</span>{'\n'}
-                  <span className="text-yellow-600 dark:text-yellow-400">│   ├──</span> main.ts             <span className="text-muted-foreground/70"># Entry point</span>{'\n'}
-                  <span className="text-yellow-600 dark:text-yellow-400">│   ├──</span> orchestrator.ts     <span className="text-muted-foreground/70"># Motor de orquestracao</span>{'\n'}
-                  <span className="text-yellow-600 dark:text-yellow-400">│   └──</span> agent-runner.ts     <span className="text-muted-foreground/70"># Executor de agentes</span>{'\n'}
-                  <span className="text-green-600 dark:text-green-400">├── agents/</span>                 <span className="text-muted-foreground/70"># Definicoes de agentes</span>{'\n'}
-                  <span className="text-accent">├── squads/</span>                 <span className="text-muted-foreground/70"># Manifests de squads</span>{'\n'}
+                  <span className="text-yellow-600 dark:text-yellow-400">│   ├──</span> main.ts             <span className="text-muted-foreground"># Entry point</span>{'\n'}
+                  <span className="text-yellow-600 dark:text-yellow-400">│   ├──</span> orchestrator.ts     <span className="text-muted-foreground"># Motor de orquestracao</span>{'\n'}
+                  <span className="text-yellow-600 dark:text-yellow-400">│   └──</span> agent-runner.ts     <span className="text-muted-foreground"># Executor de agentes</span>{'\n'}
+                  <span className="text-green-600 dark:text-green-400">├── agents/</span>                 <span className="text-muted-foreground"># Definicoes de agentes</span>{'\n'}
+                  <span className="text-accent">├── squads/</span>                 <span className="text-muted-foreground"># Manifests de squads</span>{'\n'}
                   <span className="text-orange-600 dark:text-orange-400">├── docs/</span>{'\n'}
-                  <span className="text-yellow-600 dark:text-yellow-400">│   ├──</span> manual.md           <span className="text-muted-foreground/70"># Manual de instalacao</span>{'\n'}
-                  <span className="text-yellow-600 dark:text-yellow-400">│   └──</span> architecture.md     <span className="text-muted-foreground/70"># Documentacao tecnica</span>{'\n'}
-                  <span className="text-yellow-600 dark:text-yellow-400">└──</span> scripts/setup.sh        <span className="text-muted-foreground/70"># Script de setup</span>
+                  <span className="text-yellow-600 dark:text-yellow-400">│   ├──</span> manual.md           <span className="text-muted-foreground"># Manual de instalacao</span>{'\n'}
+                  <span className="text-yellow-600 dark:text-yellow-400">│   └──</span> architecture.md     <span className="text-muted-foreground"># Documentacao tecnica</span>{'\n'}
+                  <span className="text-yellow-600 dark:text-yellow-400">└──</span> scripts/setup.sh        <span className="text-muted-foreground"># Script de setup</span>
                 </pre>
               </div>
             </div>
@@ -365,7 +365,7 @@ export default function LandingPage() {
               <Cpu className="w-3.5 h-3.5 text-primary/50" />
               <span className="text-xs text-muted-foreground font-medium">AIOS Forge</span>
             </div>
-            <p className="text-[11px] text-muted-foreground/70">
+            <p className="text-[11px] text-muted-foreground">
               Construa sistemas de agentes IA orquestrados
             </p>
           </div>

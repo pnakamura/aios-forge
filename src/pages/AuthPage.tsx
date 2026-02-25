@@ -112,7 +112,7 @@ export default function AuthPage() {
           <div className="space-y-2">
             <Label htmlFor="email" className="text-xs">Email</Label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 id="email"
                 type="email"
@@ -128,7 +128,7 @@ export default function AuthPage() {
           <div className="space-y-2">
             <Label htmlFor="password" className="text-xs">Senha</Label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 id="password"
                 type="password"
@@ -151,7 +151,7 @@ export default function AuthPage() {
           </Button>
         </form>
 
-        <p className="text-center text-[11px] text-muted-foreground/60 mt-6">
+        <p className="text-center text-[11px] text-muted-foreground mt-6">
           {isLogin ? 'Nao tem conta? ' : 'Ja tem conta? '}
           <button
             onClick={() => setIsLogin(!isLogin)}

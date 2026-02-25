@@ -82,7 +82,7 @@ export function StepProgress() {
                 'w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-[1.5px] transition-all',
                 isActive && colors.dot,
                 isCompleted && 'border-glow-success bg-glow-success/20 text-glow-success',
-                !isActive && !isCompleted && 'border-muted-foreground/20 text-muted-foreground/50',
+                !isActive && !isCompleted && 'border-muted-foreground/40 text-muted-foreground',
               )}>
                 {isCompleted ? (
                   <Check className="w-3 h-3" />
@@ -94,7 +94,7 @@ export function StepProgress() {
               {/* Label — only visible for active step on small screens, all on lg */}
               <span className={cn(
                 'text-[11px] font-medium whitespace-nowrap transition-colors',
-                isActive ? colors.text : isCompleted ? 'text-glow-success' : 'text-muted-foreground/40',
+                isActive ? colors.text : isCompleted ? 'text-glow-success' : 'text-muted-foreground',
                 !isActive && 'hidden lg:inline',
               )}>
                 {step.label}

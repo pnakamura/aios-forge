@@ -488,7 +488,7 @@ export function ArchitectureDiagram() {
         </div>
         <div>
           <p className="text-sm text-muted-foreground mb-1">Diagrama de Arquitetura</p>
-          <p className="text-xs text-muted-foreground/60 max-w-xs">
+          <p className="text-xs text-muted-foreground max-w-xs">
             Quando voce adicionar agentes (etapa 3), o diagrama mostrara a hierarquia
             com orquestrador, agentes e squads em niveis (tiers).
           </p>
@@ -529,7 +529,7 @@ export function ArchitectureDiagram() {
         {/* Legend */}
         <Panel position="top-left">
           <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-medium text-foreground/80 bg-card/90 backdrop-blur-sm rounded-lg px-3 py-2 border border-border shadow-sm">
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-medium text-foreground bg-card/90 backdrop-blur-sm rounded-lg px-3 py-2 border border-border shadow-sm">
               <span className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full ring-1 ring-black/10" style={{ background: tierColor('orquestra') }} />
                 Orquestrador
@@ -543,8 +543,8 @@ export function ArchitectureDiagram() {
                 Squads
               </span>
             </div>
-            <div className="text-[10px] text-foreground/60 bg-card/85 backdrop-blur-sm rounded-lg px-3 py-2 border border-border shadow-sm max-w-[240px]">
-              <p className="font-semibold text-foreground/80 mb-1">Interacao:</p>
+            <div className="text-[10px] text-foreground bg-card/90 backdrop-blur-sm rounded-lg px-3 py-2 border border-border shadow-sm max-w-[240px]">
+              <p className="font-semibold mb-1">Interacao:</p>
               <ul className="space-y-0.5 leading-relaxed">
                 <li>Arraste de qualquer lado de um no para conectar</li>
                 <li>Arraste a ponta de uma linha para mover conexao</li>
