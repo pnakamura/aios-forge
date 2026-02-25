@@ -24,13 +24,17 @@ import {
   BaseEdge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Network, Bot, Users, Trash2, Plus, Info, ChevronDown, ChevronRight, Zap, Crown } from 'lucide-react';
+import {
+  Network, Bot, Users, Trash2, Plus, Info, ChevronDown, ChevronRight,
+  Zap, Crown, Pencil, Cpu, Wrench, Eye, Terminal,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/lib/theme';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 // ── Relationship types (dark + light color variants) ──
 
@@ -52,11 +56,32 @@ const RELATION_OPTIONS = [
   { type: 'membro',       desc: 'Pertence ao squad' },
 ];
 
+const MODEL_OPTIONS = [
+  'claude-sonnet-4-20250514',
+  'claude-haiku-4-20250414',
+  'gpt-4o',
+  'gpt-4o-mini',
+  'gemini-2.0-flash',
+  'gemini-2.5-pro-preview-05-06',
+];
+
+const VISIBILITY_OPTIONS: { value: 'full' | 'quick' | 'key'; label: string }[] = [
+  { value: 'full', label: 'Completa' },
+  { value: 'quick', label: 'Rapida' },
+  { value: 'key', label: 'Chave' },
+];
+
+// ── Event bus for agent edit (nodes dispatch, main component listens) ──
+
+function dispatchEditAgent(slug: string) {
+  window.dispatchEvent(new CustomEvent('aios-edit-agent', { detail: slug }));
+}
+
 // ── Tier layout constants ──
 
-const TIER_Y = { orchestrator: 40, agents: 220, squads: 440 };
-const NODE_WIDTH = 170;
-const NODE_GAP = 24;
+const TIER_Y = { orchestrator: 40, agents: 230, squads: 480 };
+const NODE_WIDTH = 200;
+const NODE_GAP = 28;
 
 // ── Shared handle component with permanent visibility ──
 
@@ -114,8 +139,11 @@ function useNodeColors() {
           borderSel: 'hsl(265 60% 42%)',
           text: 'hsl(265 60% 15%)',
           sub: 'hsl(265 25% 38%)',
+          dim: 'hsl(265 18% 48%)',
           cat: 'hsl(265 30% 50%)',
           catBg: 'hsl(265 50% 52% / 0.1)',
+          infoBg: 'hsl(265 40% 52% / 0.06)',
+          infoBorder: 'hsl(265 40% 52% / 0.12)',
           handle: 'hsl(265 55% 52%)',
           shadow: '0 2px 10px -3px hsl(265 60% 48% / 0.15)',
         }
@@ -125,8 +153,11 @@ function useNodeColors() {
           borderSel: 'hsl(265 80% 65%)',
           text: 'hsl(265 75% 90%)',
           sub: 'hsl(265 45% 72%)',
+          dim: 'hsl(265 35% 58%)',
           cat: 'hsl(265 45% 62%)',
           catBg: 'hsl(265 80% 60% / 0.18)',
+          infoBg: 'hsl(265 80% 60% / 0.08)',
+          infoBorder: 'hsl(265 80% 60% / 0.15)',
           handle: 'hsl(265 75% 58%)',
           shadow: '0 0 18px -4px hsl(265 80% 60% / 0.25)',
         },
@@ -190,44 +221,92 @@ function OrchestratorNode({ data }: NodeProps) {
   );
 }
 
-// ── Custom Node: Agent ──
+// ── Custom Node: Agent (expanded with info + edit support) ──
 
 function AgentNode({ data, id, selected }: NodeProps) {
   const { removeAgent } = useWizardStore();
   const p = useNodeColors();
   const agentSlug = (id as string).replace('agent-', '');
+  const model = (data.model as string) || '';
+  const toolsCount = (data.toolsCount as number) || 0;
+  const commandsCount = (data.commandsCount as number) || 0;
+  const visibility = (data.visibility as string) || 'full';
+  const modelShort = model.replace(/(claude-|gpt-|gemini-)/, '').split('-').slice(0, 2).join('-');
 
   return (
     <>
       <NodeToolbar isVisible={selected} position={Position.Top}>
         <div className="flex gap-1 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-1 shadow-lg">
+          <Button variant="ghost" size="sm" className="h-6 px-1.5 gap-1 text-foreground hover:bg-secondary"
+            onClick={() => dispatchEditAgent(agentSlug)} title="Editar agente">
+            <Pencil className="w-3 h-3" />
+            <span className="text-[10px]">Editar</span>
+          </Button>
+          <div className="w-px h-5 bg-border self-center" />
           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
             onClick={() => removeAgent(agentSlug)} title="Remover agente">
             <Trash2 className="w-3 h-3" />
           </Button>
         </div>
       </NodeToolbar>
-      <div className={cn(
-        'px-4 py-3 rounded-xl border text-center min-w-[150px] transition-all',
-        selected ? 'border-2' : ''
-      )} style={{
-        background: p.agent.bg,
-        borderColor: selected ? p.agent.borderSel : p.agent.border,
-        color: p.agent.text,
-        boxShadow: selected ? `0 0 20px -4px ${p.agent.borderSel}` : p.agent.shadow,
-      }}>
+      <div
+        className={cn(
+          'rounded-xl border transition-all cursor-pointer min-w-[190px] max-w-[220px]',
+          selected ? 'border-2' : ''
+        )}
+        style={{
+          background: p.agent.bg,
+          borderColor: selected ? p.agent.borderSel : p.agent.border,
+          color: p.agent.text,
+          boxShadow: selected ? `0 0 20px -4px ${p.agent.borderSel}` : p.agent.shadow,
+        }}
+        onDoubleClick={() => dispatchEditAgent(agentSlug)}
+      >
         <FourHandles color={p.agent.handle} />
-        <div className="flex items-center gap-1.5 justify-center mb-0.5">
-          <Bot className="w-3.5 h-3.5" style={{ color: p.agent.border }} />
-          <span className="text-xs font-bold">{data.label as string}</span>
+
+        {/* Header */}
+        <div className="px-3.5 pt-3 pb-2">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <Bot className="w-3.5 h-3.5 shrink-0" style={{ color: p.agent.border }} />
+            <span className="text-xs font-bold truncate">{data.label as string}</span>
+          </div>
+          <div className="text-[10px] leading-snug line-clamp-2" style={{ color: p.agent.sub }}>
+            {data.sublabel as string}
+          </div>
         </div>
-        <div className="text-[10px] truncate max-w-[140px] leading-tight" style={{ color: p.agent.sub }}>
-          {data.sublabel as string}
+
+        {/* Info section */}
+        <div className="mx-2 mb-2 rounded-lg px-2.5 py-1.5 space-y-1"
+          style={{ background: p.agent.infoBg, border: `1px solid ${p.agent.infoBorder}` }}>
+          {/* Model */}
+          <div className="flex items-center gap-1.5">
+            <Cpu className="w-3 h-3 shrink-0" style={{ color: p.agent.dim }} />
+            <span className="text-[9px] font-mono font-medium truncate" style={{ color: p.agent.sub }}>{modelShort || '—'}</span>
+          </div>
+          {/* Tools & Commands row */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1" title={`${toolsCount} tools`}>
+              <Wrench className="w-2.5 h-2.5" style={{ color: p.agent.dim }} />
+              <span className="text-[9px] font-mono" style={{ color: p.agent.dim }}>{toolsCount}</span>
+            </div>
+            <div className="flex items-center gap-1" title={`${commandsCount} commands`}>
+              <Terminal className="w-2.5 h-2.5" style={{ color: p.agent.dim }} />
+              <span className="text-[9px] font-mono" style={{ color: p.agent.dim }}>{commandsCount}</span>
+            </div>
+            <div className="flex items-center gap-1 ml-auto" title={`Visibilidade: ${visibility}`}>
+              <Eye className="w-2.5 h-2.5" style={{ color: p.agent.dim }} />
+              <span className="text-[9px]" style={{ color: p.agent.dim }}>{visibility}</span>
+            </div>
+          </div>
         </div>
+
+        {/* Category tag */}
         {data.category && (
-          <div className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded-full text-[9px] font-semibold"
-            style={{ background: p.agent.catBg, color: p.agent.cat }}>
-            {data.category as string}
+          <div className="px-3.5 pb-2.5">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-semibold"
+              style={{ background: p.agent.catBg, color: p.agent.cat }}>
+              {data.category as string}
+            </span>
           </div>
         )}
       </div>
@@ -375,7 +454,15 @@ function buildDiagramData(agents: AiosAgent[], squads: AiosSquad[], pattern: str
     nodes.push({
       id: nodeId, type: 'agent',
       position: { x: agentStartX + i * (NODE_WIDTH + NODE_GAP), y: TIER_Y.agents },
-      data: { label: agent.name, sublabel: agent.role.substring(0, 40), category: agent.category || '' },
+      data: {
+        label: agent.name,
+        sublabel: agent.role.substring(0, 60),
+        category: agent.category || '',
+        model: agent.llmModel,
+        toolsCount: agent.tools.length,
+        commandsCount: agent.commands.length,
+        visibility: agent.visibility,
+      },
       draggable: true,
     });
 
@@ -431,7 +518,7 @@ function buildDiagramData(agents: AiosAgent[], squads: AiosSquad[], pattern: str
 
 export function ArchitectureDiagram() {
   const store = useWizardStore();
-  const { agents, squads, project, updateSquad, addSquad } = store;
+  const { agents, squads, project, updateSquad, addSquad, updateAgent } = store;
   const { theme } = useTheme();
   const isLight = theme === 'light';
 
@@ -440,8 +527,20 @@ export function ArchitectureDiagram() {
   const [pendingConn, setPendingConn] = useState<Connection | null>(null);
   const [customLabel, setCustomLabel] = useState('');
   const [showHelp, setShowHelp] = useState(false);
+  const [editingAgent, setEditingAgent] = useState<AiosAgent | null>(null);
   const customEdgesRef = useRef<Edge[]>([]);
-  let nextCustomId = useRef(0);
+  const nextCustomId = useRef(0);
+
+  // Listen for edit-agent events from nodes
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const slug = (e as CustomEvent).detail as string;
+      const agent = agents.find(a => a.slug === slug);
+      if (agent) setEditingAgent({ ...agent });
+    };
+    window.addEventListener('aios-edit-agent', handler);
+    return () => window.removeEventListener('aios-edit-agent', handler);
+  }, [agents]);
 
   const { nodes: sysNodes, edges: sysEdges } = useMemo(
     () => buildDiagramData(agents, squads, project.orchestrationPattern || 'TASK_FIRST'),
@@ -549,6 +648,19 @@ export function ArchitectureDiagram() {
     addSquad({ name: newSquadName, slug, description: '', agentIds: [], tasks: [], workflows: [], isValidated: false });
     setShowCreateSquad(false);
     setNewSquadName('');
+  };
+
+  // ── Save agent edits ──
+  const handleSaveAgent = () => {
+    if (!editingAgent) return;
+    updateAgent(editingAgent.slug, {
+      name: editingAgent.name,
+      role: editingAgent.role,
+      systemPrompt: editingAgent.systemPrompt,
+      llmModel: editingAgent.llmModel,
+      visibility: editingAgent.visibility,
+    });
+    setEditingAgent(null);
   };
 
   // ── Theme-aware colors for non-component elements ──
@@ -676,7 +788,7 @@ export function ArchitectureDiagram() {
             {showHelp && (
               <div className="text-[10px] text-foreground bg-card/95 backdrop-blur-sm rounded-lg px-3 py-2 border border-border shadow-sm max-w-[220px] space-y-1 leading-relaxed">
                 <p>Arraste de um lado do no para conectar</p>
-                <p>Arraste a ponta de uma linha para mover</p>
+                <p>Duplo-clique em um agente para editar</p>
                 <p>Selecione + <kbd className="px-1 py-0.5 rounded bg-secondary border border-border text-[9px] font-mono">Del</kbd> para remover</p>
               </div>
             )}
@@ -694,20 +806,6 @@ export function ArchitectureDiagram() {
           </div>
         </Panel>
 
-        {/* Bottom-left tier annotations */}
-        <Panel position="bottom-left">
-          <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest bg-card/90 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-border shadow-sm select-none">
-            <span style={{ color: tierColor('orquestra') }}>T1</span>
-            <span className="w-px h-2.5 bg-border" />
-            <span style={{ color: tierColor('delega') }}>T2</span>
-            {squads.length > 0 && (
-              <>
-                <span className="w-px h-2.5 bg-border" />
-                <span style={{ color: tierColor('membro') }}>T3</span>
-              </>
-            )}
-          </div>
-        </Panel>
       </ReactFlow>
 
       {/* ── Relationship picker dialog ── */}
@@ -784,6 +882,110 @@ export function ArchitectureDiagram() {
               Criar e adicionar ao diagrama
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Agent Dialog ── */}
+      <Dialog open={!!editingAgent} onOpenChange={(open) => { if (!open) setEditingAgent(null); }}>
+        <DialogContent className="glass max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-2">
+              <Bot className="w-4 h-4 text-accent" />
+              Editar Agente
+            </DialogTitle>
+          </DialogHeader>
+          {editingAgent && (
+            <div className="space-y-4 -mt-1">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Nome</Label>
+                <Input
+                  value={editingAgent.name}
+                  onChange={e => setEditingAgent({ ...editingAgent, name: e.target.value })}
+                  className="h-9 text-sm"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Role (funcao)</Label>
+                <Input
+                  value={editingAgent.role}
+                  onChange={e => setEditingAgent({ ...editingAgent, role: e.target.value })}
+                  className="h-9 text-sm"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Modelo LLM</Label>
+                <select
+                  value={editingAgent.llmModel}
+                  onChange={e => setEditingAgent({ ...editingAgent, llmModel: e.target.value })}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                >
+                  {MODEL_OPTIONS.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                  {!MODEL_OPTIONS.includes(editingAgent.llmModel) && (
+                    <option value={editingAgent.llmModel}>{editingAgent.llmModel}</option>
+                  )}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Visibilidade</Label>
+                <div className="flex gap-2">
+                  {VISIBILITY_OPTIONS.map(opt => (
+                    <button key={opt.value}
+                      onClick={() => setEditingAgent({ ...editingAgent, visibility: opt.value })}
+                      className={cn(
+                        'flex-1 py-1.5 rounded-md border text-xs font-medium transition-all',
+                        editingAgent.visibility === opt.value
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border bg-card text-muted-foreground hover:border-primary/30'
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">System Prompt</Label>
+                <Textarea
+                  value={editingAgent.systemPrompt}
+                  onChange={e => setEditingAgent({ ...editingAgent, systemPrompt: e.target.value })}
+                  rows={4}
+                  className="text-xs font-mono resize-y"
+                />
+              </div>
+
+              <div className="flex gap-2 text-[10px] text-muted-foreground">
+                <span className="px-2 py-0.5 rounded-md bg-secondary border border-border">
+                  {editingAgent.tools.length} tools
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-secondary border border-border">
+                  {editingAgent.commands.length} commands
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-secondary border border-border">
+                  {editingAgent.skills.length} skills
+                </span>
+                {editingAgent.isCustom && (
+                  <span className="px-2 py-0.5 rounded-md bg-accent/10 border border-accent/20 text-accent">
+                    Custom
+                  </span>
+                )}
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <Button onClick={handleSaveAgent} size="sm" className="flex-1 gap-1.5">
+                  Salvar alteracoes
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setEditingAgent(null)}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
