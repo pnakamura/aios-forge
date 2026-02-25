@@ -298,7 +298,7 @@ export default function WizardPage() {
                   className={cn(!store.project.name && 'border-yellow-400/30')}
                 />
                 {!store.project.name && (
-                  <p className="text-[11px] text-yellow-400 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Obrigatorio para prosseguir</p>
+                  <p className="text-[11px] text-yellow-600 dark:text-yellow-400 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Obrigatorio para prosseguir</p>
                 )}
               </div>
               <div className="space-y-2">
@@ -339,13 +339,13 @@ export default function WizardPage() {
                         'text-left p-3 rounded-lg border transition-all group',
                         store.project.orchestrationPattern === p.id
                           ? 'border-primary/40 bg-primary/5 shadow-[0_0_15px_-5px_hsl(var(--glow-primary)/0.2)]'
-                          : 'border-border/50 bg-card/30 hover:border-primary/20'
+                          : 'border-border/50 bg-card/50 hover:border-primary/20'
                       )}
                     >
                       <div className="flex items-center gap-2 mb-1">
                         <Network className={cn(
                           'w-4 h-4',
-                          store.project.orchestrationPattern === p.id ? 'text-primary' : 'text-muted-foreground group-hover:text-primary/60'
+                          store.project.orchestrationPattern === p.id ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'
                         )} />
                         <span className="font-medium text-sm">{p.name}</span>
                         {store.project.orchestrationPattern === p.id && (
@@ -355,7 +355,7 @@ export default function WizardPage() {
                       <p className="text-xs text-muted-foreground">{p.description}</p>
                       <div className="flex gap-1 mt-2 flex-wrap">
                         {p.useCases.slice(0, 2).map(uc => (
-                          <span key={uc} className="text-[10px] px-1.5 py-0.5 rounded bg-secondary/50 text-muted-foreground">{uc}</span>
+                          <span key={uc} className="text-[10px] px-1.5 py-0.5 rounded bg-secondary/70 text-muted-foreground">{uc}</span>
                         ))}
                       </div>
                     </button>
@@ -396,7 +396,7 @@ export default function WizardPage() {
                 'flex items-center justify-between p-4 rounded-xl border transition-all shadow-sm',
                 integration.configured
                   ? 'border-glow-success/30 bg-glow-success/5'
-                  : 'border-border/60 bg-card/60'
+                  : 'border-border/60 bg-card/80'
               )}>
                 <div className="flex items-center gap-3">
                   <div className={cn(
@@ -442,7 +442,7 @@ export default function WizardPage() {
 
             <div className="space-y-3">
               {/* Project summary */}
-              <div className="p-4 rounded-xl border border-border/60 bg-card/60 shadow-sm">
+              <div className="p-4 rounded-xl border border-border/60 bg-card/80 shadow-sm">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-5 h-5 rounded-md bg-primary/10 flex items-center justify-center">
                     <Sparkles className="w-3 h-3 text-primary" />
@@ -458,7 +458,7 @@ export default function WizardPage() {
               </div>
 
               {/* Agents */}
-              <div className="p-4 rounded-xl border border-border/60 bg-card/60 shadow-sm">
+              <div className="p-4 rounded-xl border border-border/60 bg-card/80 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <div className="w-5 h-5 rounded-md bg-accent/10 flex items-center justify-center">
@@ -474,12 +474,12 @@ export default function WizardPage() {
                       <Bot className="w-3 h-3" />{a.name}
                     </Badge>
                   ))}
-                  {store.agents.length === 0 && <span className="text-xs text-yellow-400">Nenhum agente adicionado</span>}
+                  {store.agents.length === 0 && <span className="text-xs text-yellow-600 dark:text-yellow-400">Nenhum agente adicionado</span>}
                 </div>
               </div>
 
               {/* Squads */}
-              <div className="p-4 rounded-xl border border-border/60 bg-card/60 shadow-sm">
+              <div className="p-4 rounded-xl border border-border/60 bg-card/80 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <div className="w-5 h-5 rounded-md bg-glow-success/10 flex items-center justify-center">
@@ -518,7 +518,7 @@ export default function WizardPage() {
                 'p-4 rounded-xl border shadow-sm',
                 store.complianceReviewed
                   ? failed > 0 ? 'border-destructive/30 bg-destructive/5' : 'border-glow-success/30 bg-glow-success/5'
-                  : 'border-border/60 bg-card/60'
+                  : 'border-border/60 bg-card/80'
               )}>
                 <div className="flex items-center gap-2 mb-2">
                   <div className={cn(
@@ -532,7 +532,7 @@ export default function WizardPage() {
                 {store.complianceReviewed ? (
                   <div className="flex items-center gap-3 text-sm">
                     <span className="text-glow-success font-medium">{passed} aprovados</span>
-                    {warnings > 0 && <span className="text-yellow-400 font-medium">{warnings} avisos</span>}
+                    {warnings > 0 && <span className="text-yellow-600 dark:text-yellow-400 font-medium">{warnings} avisos</span>}
                     {failed > 0 && <span className="text-destructive font-medium">{failed} reprovados</span>}
                     <span className="text-muted-foreground text-xs">de {total}</span>
                   </div>
@@ -568,7 +568,7 @@ export default function WizardPage() {
               </p>
             </motion.div>
             {!store.complianceReviewed && (
-              <p className="text-xs text-yellow-400 flex items-center gap-1.5">
+              <p className="text-xs text-yellow-600 dark:text-yellow-400 flex items-center gap-1.5">
                 <AlertCircle className="w-3.5 h-3.5" />
                 Revisao de conformidade nao executada. Recomendamos revisar antes de salvar.
               </p>
@@ -673,7 +673,7 @@ export default function WizardPage() {
           <ResizablePanel defaultSize={45} minSize={25} maxSize={70} className="rounded-xl border border-border/60 bg-background overflow-hidden shadow-sm">
             <div className="flex flex-col h-full min-w-0">
               {/* Evolution status header */}
-              <div className="px-4 py-3 border-b border-border/50 bg-card/60 shrink-0">
+              <div className="px-4 py-3 border-b border-border/50 bg-card/80 shrink-0">
                 <div className="flex items-center gap-4">
                   {/* Circular progress ring */}
                   <div className="relative w-11 h-11 shrink-0">
@@ -704,14 +704,14 @@ export default function WizardPage() {
                     <div className="flex gap-3 text-[10px]">
                       <span className={cn(
                         'flex items-center gap-1 px-1.5 py-0.5 rounded-md transition-colors',
-                        store.agents.length > 0 ? 'text-glow-success bg-glow-success/10' : 'text-muted-foreground/50'
+                        store.agents.length > 0 ? 'text-glow-success bg-glow-success/10' : 'text-muted-foreground'
                       )}>
                         <Bot className="w-3 h-3" />
                         <span className="font-mono font-bold">{store.agents.length}</span>
                       </span>
                       <span className={cn(
                         'flex items-center gap-1 px-1.5 py-0.5 rounded-md transition-colors',
-                        store.squads.length > 0 ? 'text-glow-success bg-glow-success/10' : 'text-muted-foreground/50'
+                        store.squads.length > 0 ? 'text-glow-success bg-glow-success/10' : 'text-muted-foreground'
                       )}>
                         <Users className="w-3 h-3" />
                         <span className="font-mono font-bold">{store.squads.length}</span>

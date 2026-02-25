@@ -14,8 +14,8 @@ type CheckStatus = 'done' | 'partial' | 'pending';
 function StatusIcon({ status }: { status: CheckStatus }) {
   switch (status) {
     case 'done': return <CheckCircle2 className="w-3.5 h-3.5 text-glow-success shrink-0" />;
-    case 'partial': return <AlertCircle className="w-3.5 h-3.5 text-yellow-400 shrink-0" />;
-    case 'pending': return <Circle className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />;
+    case 'partial': return <AlertCircle className="w-3.5 h-3.5 text-yellow-600 dark:text-yellow-400 shrink-0" />;
+    case 'pending': return <Circle className="w-3.5 h-3.5 text-muted-foreground shrink-0" />;
   }
 }
 
@@ -75,7 +75,7 @@ export function ManualPanel() {
                 <span className="flex-1">{label}</span>
                 <span className={cn(
                   'text-[10px]',
-                  status === 'done' ? 'text-glow-success' : status === 'partial' ? 'text-yellow-400' : 'text-muted-foreground/50'
+                  status === 'done' ? 'text-glow-success' : status === 'partial' ? 'text-yellow-600 dark:text-yellow-400' : 'text-muted-foreground'
                 )}>{detail}</span>
               </div>
             ))}
@@ -91,11 +91,11 @@ export function ManualPanel() {
             <div className="flex items-start gap-2">
               <span className="text-primary font-bold shrink-0">1.</span>
               <div>
-                <code className="text-cyan-400">bash scripts/setup.sh</code>
+                <code className="text-cyan-600 dark:text-cyan-400">bash scripts/setup.sh</code>
                 <p className="text-muted-foreground font-sans mt-0.5">Setup automatico completo</p>
               </div>
             </div>
-            <div className="border-t border-border/30 pt-2 text-muted-foreground/60 font-sans text-[10px]">ou manualmente:</div>
+            <div className="border-t border-border/30 pt-2 text-muted-foreground font-sans text-[10px]">ou manualmente:</div>
             <div className="flex items-start gap-2">
               <span className="text-primary font-bold shrink-0">1.</span>
               <code>npm install</code>
@@ -107,7 +107,7 @@ export function ManualPanel() {
             <div className="flex items-start gap-2">
               <span className="text-primary font-bold shrink-0">3.</span>
               <div>
-                <code className="text-yellow-300">Editar .env</code>
+                <code className="text-yellow-600 dark:text-yellow-300">Editar .env</code>
                 <p className="text-muted-foreground font-sans mt-0.5">
                   {providers.length > 0
                     ? `Configurar: ${providers.join(', ')}`
@@ -139,12 +139,12 @@ export function ManualPanel() {
 
             {agents.length > 0 && (
               <div className="space-y-1 pt-1 border-t border-border/30">
-                <p className="text-[10px] text-muted-foreground/60 font-semibold">Agentes:</p>
+                <p className="text-[10px] text-muted-foreground font-semibold">Agentes:</p>
                 {agents.map(a => (
                   <div key={a.slug} className="flex items-center gap-2 text-[11px]">
                     <Bot className="w-3 h-3 text-primary shrink-0" />
                     <span className="flex-1 truncate">{a.name}</span>
-                    <code className="text-[9px] text-muted-foreground/50">{a.llmModel.split('/').pop()}</code>
+                    <code className="text-[9px] text-muted-foreground">{a.llmModel.split('/').pop()}</code>
                   </div>
                 ))}
               </div>
@@ -152,12 +152,12 @@ export function ManualPanel() {
 
             {squads.length > 0 && (
               <div className="space-y-1 pt-1 border-t border-border/30">
-                <p className="text-[10px] text-muted-foreground/60 font-semibold">Squads:</p>
+                <p className="text-[10px] text-muted-foreground font-semibold">Squads:</p>
                 {squads.map(s => (
                   <div key={s.slug} className="flex items-center gap-2 text-[11px]">
                     <Users className="w-3 h-3 text-accent shrink-0" />
                     <span className="flex-1 truncate">{s.name}</span>
-                    <span className="text-[9px] text-muted-foreground/50">{(s.agentIds || []).length} agentes</span>
+                    <span className="text-[9px] text-muted-foreground">{(s.agentIds || []).length} agentes</span>
                   </div>
                 ))}
               </div>
@@ -181,7 +181,7 @@ export function ManualPanel() {
               ['src/agent-runner.ts', 'Executor de agentes'],
             ].map(([file, desc]) => (
               <div key={file} className="flex items-center gap-2 text-[11px] px-2 py-1 rounded hover:bg-secondary/30 transition-colors">
-                <code className="text-cyan-400 shrink-0 w-36 truncate">{file}</code>
+                <code className="text-cyan-600 dark:text-cyan-400 shrink-0 w-36 truncate">{file}</code>
                 <span className="text-muted-foreground text-[10px] truncate">{desc}</span>
               </div>
             ))}

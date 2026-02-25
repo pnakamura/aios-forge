@@ -315,7 +315,7 @@ export function StepContextPanel() {
                               {item.targetFiles.map(f => (
                                 <span
                                   key={f}
-                                  className="text-[9px] font-mono px-1 py-0 rounded bg-secondary/50 text-muted-foreground/70"
+                                  className="text-[9px] font-mono px-1 py-0 rounded bg-secondary/70 text-muted-foreground"
                                 >
                                   {f}
                                 </span>

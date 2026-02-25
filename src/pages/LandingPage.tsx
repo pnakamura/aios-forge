@@ -109,7 +109,7 @@ export default function LandingPage() {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-lg font-bold tracking-tight">AIOS Forge</span>
-            <span className="text-[10px] font-mono text-muted-foreground/60 border border-border/50 rounded px-1.5 py-0.5">v1.0</span>
+            <span className="text-[10px] font-mono text-muted-foreground border border-border/50 rounded px-1.5 py-0.5">v1.0</span>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -154,7 +154,7 @@ export default function LandingPage() {
               Construa seu{' '}
               <TypedText words={['AIOS', 'Squad', 'Pipeline']} />
               <br />
-              <span className="text-muted-foreground/80">em minutos</span>
+              <span className="text-muted-foreground">em minutos</span>
             </h1>
 
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed">
@@ -224,13 +224,13 @@ export default function LandingPage() {
                     <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4 group-hover:shadow-[var(--shadow-glow)] transition-all">
                       <step.icon className="w-5 h-5 text-primary" />
                     </div>
-                    <div className="text-[10px] font-mono text-primary/50 mb-2">{step.num}</div>
+                    <div className="text-[10px] font-mono text-primary/70 mb-2">{step.num}</div>
                     <h3 className="font-bold text-sm mb-1.5">{step.title}</h3>
                     <p className="text-xs text-muted-foreground leading-relaxed">{step.desc}</p>
                   </div>
                   {i < steps.length - 1 && (
                     <div className="hidden md:flex absolute top-1/2 -right-2 -translate-y-1/2 z-10 w-4 items-center justify-center">
-                      <ChevronRight className="w-4 h-4 text-primary/20" />
+                      <ChevronRight className="w-4 h-4 text-primary/50" />
                     </div>
                   )}
                 </motion.div>
@@ -303,27 +303,27 @@ export default function LandingPage() {
                   <div className="w-3 h-3 rounded-full bg-glow-success/60" />
                 </div>
                 <div className="flex-1 text-center">
-                  <span className="text-[11px] font-mono text-muted-foreground/60">meu-aios/</span>
+                  <span className="text-[11px] font-mono text-muted-foreground">meu-aios/</span>
                 </div>
-                <Terminal className="w-3.5 h-3.5 text-muted-foreground/40" />
+                <Terminal className="w-3.5 h-3.5 text-muted-foreground" />
               </div>
               <div className="p-6">
                 <pre className="text-xs font-mono leading-[1.8] text-muted-foreground">
                   <span className="text-primary">meu-aios/</span>{'\n'}
-                  <span className="text-yellow-400">├──</span> aios.config.yaml       <span className="text-muted-foreground/40"># Configuracao principal</span>{'\n'}
-                  <span className="text-yellow-400">├──</span> CLAUDE.md               <span className="text-muted-foreground/40"># Documentacao para IA</span>{'\n'}
-                  <span className="text-yellow-400">├──</span> package.json            <span className="text-muted-foreground/40"># Dependencias Node.js</span>{'\n'}
-                  <span className="text-yellow-400">├──</span> Dockerfile              <span className="text-muted-foreground/40"># Container Docker</span>{'\n'}
-                  <span className="text-cyan-400">├── src/</span>{'\n'}
-                  <span className="text-yellow-400">│   ├──</span> main.ts             <span className="text-muted-foreground/40"># Entry point</span>{'\n'}
-                  <span className="text-yellow-400">│   ├──</span> orchestrator.ts     <span className="text-muted-foreground/40"># Motor de orquestracao</span>{'\n'}
-                  <span className="text-yellow-400">│   └──</span> agent-runner.ts     <span className="text-muted-foreground/40"># Executor de agentes</span>{'\n'}
-                  <span className="text-green-400">├── agents/</span>                 <span className="text-muted-foreground/40"># Definicoes de agentes</span>{'\n'}
-                  <span className="text-accent">├── squads/</span>                 <span className="text-muted-foreground/40"># Manifests de squads</span>{'\n'}
-                  <span className="text-orange-400">├── docs/</span>{'\n'}
-                  <span className="text-yellow-400">│   ├──</span> manual.md           <span className="text-muted-foreground/40"># Manual de instalacao</span>{'\n'}
-                  <span className="text-yellow-400">│   └──</span> architecture.md     <span className="text-muted-foreground/40"># Documentacao tecnica</span>{'\n'}
-                  <span className="text-yellow-400">└──</span> scripts/setup.sh        <span className="text-muted-foreground/40"># Script de setup</span>
+                  <span className="text-yellow-600 dark:text-yellow-400">├──</span> aios.config.yaml       <span className="text-muted-foreground/70"># Configuracao principal</span>{'\n'}
+                  <span className="text-yellow-600 dark:text-yellow-400">├──</span> CLAUDE.md               <span className="text-muted-foreground/70"># Documentacao para IA</span>{'\n'}
+                  <span className="text-yellow-600 dark:text-yellow-400">├──</span> package.json            <span className="text-muted-foreground/70"># Dependencias Node.js</span>{'\n'}
+                  <span className="text-yellow-600 dark:text-yellow-400">├──</span> Dockerfile              <span className="text-muted-foreground/70"># Container Docker</span>{'\n'}
+                  <span className="text-cyan-600 dark:text-cyan-400">├── src/</span>{'\n'}
+                  <span className="text-yellow-600 dark:text-yellow-400">│   ├──</span> main.ts             <span className="text-muted-foreground/70"># Entry point</span>{'\n'}
+                  <span className="text-yellow-600 dark:text-yellow-400">│   ├──</span> orchestrator.ts     <span className="text-muted-foreground/70"># Motor de orquestracao</span>{'\n'}
+                  <span className="text-yellow-600 dark:text-yellow-400">│   └──</span> agent-runner.ts     <span className="text-muted-foreground/70"># Executor de agentes</span>{'\n'}
+                  <span className="text-green-600 dark:text-green-400">├── agents/</span>                 <span className="text-muted-foreground/70"># Definicoes de agentes</span>{'\n'}
+                  <span className="text-accent">├── squads/</span>                 <span className="text-muted-foreground/70"># Manifests de squads</span>{'\n'}
+                  <span className="text-orange-600 dark:text-orange-400">├── docs/</span>{'\n'}
+                  <span className="text-yellow-600 dark:text-yellow-400">│   ├──</span> manual.md           <span className="text-muted-foreground/70"># Manual de instalacao</span>{'\n'}
+                  <span className="text-yellow-600 dark:text-yellow-400">│   └──</span> architecture.md     <span className="text-muted-foreground/70"># Documentacao tecnica</span>{'\n'}
+                  <span className="text-yellow-600 dark:text-yellow-400">└──</span> scripts/setup.sh        <span className="text-muted-foreground/70"># Script de setup</span>
                 </pre>
               </div>
             </div>
@@ -363,9 +363,9 @@ export default function LandingPage() {
           <div className="flex items-center justify-between max-w-5xl mx-auto">
             <div className="flex items-center gap-2">
               <Cpu className="w-3.5 h-3.5 text-primary/50" />
-              <span className="text-xs text-muted-foreground/60 font-medium">AIOS Forge</span>
+              <span className="text-xs text-muted-foreground font-medium">AIOS Forge</span>
             </div>
-            <p className="text-[11px] text-muted-foreground/40">
+            <p className="text-[11px] text-muted-foreground/70">
               Construa sistemas de agentes IA orquestrados
             </p>
           </div>

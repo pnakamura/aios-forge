@@ -91,16 +91,16 @@ export function SquadBuilder() {
       </div>
 
       {agents.length === 0 && (
-        <div className="p-3 rounded-lg border border-yellow-400/20 bg-yellow-400/5">
-          <p className="text-xs text-yellow-400">Adicione agentes primeiro (etapa anterior) para poder atribui-los a squads.</p>
+        <div className="p-3 rounded-lg border border-yellow-500/30 dark:border-yellow-400/20 bg-yellow-500/10 dark:bg-yellow-400/5">
+          <p className="text-xs text-yellow-700 dark:text-yellow-400">Adicione agentes primeiro (etapa anterior) para poder atribui-los a squads.</p>
         </div>
       )}
 
       {squads.length === 0 ? (
         <div className="text-center py-12">
-          <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+          <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
           <p className="text-sm text-muted-foreground mb-1">Nenhum squad criado</p>
-          <p className="text-xs text-muted-foreground/70 mb-4">
+          <p className="text-xs text-muted-foreground mb-4">
             Squads agrupam agentes em equipes com tasks e workflows definidos.
           </p>
           <Button variant="outline" size="sm" onClick={() => setShowCreate(true)} className="gap-1.5">
@@ -174,7 +174,7 @@ export function SquadBuilder() {
                           })}
                         </div>
                       ) : (
-                        <p className="text-xs text-muted-foreground/50">Nenhum agente disponivel</p>
+                        <p className="text-xs text-muted-foreground">Nenhum agente disponivel</p>
                       )}
                     </div>
 
@@ -189,12 +189,12 @@ export function SquadBuilder() {
                         </Button>
                       </div>
                       {squad.tasks.length === 0 ? (
-                        <p className="text-[11px] text-muted-foreground/50 py-1">Nenhuma task definida</p>
+                        <p className="text-[11px] text-muted-foreground py-1">Nenhuma task definida</p>
                       ) : (
                         <div className="space-y-1">
                           {squad.tasks.map((task, ti) => (
                             <div key={task.id} className="flex items-center gap-2 text-xs bg-secondary/30 rounded-md px-2.5 py-1.5">
-                              <span className="text-muted-foreground/50 font-mono text-[10px] w-4">{ti + 1}.</span>
+                              <span className="text-muted-foreground font-mono text-[10px] w-4">{ti + 1}.</span>
                               <Input
                                 className="h-5 text-xs bg-transparent border-none p-0 flex-1"
                                 value={task.name}
@@ -220,7 +220,7 @@ export function SquadBuilder() {
                               </select>
                               <button
                                 onClick={() => removeTaskFromSquad(squad.slug, task.id)}
-                                className="text-muted-foreground/40 hover:text-destructive transition-colors"
+                                className="text-muted-foreground/70 hover:text-destructive transition-colors"
                               >
                                 <Trash2 className="w-3 h-3" />
                               </button>
@@ -241,12 +241,12 @@ export function SquadBuilder() {
                         </Button>
                       </div>
                       {squad.workflows.length === 0 ? (
-                        <p className="text-[11px] text-muted-foreground/50 py-1">Nenhum workflow definido</p>
+                        <p className="text-[11px] text-muted-foreground py-1">Nenhum workflow definido</p>
                       ) : (
                         <div className="space-y-1">
                           {squad.workflows.map(wf => (
                             <div key={wf.id} className="text-xs bg-secondary/30 rounded-md px-2.5 py-1.5 flex items-center gap-2">
-                              <GitBranch className="w-3 h-3 text-muted-foreground/40 shrink-0" />
+                              <GitBranch className="w-3 h-3 text-muted-foreground/70 shrink-0" />
                               <Input
                                 className="h-5 text-xs bg-transparent border-none p-0 flex-1"
                                 value={wf.name}

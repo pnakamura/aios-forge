@@ -151,13 +151,13 @@ export function ChatPanel() {
 
       {/* Quick chips - visible when conversation exists */}
       {messages.length > 0 && (
-        <div className="px-4 py-2 border-t border-border/30 bg-card/20 flex items-center gap-2 flex-wrap shrink-0">
+        <div className="px-4 py-2 border-t border-border/30 bg-card/50 flex items-center gap-2 flex-wrap shrink-0">
           {quickChips.map(chip => (
             <button
               key={chip.label}
               onClick={() => sendMessage(chip.msg)}
               disabled={isLoading}
-              className="text-[11px] px-3 py-1 rounded-full border border-border/50 bg-secondary/30 hover:border-primary/30 hover:bg-primary/5 text-muted-foreground hover:text-foreground transition-all disabled:opacity-50"
+              className="text-[11px] px-3 py-1 rounded-full border border-border/50 bg-secondary/50 hover:border-primary/30 hover:bg-primary/5 text-muted-foreground hover:text-foreground transition-all disabled:opacity-50"
             >
               {chip.label}
             </button>
