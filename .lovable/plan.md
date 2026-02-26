@@ -1,75 +1,89 @@
 
 
-# AIOS Compliance Review Step
+# Aprimorar Criacao e Edicao de Agentes
 
-## Overview
-Add an AI-powered compliance review system that validates every generated file against AIOS standards before the project can be saved or exported. This includes a new backend function for automated review, a visual compliance dashboard in the FilePreview panel, and integration into the wizard flow.
+## Resumo
+Criar um editor completo de agentes com suporte a CRUD de comandos, ferramentas (tools), skills e memoria. Substituir os dialogs limitados atuais por um editor unificado e reutilizavel.
 
-## What Changes
+## O que muda
 
-### 1. New Edge Function: `aios-compliance-review`
-A backend function that receives generated file content and uses Lovable AI (gemini-3-flash-preview) to validate each file against AIOS compliance rules:
-- YAML files: valid structure, required fields (name, version, slug), proper agent/squad references
-- MD files: frontmatter present, required sections (Role, System Prompt, Commands for agents)
-- Squad manifests: agent references exist, tasks have assigned agents, workflows have steps
-- Config files: all agents/squads referenced, orchestration pattern valid
+### 1. Novo tipo: campo `memory` no AiosAgent
+Adicionar campo `memory` ao tipo `AiosAgent` em `src/types/aios.ts`:
+- `memory: AgentMemory[]` - lista de entradas de memoria
+- Novo tipo `AgentMemory` com campos: `id`, `key`, `content`, `type` (short_term | long_term | episodic)
 
-The function returns per-file results: `passed`, `failed`, or `warning` with specific notes.
+### 2. Novo componente: `AgentEditor.tsx`
+Criar `src/components/wizard/AgentEditor.tsx` - um dialog/sheet completo com abas para editar todos os campos de um agente:
 
-Uses tool calling to extract structured output (array of file results with status and notes).
+**Aba "Geral":**
+- Nome, Slug, Role, Categoria, Modelo LLM, Visibilidade
+- System Prompt (textarea expandivel)
 
-### 2. Update `FilePreview.tsx`
-- Add a "Run Compliance Review" button at the top of the file tree panel
-- Show compliance status badges (green checkmark, yellow warning, red X) next to each file in the tree
-- Display compliance notes below the file content when a file is selected
-- Show an overall compliance summary bar (e.g., "6/8 files passed")
-- Loading state while review is running
+**Aba "Comandos":**
+- Lista de comandos existentes com botao de remover (X)
+- Input + botao "Adicionar" para novos comandos
+- Cada comando exibido como badge editavel
 
-### 3. Update `WizardPage.tsx` Review Step
-- In the `review` step content, add a compliance summary section showing pass/fail counts
-- Add a "Run Review" button that triggers the compliance check on all generated files
-- Store compliance results in the wizard store
-- Disable "Save Project" and "Download ZIP" buttons until compliance review has been run (warn, don't block)
+**Aba "Ferramentas":**
+- Mesmo padrao: lista + adicionar/remover
+- Cada ferramenta com nome e descricao opcional
 
-### 4. Update `wizard-store.ts`
-- Add `complianceResults: Record<string, { status: string; notes: string }>` to state
-- Add `setComplianceResults` action
-- Add `complianceReviewed: boolean` flag
+**Aba "Skills":**
+- Lista + adicionar/remover
+- Cada skill como tag/badge
 
-### 5. Update `generateFileTree` function
-- Use compliance results from store to set `complianceStatus` and `complianceNotes` on each `GeneratedFile` instead of hardcoding `'passed'`
+**Aba "Memoria":**
+- Lista de entradas de memoria com key/content/type
+- Botao para adicionar nova entrada
+- Select para tipo (short_term, long_term, episodic)
+- Botao remover por entrada
 
-### 6. Persist compliance in database
-- When saving the project, store each file's `compliance_status` and `compliance_notes` (columns already exist in `generated_files` table)
+Usa o componente `Tabs` do shadcn/ui para organizar as secoes.
+
+### 3. Atualizar `AgentCatalog.tsx`
+- Dialog de criacao customizado: incluir campos para comandos, tools, skills (com o mesmo padrao de lista + adicionar)
+- Ao clicar em um agente ja adicionado, abrir o `AgentEditor` em modo edicao em vez do dialog de detalhes read-only
+- Manter o dialog de detalhes para agentes nativos nao adicionados (visualizacao)
+
+### 4. Atualizar `ArchitectureDiagram.tsx`
+- Substituir o dialog de edicao simples (linhas 888-990) pelo componente `AgentEditor`
+- Corrigir o bug de build na linha 739: usar `ConnectionLineType.SmoothStep` em vez da string `"smoothstep"`
+
+### 5. Atualizar `wizard-store.ts`
+- `updateAgent` ja funciona com `Partial<AiosAgent>`, nenhuma alteracao necessaria no store
+
+### 6. Atualizar banco de dados
+- Nao precisa de migracao: o campo `memory` sera armazenado dentro do JSONB `config` do projeto, ou podemos adicionar uma coluna `memory jsonb default '[]'` na tabela `agents`
 
 ---
 
-## Technical Details
+## Detalhes Tecnicos
 
-### Edge Function: `supabase/functions/aios-compliance-review/index.ts`
-- Input: `{ files: Array<{ path, content, type }> }`
-- Uses tool calling with a `validate_files` function schema to get structured output
-- System prompt defines AIOS compliance rules (required fields per file type, naming conventions, cross-references)
-- Returns: `{ results: Array<{ path, status: 'passed'|'failed'|'warning', notes: string }> }`
-
-### Config update: `supabase/config.toml`
-- Add `[functions.aios-compliance-review]` with `verify_jwt = false`
-
-### Store changes
+### Novo tipo `AgentMemory`
 ```text
-complianceResults: {}
-complianceReviewed: false
-setComplianceResults(results) -> updates both fields
-reset() -> clears compliance state
+interface AgentMemory {
+  id: string;
+  key: string;
+  content: string;
+  type: 'short_term' | 'long_term' | 'episodic';
+}
 ```
 
-### FilePreview UI additions
-- Badge component per file showing status color
-- Summary bar at top: "X/Y passed | Z warnings | W failed"
-- Button triggers `supabase.functions.invoke('aios-compliance-review', { body: { files } })`
-- Notes panel below file content viewer
+### Componente `AgentEditor` - padrao de lista editavel
+Cada secao (commands, tools, skills, memory) segue o mesmo padrao:
+- Estado local com array de itens
+- Input controlado + botao "Adicionar" (ou Enter para confirmar)
+- Itens renderizados como badges/cards com botao X para remover
+- Ao salvar, chama `updateAgent(slug, { commands, tools, skills, memory })`
 
-### Review step changes
-- Show compliance card with summary stats
-- "Review Compliance" button
-- Toast warning if user tries to save without review
+### Correcao do bug de build
+Na linha 739 de `ArchitectureDiagram.tsx`:
+- Importar `ConnectionLineType` de `@xyflow/react`
+- Trocar `connectionLineType="smoothstep"` por `connectionLineType={ConnectionLineType.SmoothStep}`
+
+### Arquivos impactados
+- `src/types/aios.ts` - adicionar `AgentMemory`, campo `memory` em `AiosAgent`
+- `src/components/wizard/AgentEditor.tsx` - novo componente (editor completo com abas)
+- `src/components/wizard/AgentCatalog.tsx` - integrar AgentEditor, melhorar dialog de criacao
+- `src/components/wizard/ArchitectureDiagram.tsx` - usar AgentEditor, corrigir bug de build
+- `supabase/migrations/` - adicionar coluna `memory` na tabela `agents` (opcional)
