@@ -1,11 +1,11 @@
 import { useWizardStore } from '@/stores/wizard-store';
-import { AiosSquad, SquadTask, SquadWorkflow, WorkflowStep } from '@/types/aios';
+import { AiosSquad, SquadTask } from '@/types/aios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Users, ListChecks, GitBranch } from 'lucide-react';
+import { Plus, Trash2, Users, ListChecks, Bot, ChevronDown, ChevronRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -13,33 +13,36 @@ import { cn } from '@/lib/utils';
 export function SquadBuilder() {
   const { squads, agents, addSquad, removeSquad, updateSquad } = useWizardStore();
   const [showCreate, setShowCreate] = useState(false);
-  const [editSquad, setEditSquad] = useState<AiosSquad | null>(null);
-  const [form, setForm] = useState({ name: '', slug: '', description: '', agentIds: [] as string[] });
+  const [expandedSquad, setExpandedSquad] = useState<string | null>(null);
+  const [form, setForm] = useState({ name: '', description: '' });
 
   const handleCreate = () => {
     if (!form.name) return;
-    const slug = form.slug || form.name.toLowerCase().replace(/\s+/g, '-');
+    const slug = form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const squad: AiosSquad = {
       name: form.name,
       slug,
       description: form.description,
-      agentIds: form.agentIds,
+      agentIds: [],
       tasks: [],
       workflows: [],
       isValidated: false,
     };
     addSquad(squad);
     setShowCreate(false);
-    setForm({ name: '', slug: '', description: '', agentIds: [] });
+    setForm({ name: '', description: '' });
+    setExpandedSquad(slug);
   };
 
-  const toggleAgent = (slug: string) => {
-    setForm(f => ({
-      ...f,
-      agentIds: f.agentIds.includes(slug)
-        ? f.agentIds.filter(id => id !== slug)
-        : [...f.agentIds, slug],
-    }));
+  const toggleAgentInSquad = (squadSlug: string, agentSlug: string) => {
+    const squad = squads.find(s => s.slug === squadSlug);
+    if (!squad) return;
+    const has = squad.agentIds.includes(agentSlug);
+    updateSquad(squadSlug, {
+      agentIds: has
+        ? squad.agentIds.filter(id => id !== agentSlug)
+        : [...squad.agentIds, agentSlug],
+    });
   };
 
   const addTaskToSquad = (squadSlug: string) => {
@@ -56,143 +59,204 @@ export function SquadBuilder() {
     updateSquad(squadSlug, { tasks: [...squad.tasks, newTask] });
   };
 
-  const addWorkflowToSquad = (squadSlug: string) => {
+  const removeTaskFromSquad = (squadSlug: string, taskId: string) => {
     const squad = squads.find(s => s.slug === squadSlug);
     if (!squad) return;
-    const newWf: SquadWorkflow = {
-      id: crypto.randomUUID(),
-      name: 'Novo Workflow',
-      steps: [],
-    };
-    updateSquad(squadSlug, { workflows: [...squad.workflows, newWf] });
+    updateSquad(squadSlug, { tasks: squad.tasks.filter(t => t.id !== taskId) });
   };
+
 
   return (
     <div className="p-4 space-y-4 overflow-y-auto h-full">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-sm">Squads</h3>
+        <div>
+          <h3 className="font-semibold text-sm">Squads</h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            Agrupe seus {agents.length} agentes em equipes
+          </p>
+        </div>
         <Button variant="outline" size="sm" onClick={() => setShowCreate(true)} className="gap-1.5 text-xs">
           <Plus className="w-3.5 h-3.5" /> Novo Squad
         </Button>
       </div>
 
+      {agents.length === 0 && (
+        <div className="p-3 rounded-lg border border-yellow-500/30 dark:border-yellow-400/20 bg-yellow-500/10 dark:bg-yellow-400/5">
+          <p className="text-xs text-yellow-700 dark:text-yellow-400">Adicione agentes primeiro (etapa anterior) para poder atribui-los a squads.</p>
+        </div>
+      )}
+
       {squads.length === 0 ? (
-        <div className="text-center py-8">
-          <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">Nenhum squad criado</p>
-          <p className="text-xs text-muted-foreground mt-1">Crie squads para agrupar agentes em equipes</p>
+        <div className="text-center py-12">
+          <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground mb-1">Nenhum squad criado</p>
+          <p className="text-xs text-muted-foreground mb-4">
+            Squads agrupam agentes em equipes com tasks e workflows definidos.
+          </p>
+          <Button variant="outline" size="sm" onClick={() => setShowCreate(true)} className="gap-1.5">
+            <Plus className="w-3.5 h-3.5" /> Criar primeiro squad
+          </Button>
         </div>
       ) : (
         <div className="space-y-3">
-          {squads.map(squad => (
-            <div key={squad.slug} className="border border-border/50 rounded-lg p-4 bg-card/50 space-y-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h4 className="font-medium text-sm">{squad.name}</h4>
-                  <p className="text-xs text-muted-foreground">{squad.description || squad.slug}</p>
-                </div>
-                <Button variant="ghost" size="sm" onClick={() => removeSquad(squad.slug)}>
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-
-              {/* Agents */}
-              <div>
-                <p className="text-xs text-muted-foreground mb-1.5">Agentes ({squad.agentIds.length})</p>
-                <div className="flex gap-1.5 flex-wrap">
-                  {squad.agentIds.map(id => (
-                    <Badge key={id} variant="secondary" className="text-xs">{id}</Badge>
-                  ))}
-                  {squad.agentIds.length === 0 && <span className="text-xs text-muted-foreground">(vazio)</span>}
-                </div>
-              </div>
-
-              {/* Tasks */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <ListChecks className="w-3 h-3" /> Tasks ({squad.tasks.length})
-                  </p>
-                  <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => addTaskToSquad(squad.slug)}>
-                    <Plus className="w-3 h-3" />
+          {squads.map(squad => {
+            const isExpanded = expandedSquad === squad.slug;
+            return (
+              <div key={squad.slug} className="border border-border/50 rounded-lg bg-card/50 overflow-hidden">
+                {/* Squad header */}
+                <div
+                  className="flex items-center gap-3 p-3 cursor-pointer hover:bg-secondary/20 transition-colors"
+                  onClick={() => setExpandedSquad(isExpanded ? null : squad.slug)}
+                >
+                  {isExpanded
+                    ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  }
+                  <Users className="w-4 h-4 text-glow-success shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium text-sm">{squad.name}</span>
+                    <span className="text-[10px] text-muted-foreground ml-2">
+                      {squad.agentIds.length} agentes · {squad.tasks.length} tasks
+                    </span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 shrink-0"
+                    onClick={(e) => { e.stopPropagation(); removeSquad(squad.slug); }}
+                  >
+                    <Trash2 className="w-3 h-3" />
                   </Button>
                 </div>
-                {squad.tasks.map((task, ti) => (
-                  <div key={task.id} className="flex items-center gap-2 text-xs bg-secondary/30 rounded px-2 py-1 mb-1">
-                    <span className="text-muted-foreground">{ti + 1}.</span>
-                    <Input
-                      className="h-6 text-xs bg-transparent border-none p-0"
-                      value={task.name}
-                      onChange={(e) => {
-                        const updated = squad.tasks.map(t => t.id === task.id ? { ...t, name: e.target.value } : t);
-                        updateSquad(squad.slug, { tasks: updated });
-                      }}
-                    />
-                    <Badge variant="outline" className="text-[10px] shrink-0">{task.agentSlug || '?'}</Badge>
-                  </div>
-                ))}
-              </div>
 
-              {/* Workflows */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <GitBranch className="w-3 h-3" /> Workflows ({squad.workflows.length})
-                  </p>
-                  <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => addWorkflowToSquad(squad.slug)}>
-                    <Plus className="w-3 h-3" />
-                  </Button>
-                </div>
-                {squad.workflows.map(wf => (
-                  <div key={wf.id} className="text-xs bg-secondary/30 rounded px-2 py-1 mb-1">
-                    <Input
-                      className="h-6 text-xs bg-transparent border-none p-0"
-                      value={wf.name}
-                      onChange={(e) => {
-                        const updated = squad.workflows.map(w => w.id === wf.id ? { ...w, name: e.target.value } : w);
-                        updateSquad(squad.slug, { workflows: updated });
-                      }}
-                    />
+                {isExpanded && (
+                  <div className="px-3 pb-3 space-y-3 border-t border-border/30 pt-3">
+                    {/* Description */}
+                    {squad.description && (
+                      <p className="text-xs text-muted-foreground">{squad.description}</p>
+                    )}
+
+                    {/* Agent assignment - toggle grid */}
+                    <div>
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                        Atribuir agentes
+                      </p>
+                      {agents.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {agents.map(agent => {
+                            const isInSquad = squad.agentIds.includes(agent.slug);
+                            return (
+                              <button
+                                key={agent.slug}
+                                onClick={() => toggleAgentInSquad(squad.slug, agent.slug)}
+                                className={cn(
+                                  'flex items-center gap-2 px-2.5 py-2 rounded-md text-xs text-left transition-all border',
+                                  isInSquad
+                                    ? 'border-glow-success/40 bg-glow-success/10 text-glow-success'
+                                    : 'border-border/30 bg-secondary/20 text-muted-foreground hover:border-primary/30 hover:bg-primary/5'
+                                )}
+                              >
+                                <Bot className="w-3 h-3 shrink-0" />
+                                <span className="truncate flex-1">{agent.name}</span>
+                                {isInSquad && <span className="text-[9px] shrink-0">x</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Nenhum agente disponivel</p>
+                      )}
+                    </div>
+
+                    {/* Tasks */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                          <ListChecks className="w-3 h-3" /> Tasks
+                        </p>
+                        <Button variant="ghost" size="sm" className="h-5 text-[10px] px-2" onClick={() => addTaskToSquad(squad.slug)}>
+                          <Plus className="w-3 h-3 mr-1" /> Adicionar
+                        </Button>
+                      </div>
+                      {squad.tasks.length === 0 ? (
+                        <p className="text-[11px] text-muted-foreground py-1">Nenhuma task definida</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {squad.tasks.map((task, ti) => (
+                            <div key={task.id} className="flex items-center gap-2 text-xs bg-secondary/30 rounded-md px-2.5 py-1.5">
+                              <span className="text-muted-foreground font-mono text-[10px] w-4">{ti + 1}.</span>
+                              <Input
+                                className="h-5 text-xs bg-transparent border-none p-0 flex-1"
+                                value={task.name}
+                                onChange={(e) => {
+                                  const updated = squad.tasks.map(t => t.id === task.id ? { ...t, name: e.target.value } : t);
+                                  updateSquad(squad.slug, { tasks: updated });
+                                }}
+                              />
+                              {/* Agent assignment for task */}
+                              <select
+                                className="h-5 text-[10px] bg-transparent border border-border/30 rounded px-1 text-muted-foreground"
+                                value={task.agentSlug}
+                                onChange={(e) => {
+                                  const updated = squad.tasks.map(t => t.id === task.id ? { ...t, agentSlug: e.target.value } : t);
+                                  updateSquad(squad.slug, { tasks: updated });
+                                }}
+                              >
+                                <option value="">-- agente --</option>
+                                {squad.agentIds.map(id => {
+                                  const ag = agents.find(a => a.slug === id);
+                                  return <option key={id} value={id}>{ag?.name || id}</option>;
+                                })}
+                              </select>
+                              <button
+                                onClick={() => removeTaskFromSquad(squad.slug, task.id)}
+                                className="text-muted-foreground/70 hover:text-destructive transition-colors"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
                   </div>
-                ))}
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {/* Create Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="glass max-w-lg">
+        <DialogContent className="glass max-w-md">
           <DialogHeader>
             <DialogTitle>Criar Squad</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Nome</Label>
-              <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Ex: Frontend Team" />
+              <Label>Nome do Squad *</Label>
+              <Input
+                value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Ex: Frontend Team"
+                autoFocus
+              />
             </div>
             <div className="space-y-2">
-              <Label>Descrição</Label>
-              <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Objetivo do squad..." rows={2} />
+              <Label>Descricao</Label>
+              <Textarea
+                value={form.description}
+                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="Objetivo do squad..."
+                rows={2}
+              />
             </div>
-            <div className="space-y-2">
-              <Label>Agentes</Label>
-              <div className="flex gap-1.5 flex-wrap">
-                {agents.map(agent => (
-                  <Badge
-                    key={agent.slug}
-                    variant={form.agentIds.includes(agent.slug) ? 'default' : 'outline'}
-                    className="cursor-pointer text-xs"
-                    onClick={() => toggleAgent(agent.slug)}
-                  >
-                    {agent.name}
-                  </Badge>
-                ))}
-                {agents.length === 0 && <span className="text-xs text-muted-foreground">Adicione agentes primeiro</span>}
-              </div>
-            </div>
-            <Button onClick={handleCreate} className="w-full" disabled={!form.name}>
+            <p className="text-xs text-muted-foreground">
+              Apos criar, voce podera atribuir agentes e adicionar tasks diretamente no painel do squad.
+            </p>
+            <Button onClick={handleCreate} className="w-full" disabled={!form.name.trim()}>
               Criar Squad
             </Button>
           </div>

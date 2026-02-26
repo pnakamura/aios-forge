@@ -169,6 +169,7 @@ export type Database = {
           orchestration_pattern: Database["public"]["Enums"]["orchestration_pattern"]
           updated_at: string
           user_id: string
+          workflows: Json
         }
         Insert: {
           config?: Json
@@ -180,6 +181,7 @@ export type Database = {
           orchestration_pattern?: Database["public"]["Enums"]["orchestration_pattern"]
           updated_at?: string
           user_id: string
+          workflows?: Json
         }
         Update: {
           config?: Json
@@ -191,6 +193,7 @@ export type Database = {
           orchestration_pattern?: Database["public"]["Enums"]["orchestration_pattern"]
           updated_at?: string
           user_id?: string
+          workflows?: Json
         }
         Relationships: []
       }

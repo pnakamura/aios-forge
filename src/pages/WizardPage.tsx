@@ -1,12 +1,16 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useWizardStore } from '@/stores/wizard-store';
 import { StepProgress } from '@/components/wizard/StepProgress';
+import { StepContextPanel } from '@/components/wizard/StepContextPanel';
 import { ChatPanel } from '@/components/wizard/ChatPanel';
 import { AgentCatalog } from '@/components/wizard/AgentCatalog';
 import { SquadBuilder } from '@/components/wizard/SquadBuilder';
+import { WorkflowEditor } from '@/components/wizard/WorkflowEditor';
+import { useWorkflowStore } from '@/stores/workflow-store';
 import { FilePreview } from '@/components/wizard/FilePreview';
 import { ArchitectureDiagram } from '@/components/wizard/ArchitectureDiagram';
+import { ManualPanel } from '@/components/wizard/ManualPanel';
 import { ORCHESTRATION_PATTERNS } from '@/data/orchestration-patterns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,22 +18,32 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
   ArrowLeft, ArrowRight, Cpu, Bot, Users, Network,
-  FileText, GitBranch, Eye, Settings, Download, Check,
+  FileText, GitBranch, Check, Download, Package,
+  AlertCircle, Sparkles, Shield, BookOpen, Sun, Moon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { generateFileTree } from '@/components/wizard/FilePreview';
+import { useTheme } from '@/lib/theme';
+import { generateAiosPackage } from '@/lib/generate-aios-package';
 import JSZip from 'jszip';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function WizardPage() {
   const store = useWizardStore();
   const navigate = useNavigate();
-  const [rightPanel, setRightPanel] = useState<'preview' | 'diagram' | 'agents' | 'squads'>('agents');
+  const { id: editId } = useParams<{ id: string }>();
+  const { theme, toggleTheme } = useTheme();
+  const workflowStore = useWorkflowStore();
+  const [rightPanel, setRightPanel] = useState<'preview' | 'diagram' | 'agents' | 'squads' | 'workflows' | 'manual'>('agents');
   const [saving, setSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [loadingProject, setLoadingProject] = useState(false);
 
+  // Auth check
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -38,39 +52,137 @@ export default function WizardPage() {
     checkAuth();
   }, [navigate]);
 
-  // Auto-switch right panel based on step
+  // Reset store when visiting /wizard (new project) if previous editing state exists
+  useEffect(() => {
+    if (!editId && store.editingProjectId) {
+      store.reset();
+    }
+  }, [editId]);
+
+  // Load existing project for editing
+  useEffect(() => {
+    if (!editId) return;
+    // Only load if not already editing this project
+    if (store.editingProjectId === editId) return;
+
+    const loadExistingProject = async () => {
+      setLoadingProject(true);
+      try {
+        const [pRes, aRes, sRes] = await Promise.all([
+          supabase.from('projects').select('*').eq('id', editId).single(),
+          supabase.from('agents').select('*').eq('project_id', editId),
+          supabase.from('squads').select('*').eq('project_id', editId),
+        ]);
+        if (pRes.error) {
+          toast.error('Projeto nao encontrado');
+          navigate('/dashboard');
+          return;
+        }
+        store.loadProject({
+          projectId: editId,
+          project: pRes.data,
+          agents: aRes.data || [],
+          squads: sRes.data || [],
+        });
+        toast.success(`Projeto "${pRes.data.name}" carregado para edicao`);
+      } catch (err) {
+        toast.error('Erro ao carregar projeto');
+        navigate('/dashboard');
+      } finally {
+        setLoadingProject(false);
+      }
+    };
+    loadExistingProject();
+  }, [editId]);
+
+  // Track unsaved changes
+  useEffect(() => {
+    if (store.agents.length > 0 || store.project.name) {
+      setHasUnsavedChanges(true);
+    }
+  }, [store.agents, store.squads, store.project]);
+
+  // Warn on navigation away with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Auto-switch right panel based on current step
   useEffect(() => {
     switch (store.currentStep) {
-      case 'agents': setRightPanel('agents'); break;
-      case 'squads': setRightPanel('squads'); break;
-      case 'review': case 'generation': setRightPanel('preview'); break;
-      default: break;
+      case 'agents':
+        setRightPanel('diagram');
+        break;
+      case 'review':
+      case 'generation':
+        setRightPanel('manual');
+        break;
+      default:
+        setRightPanel('preview');
+        break;
     }
   }, [store.currentStep]);
+
+  // Compute live file count for the evolution header
+  const fileCount = useMemo(
+    () => generateAiosPackage({ project: store.project, agents: store.agents, squads: store.squads, workflows: workflowStore.workflows, complianceResults: store.complianceResults }).length,
+    [store.project, store.agents, store.squads, store.complianceResults, workflowStore.workflows]
+  );
 
   const handleSaveProject = async () => {
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Não autenticado');
+      if (!user) throw new Error('Nao autenticado');
 
-      // Create project
-      const projectData = {
-        name: store.project.name || 'Meu AIOS',
-        description: store.project.description || '',
-        domain: store.project.domain || 'software',
-        orchestration_pattern: (store.project.orchestrationPattern || 'TASK_FIRST') as any,
-        config: JSON.parse(JSON.stringify(store.project.config || {})),
-        user_id: user.id,
-      };
-      const { data: proj, error: projErr } = await supabase.from('projects').insert(projectData as any).select().single();
+      const isUpdate = !!store.editingProjectId;
+      let projectId: string;
 
-      if (projErr) throw projErr;
+      if (isUpdate) {
+        // ── Update existing project ──
+        projectId = store.editingProjectId!;
+        const { error: projErr } = await supabase.from('projects').update({
+          name: store.project.name || 'Meu AIOS',
+          description: store.project.description || '',
+          domain: store.project.domain || 'software',
+          orchestration_pattern: (store.project.orchestrationPattern || 'TASK_FIRST') as any,
+          config: JSON.parse(JSON.stringify(store.project.config || {})),
+          workflows: JSON.parse(JSON.stringify(workflowStore.workflows)),
+        } as any).eq('id', projectId);
+        if (projErr) throw projErr;
 
-      // Create agents
-      for (const agent of store.agents) {
-        await supabase.from('agents').insert({
-          project_id: proj.id,
+        // Delete old children and re-insert (simplest approach for full sync)
+        await Promise.all([
+          supabase.from('agents').delete().eq('project_id', projectId),
+          supabase.from('squads').delete().eq('project_id', projectId),
+          supabase.from('generated_files').delete().eq('project_id', projectId),
+        ]);
+      } else {
+        // ── Create new project ──
+        const { data: proj, error: projErr } = await supabase.from('projects').insert({
+          name: store.project.name || 'Meu AIOS',
+          description: store.project.description || '',
+          domain: store.project.domain || 'software',
+          orchestration_pattern: (store.project.orchestrationPattern || 'TASK_FIRST') as any,
+          config: JSON.parse(JSON.stringify(store.project.config || {})),
+          workflows: JSON.parse(JSON.stringify(workflowStore.workflows)),
+          user_id: user.id,
+        } as any).select().single();
+        if (projErr) throw projErr;
+        projectId = proj.id;
+      }
+
+      // Batch insert agents
+      if (store.agents.length > 0) {
+        const agentRows = store.agents.map(agent => ({
+          project_id: projectId,
           name: agent.name,
           slug: agent.slug,
           role: agent.role,
@@ -82,13 +194,15 @@ export default function WizardPage() {
           visibility: agent.visibility,
           is_custom: agent.isCustom,
           definition_md: '',
-        } as any);
+        }));
+        const { error: agentErr } = await supabase.from('agents').insert(agentRows as any);
+        if (agentErr) throw agentErr;
       }
 
-      // Create squads
-      for (const squad of store.squads) {
-        await supabase.from('squads').insert({
-          project_id: proj.id,
+      // Batch insert squads
+      if (store.squads.length > 0) {
+        const squadRows = store.squads.map(squad => ({
+          project_id: projectId,
           name: squad.name,
           slug: squad.slug,
           description: squad.description,
@@ -97,24 +211,29 @@ export default function WizardPage() {
           workflows: JSON.parse(JSON.stringify(squad.workflows)),
           agent_ids: JSON.parse(JSON.stringify(squad.agentIds)),
           is_validated: squad.isValidated,
-        } as any);
+        }));
+        const { error: squadErr } = await supabase.from('squads').insert(squadRows as any);
+        if (squadErr) throw squadErr;
       }
 
-      // Save generated files with compliance data
-      const files = generateFileTree(store.project, store.agents, store.squads, store.complianceResults);
-      for (const file of files) {
-        await supabase.from('generated_files').insert({
-          project_id: proj.id,
+      // Save generated files
+      const files = generateAiosPackage({ project: store.project, agents: store.agents, squads: store.squads, workflows: workflowStore.workflows, complianceResults: store.complianceResults });
+      if (files.length > 0) {
+        const fileRows = files.map(file => ({
+          project_id: projectId,
           path: file.path,
           content: file.content,
           file_type: file.type,
           compliance_status: file.complianceStatus,
           compliance_notes: file.complianceNotes || null,
-        });
+        }));
+        const { error: fileErr } = await supabase.from('generated_files').insert(fileRows);
+        if (fileErr) throw fileErr;
       }
 
-      toast.success('Projeto salvo com sucesso!');
-      navigate(`/project/${proj.id}`);
+      setHasUnsavedChanges(false);
+      toast.success(isUpdate ? 'Projeto atualizado!' : 'Projeto salvo!');
+      navigate(`/project/${projectId}`);
     } catch (err: any) {
       toast.error(err.message || 'Erro ao salvar');
     } finally {
@@ -122,8 +241,8 @@ export default function WizardPage() {
     }
   };
 
-  const handleDownloadZip = async () => {
-    const files = generateFileTree(store.project, store.agents, store.squads, store.complianceResults);
+  const handleDownloadZip = useCallback(async () => {
+    const files = generateAiosPackage({ project: store.project, agents: store.agents, squads: store.squads, workflows: workflowStore.workflows, complianceResults: store.complianceResults });
     const zip = new JSZip();
     files.forEach(f => zip.file(f.path, f.content));
     const blob = await zip.generateAsync({ type: 'blob' });
@@ -134,29 +253,61 @@ export default function WizardPage() {
     a.click();
     URL.revokeObjectURL(url);
     toast.success('ZIP baixado!');
-  };
+  }, [store.project, store.agents, store.squads, store.complianceResults, workflowStore.workflows]);
+
+  const canProceed = store.canProceed();
+  const stepIdx = store.getStepIndex();
+  const highestIdx = store.getHighestStepIndex();
 
   const renderStepContent = () => {
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={store.currentStep}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.2 }}
+          className="flex-1 flex flex-col min-h-0"
+        >
+          {renderStepInner()}
+        </motion.div>
+      </AnimatePresence>
+    );
+  };
+
+  const renderStepInner = () => {
     switch (store.currentStep) {
       case 'welcome':
-      case 'context_analysis':
         return <ChatPanel />;
 
       case 'project_config':
         return (
           <div className="p-6 space-y-6 overflow-y-auto h-full">
-            <h3 className="font-semibold">Configuração do Projeto</h3>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Configuracao do Projeto</h3>
+                <p className="text-xs text-muted-foreground">Defina os detalhes basicos do seu AIOS</p>
+              </div>
+            </div>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Nome do Projeto</Label>
+                <Label>Nome do Projeto *</Label>
                 <Input
                   value={store.project.name || ''}
                   onChange={e => store.updateProject({ name: e.target.value })}
                   placeholder="Meu AIOS"
+                  className={cn(!store.project.name && 'border-yellow-400/30')}
                 />
+                {!store.project.name && (
+                  <p className="text-[11px] text-yellow-600 dark:text-yellow-400 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Obrigatorio para prosseguir</p>
+                )}
               </div>
               <div className="space-y-2">
-                <Label>Descrição</Label>
+                <Label>Descricao</Label>
                 <Textarea
                   value={store.project.description || ''}
                   onChange={e => store.updateProject({ description: e.target.value })}
@@ -165,13 +316,16 @@ export default function WizardPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Domínio</Label>
+                <Label>Dominio</Label>
                 <div className="flex gap-2 flex-wrap">
-                  {['software', 'conteúdo', 'negócios', 'educação'].map(d => (
+                  {['software', 'conteudo', 'negocios', 'educacao', 'saude', 'financeiro'].map(d => (
                     <Badge
                       key={d}
                       variant={store.project.domain === d ? 'default' : 'outline'}
-                      className="cursor-pointer"
+                      className={cn(
+                        'cursor-pointer transition-all',
+                        store.project.domain === d && 'shadow-[var(--shadow-glow)]'
+                      )}
                       onClick={() => store.updateProject({ domain: d })}
                     >
                       {d}
@@ -180,24 +334,35 @@ export default function WizardPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Padrão de Orquestração</Label>
+                <Label>Padrao de Orquestracao</Label>
                 <div className="grid grid-cols-1 gap-2">
                   {ORCHESTRATION_PATTERNS.map(p => (
                     <button
                       key={p.id}
                       onClick={() => store.updateProject({ orchestrationPattern: p.id })}
                       className={cn(
-                        'text-left p-3 rounded-lg border transition-all',
+                        'text-left p-3 rounded-lg border transition-all group',
                         store.project.orchestrationPattern === p.id
-                          ? 'border-primary/40 bg-primary/5'
-                          : 'border-border/50 bg-card/30 hover:border-primary/20'
+                          ? 'border-primary/40 bg-primary/5 shadow-[0_0_15px_-5px_hsl(var(--glow-primary)/0.2)]'
+                          : 'border-border/50 bg-card/50 hover:border-primary/20'
                       )}
                     >
                       <div className="flex items-center gap-2 mb-1">
-                        <Network className="w-4 h-4 text-primary" />
+                        <Network className={cn(
+                          'w-4 h-4',
+                          store.project.orchestrationPattern === p.id ? 'text-primary' : 'text-muted-foreground group-hover:text-primary'
+                        )} />
                         <span className="font-medium text-sm">{p.name}</span>
+                        {store.project.orchestrationPattern === p.id && (
+                          <Check className="w-3.5 h-3.5 text-primary ml-auto" />
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground">{p.description}</p>
+                      <div className="flex gap-1 mt-2 flex-wrap">
+                        {p.useCases.slice(0, 2).map(uc => (
+                          <span key={uc} className="text-[10px] px-1.5 py-0.5 rounded bg-secondary/70 text-muted-foreground">{uc}</span>
+                        ))}
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -207,25 +372,57 @@ export default function WizardPage() {
         );
 
       case 'agents':
-        return <ChatPanel />;
+        return <AgentCatalog />;
 
       case 'squads':
-        return <ChatPanel />;
+        return <SquadBuilder />;
 
       case 'integrations':
         return (
           <div className="p-6 space-y-4 overflow-y-auto h-full">
-            <h3 className="font-semibold">Integrações</h3>
-            <p className="text-sm text-muted-foreground">Configure integrações externas para seu AIOS.</p>
-            {['Claude API', 'OpenAI API', 'N8N', 'Notion', 'Miro', 'MCP Server'].map(name => (
-              <div key={name} className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-card/30">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-accent/10 border border-accent/30 flex items-center justify-center">
+                <Network className="w-4 h-4 text-accent" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Integracoes</h3>
+                <p className="text-xs text-muted-foreground">Configure servicos externos para seu AIOS</p>
+              </div>
+            </div>
+            {[
+              { name: 'Claude API', desc: 'Modelos Anthropic (Claude Opus, Sonnet, Haiku)', configured: store.agents.some(a => a.llmModel.includes('claude')) },
+              { name: 'OpenAI API', desc: 'Modelos GPT (GPT-4o, GPT-4o-mini)', configured: store.agents.some(a => a.llmModel.includes('gpt')) },
+              { name: 'Google Gemini', desc: 'Modelos Google (Gemini Flash, Pro)', configured: store.agents.some(a => a.llmModel.includes('gemini')) },
+              { name: 'N8N', desc: 'Automacao de workflows', configured: false },
+              { name: 'Notion', desc: 'Documentacao e knowledge base', configured: false },
+              { name: 'MCP Server', desc: 'Model Context Protocol', configured: false },
+            ].map(integration => (
+              <div key={integration.name} className={cn(
+                'flex items-center justify-between p-4 rounded-xl border transition-all shadow-sm',
+                integration.configured
+                  ? 'border-glow-success/30 bg-glow-success/5'
+                  : 'border-border/60 bg-card/80'
+              )}>
                 <div className="flex items-center gap-3">
-                  <Settings className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm">{name}</span>
+                  <div className={cn(
+                    'w-9 h-9 rounded-lg flex items-center justify-center border',
+                    integration.configured ? 'bg-glow-success/10 border-glow-success/20' : 'bg-secondary/60 border-border/40'
+                  )}>
+                    {integration.configured ? <Check className="w-4 h-4 text-glow-success" /> : <Network className="w-4 h-4 text-muted-foreground" />}
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium">{integration.name}</span>
+                    <p className="text-xs text-muted-foreground">{integration.desc}</p>
+                  </div>
                 </div>
-                <Badge variant="outline" className="text-xs">Não configurado</Badge>
+                <Badge variant={integration.configured ? 'default' : 'outline'} className="text-xs">
+                  {integration.configured ? 'Auto-detectado' : 'Manual'}
+                </Badge>
               </div>
             ))}
+            <p className="text-xs text-muted-foreground mt-4">
+              As API keys serao configuradas no arquivo <code className="px-1 py-0.5 rounded bg-muted text-xs">.env</code> do pacote gerado.
+            </p>
           </div>
         );
 
@@ -234,44 +431,118 @@ export default function WizardPage() {
         const passed = Object.values(store.complianceResults).filter(r => r.status === 'passed').length;
         const warnings = Object.values(store.complianceResults).filter(r => r.status === 'warning').length;
         const failed = Object.values(store.complianceResults).filter(r => r.status === 'failed').length;
+        const files = generateAiosPackage({ project: store.project, agents: store.agents, squads: store.squads, workflows: workflowStore.workflows });
+
         return (
           <div className="p-6 space-y-4 overflow-y-auto h-full">
-            <h3 className="font-semibold">Revisão do Projeto</h3>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center">
+                <Shield className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Revisao do Projeto</h3>
+                <p className="text-xs text-muted-foreground">Revise antes de gerar o pacote</p>
+              </div>
+            </div>
+
             <div className="space-y-3">
-              <div className="p-3 rounded-lg border border-border/50 bg-card/50">
-                <p className="text-xs text-muted-foreground mb-1">Projeto</p>
-                <p className="font-medium text-sm">{store.project.name || '(sem nome)'}</p>
-                <p className="text-xs text-muted-foreground">{store.project.domain} • {store.project.orchestrationPattern}</p>
-              </div>
-              <div className="p-3 rounded-lg border border-border/50 bg-card/50">
-                <p className="text-xs text-muted-foreground mb-1">Agentes ({store.agents.length})</p>
-                <div className="flex gap-1.5 flex-wrap">
-                  {store.agents.map(a => <Badge key={a.slug} variant="secondary" className="text-xs">{a.name}</Badge>)}
+              {/* Project summary */}
+              <div className="p-4 rounded-xl border border-border/60 bg-card/80 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-5 h-5 rounded-md bg-primary/10 flex items-center justify-center">
+                    <Sparkles className="w-3 h-3 text-primary" />
+                  </div>
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Projeto</p>
+                </div>
+                <p className="font-semibold">{store.project.name || '(sem nome)'}</p>
+                <p className="text-sm text-muted-foreground mt-1">{store.project.description || 'Sem descricao'}</p>
+                <div className="flex gap-2 mt-3">
+                  <Badge variant="secondary" className="text-xs">{store.project.domain}</Badge>
+                  <Badge variant="secondary" className="text-xs">{store.project.orchestrationPattern}</Badge>
                 </div>
               </div>
-              <div className="p-3 rounded-lg border border-border/50 bg-card/50">
-                <p className="text-xs text-muted-foreground mb-1">Squads ({store.squads.length})</p>
+
+              {/* Agents */}
+              <div className="p-4 rounded-xl border border-border/60 bg-card/80 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-md bg-accent/10 flex items-center justify-center">
+                      <Bot className="w-3 h-3 text-accent" />
+                    </div>
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Agentes</p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px]">{store.agents.length}</Badge>
+                </div>
                 <div className="flex gap-1.5 flex-wrap">
-                  {store.squads.map(s => <Badge key={s.slug} variant="secondary" className="text-xs">{s.name}</Badge>)}
+                  {store.agents.map(a => (
+                    <Badge key={a.slug} variant="secondary" className="text-xs gap-1">
+                      <Bot className="w-3 h-3" />{a.name}
+                    </Badge>
+                  ))}
+                  {store.agents.length === 0 && <span className="text-xs text-yellow-600 dark:text-yellow-400">Nenhum agente adicionado</span>}
                 </div>
               </div>
-              {/* Compliance summary */}
+
+              {/* Squads */}
+              <div className="p-4 rounded-xl border border-border/60 bg-card/80 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-md bg-glow-success/10 flex items-center justify-center">
+                      <Users className="w-3 h-3 text-glow-success" />
+                    </div>
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Squads</p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px]">{store.squads.length}</Badge>
+                </div>
+                <div className="flex gap-1.5 flex-wrap">
+                  {store.squads.map(s => (
+                    <Badge key={s.slug} variant="secondary" className="text-xs gap-1">
+                      <Users className="w-3 h-3" />{s.name}
+                    </Badge>
+                  ))}
+                  {store.squads.length === 0 && <span className="text-xs text-muted-foreground">(opcional)</span>}
+                </div>
+              </div>
+
+              {/* Package summary */}
+              <div className="p-4 rounded-xl border border-primary/25 bg-primary/5 shadow-sm">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-5 h-5 rounded-md bg-primary/15 flex items-center justify-center">
+                    <Package className="w-3 h-3 text-primary" />
+                  </div>
+                  <p className="text-xs font-medium text-primary">Pacote de Instalacao</p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {files.length} arquivos serao gerados incluindo: runtime TypeScript, configuracoes YAML,
+                  definicoes de agentes, manifests de squads, Dockerfile, scripts de setup e documentacao completa.
+                </p>
+              </div>
+
+              {/* Compliance */}
               <div className={cn(
-                'p-3 rounded-lg border',
+                'p-4 rounded-xl border shadow-sm',
                 store.complianceReviewed
                   ? failed > 0 ? 'border-destructive/30 bg-destructive/5' : 'border-glow-success/30 bg-glow-success/5'
-                  : 'border-border/50 bg-card/50'
+                  : 'border-border/60 bg-card/80'
               )}>
-                <p className="text-xs text-muted-foreground mb-1">Conformidade AIOS</p>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={cn(
+                    'w-5 h-5 rounded-md flex items-center justify-center',
+                    store.complianceReviewed && failed === 0 ? 'bg-glow-success/15' : 'bg-secondary'
+                  )}>
+                    <Shield className="w-3 h-3 text-muted-foreground" />
+                  </div>
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Conformidade AIOS</p>
+                </div>
                 {store.complianceReviewed ? (
                   <div className="flex items-center gap-3 text-sm">
                     <span className="text-glow-success font-medium">{passed} aprovados</span>
-                    {warnings > 0 && <span className="text-yellow-400 font-medium">{warnings} avisos</span>}
+                    {warnings > 0 && <span className="text-yellow-600 dark:text-yellow-400 font-medium">{warnings} avisos</span>}
                     {failed > 0 && <span className="text-destructive font-medium">{failed} reprovados</span>}
-                    <span className="text-muted-foreground">de {total}</span>
+                    <span className="text-muted-foreground text-xs">de {total}</span>
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Execute a revisão na aba Arquivos para validar.</p>
+                  <p className="text-xs text-muted-foreground">Execute a revisao na aba Arquivos para validar.</p>
                 )}
               </div>
             </div>
@@ -282,24 +553,44 @@ export default function WizardPage() {
       case 'generation':
         return (
           <div className="p-6 space-y-6 overflow-y-auto h-full flex flex-col items-center justify-center text-center">
-            <div className="w-16 h-16 rounded-2xl bg-glow-success/10 border border-glow-success/30 flex items-center justify-center">
-              <Check className="w-8 h-8 text-glow-success" />
-            </div>
-            <h3 className="font-semibold text-lg">Pronto para gerar!</h3>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              Seu AIOS está configurado. Salve o projeto no banco ou baixe o ZIP com todos os arquivos.
-            </p>
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+              className="w-20 h-20 rounded-2xl bg-glow-success/10 border border-glow-success/30 flex items-center justify-center shadow-[0_0_40px_-10px_hsl(var(--glow-success)/0.3)]"
+            >
+              <Package className="w-10 h-10 text-glow-success" />
+            </motion.div>
+            <motion.div
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.15 }}
+            >
+              <h3 className="font-bold text-xl mb-2">Pacote Pronto!</h3>
+              <p className="text-sm text-muted-foreground max-w-md">
+                Seu AIOS <strong className="text-foreground">{store.project.name || 'Meu AIOS'}</strong> esta
+                configurado e pronto para uso. O pacote inclui runtime completo, configuracoes, Docker e documentacao.
+              </p>
+            </motion.div>
             {!store.complianceReviewed && (
-              <p className="text-xs text-yellow-400">⚠ Revisão de conformidade não executada. Recomendamos revisar antes de salvar.</p>
+              <p className="text-xs text-yellow-600 dark:text-yellow-400 flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5" />
+                Revisao de conformidade nao executada. Recomendamos revisar antes de salvar.
+              </p>
             )}
-            <div className="flex gap-3">
-              <Button onClick={handleSaveProject} disabled={saving} className="gap-2">
-                {saving ? 'Salvando...' : 'Salvar Projeto'}
+            <motion.div
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="flex gap-3"
+            >
+              <Button onClick={handleSaveProject} disabled={saving} className="gap-2 h-11 px-6 shadow-[var(--shadow-glow)]">
+                {saving ? 'Salvando...' : store.editingProjectId ? 'Atualizar Projeto' : 'Salvar Projeto'}
               </Button>
-              <Button variant="outline" onClick={handleDownloadZip} className="gap-2">
+              <Button variant="outline" onClick={handleDownloadZip} className="gap-2 h-11 px-6" data-download-zip>
                 <Download className="w-4 h-4" /> Download ZIP
               </Button>
-            </div>
+            </motion.div>
           </div>
         );
 
@@ -308,52 +599,177 @@ export default function WizardPage() {
     }
   };
 
+  if (loadingProject) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center animate-pulse">
+            <Package className="w-6 h-6 text-primary" />
+          </div>
+          <p className="text-sm text-muted-foreground">Carregando projeto para edicao...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-2 border-b border-border/50 shrink-0">
+      <header className="flex items-center justify-between px-4 py-2 border-b border-border/50 shrink-0 bg-card/30 backdrop-blur-sm">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+          <Button variant="ghost" size="sm" onClick={() => {
+            if (hasUnsavedChanges && !confirm('Tem alteracoes nao salvas. Deseja sair?')) return;
+            navigate('/dashboard');
+          }}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div className="flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-primary" />
-            <span className="font-semibold text-sm">AIOS Wizard</span>
+            <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center">
+              <Cpu className="w-3.5 h-3.5 text-primary" />
+            </div>
+            <div>
+              <span className="font-semibold text-sm">AIOS Wizard</span>
+              {store.project.name && (
+                <span className="text-xs text-muted-foreground ml-2">— {store.project.name}</span>
+              )}
+            </div>
           </div>
         </div>
         <StepProgress />
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={store.prevStep} disabled={store.getStepIndex() === 0}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+            className="w-8 h-8 p-0"
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </Button>
+          <div className="w-px h-5 bg-border/40" />
+          <Button variant="ghost" size="sm" onClick={store.prevStep} disabled={stepIdx === 0}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <Button size="sm" onClick={store.nextStep} disabled={store.currentStep === 'generation'} className="gap-1.5">
-            Próximo <ArrowRight className="w-4 h-4" />
+          <Button
+            size="sm"
+            onClick={store.nextStep}
+            disabled={store.currentStep === 'generation' || !canProceed}
+            className={cn('gap-1.5', !canProceed && 'opacity-50')}
+          >
+            Proximo <ArrowRight className="w-4 h-4" />
           </Button>
         </div>
       </header>
 
-      {/* Main content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left panel */}
-        <div className="flex-1 border-r border-border/50 flex flex-col min-w-0">
-          {renderStepContent()}
-        </div>
+      {/* Main content — resizable panels */}
+      <div className="flex-1 overflow-hidden bg-muted/30 p-2">
+        <ResizablePanelGroup direction="horizontal" className="h-full gap-2">
+          {/* Left panel */}
+          <ResizablePanel defaultSize={55} minSize={30} maxSize={75} className="rounded-xl border border-border/60 bg-background overflow-hidden shadow-sm">
+            <div className="flex flex-col h-full min-w-0">
+              <StepContextPanel />
+              {renderStepContent()}
+            </div>
+          </ResizablePanel>
 
-        {/* Right panel */}
-        <div className="w-[45%] flex flex-col min-w-0">
-          <Tabs value={rightPanel} onValueChange={(v) => setRightPanel(v as any)} className="flex flex-col h-full">
-            <TabsList className="mx-2 mt-2 shrink-0">
-              <TabsTrigger value="agents" className="gap-1.5 text-xs"><Bot className="w-3.5 h-3.5" /> Agentes</TabsTrigger>
-              <TabsTrigger value="squads" className="gap-1.5 text-xs"><Users className="w-3.5 h-3.5" /> Squads</TabsTrigger>
-              <TabsTrigger value="diagram" className="gap-1.5 text-xs"><GitBranch className="w-3.5 h-3.5" /> Diagrama</TabsTrigger>
-              <TabsTrigger value="preview" className="gap-1.5 text-xs"><FileText className="w-3.5 h-3.5" /> Arquivos</TabsTrigger>
-            </TabsList>
-            <TabsContent value="agents" className="flex-1 overflow-hidden m-0"><AgentCatalog /></TabsContent>
-            <TabsContent value="squads" className="flex-1 overflow-hidden m-0"><SquadBuilder /></TabsContent>
-            <TabsContent value="diagram" className="flex-1 overflow-hidden m-0"><ArchitectureDiagram /></TabsContent>
-            <TabsContent value="preview" className="flex-1 overflow-hidden m-0"><FilePreview /></TabsContent>
-          </Tabs>
-        </div>
+          <ResizableHandle withHandle className="bg-transparent w-2 hover:bg-primary/10 active:bg-primary/20 transition-colors rounded-full data-[resize-handle-active]:bg-primary/20" />
+
+          {/* Right panel */}
+          <ResizablePanel defaultSize={45} minSize={25} maxSize={70} className="rounded-xl border border-border/60 bg-background overflow-hidden shadow-sm">
+            <div className="flex flex-col h-full min-w-0">
+              {/* Evolution status header */}
+              <div className="px-4 py-3 border-b border-border/50 bg-card/80 shrink-0">
+                <div className="flex items-center gap-4">
+                  {/* Circular progress ring */}
+                  <div className="relative w-11 h-11 shrink-0">
+                    <svg className="w-11 h-11 -rotate-90" viewBox="0 0 44 44">
+                      <circle cx="22" cy="22" r="18" fill="none" stroke="hsl(var(--secondary))" strokeWidth="3" />
+                      <motion.circle
+                        cx="22" cy="22" r="18" fill="none"
+                        stroke="hsl(var(--primary))"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeDasharray={113.1}
+                        animate={{ strokeDashoffset: 113.1 - (113.1 * ((highestIdx + 1) / 7)) }}
+                        transition={{ duration: 0.5, ease: 'easeOut' }}
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-[10px] font-bold text-primary">{highestIdx + 1}/7</span>
+                    </div>
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-[11px] font-semibold truncate">
+                        {store.project.name || 'Novo AIOS'}
+                      </span>
+                    </div>
+                    <div className="flex gap-3 text-[10px]">
+                      <span className={cn(
+                        'flex items-center gap-1 px-1.5 py-0.5 rounded-md transition-colors',
+                        store.agents.length > 0 ? 'text-glow-success bg-glow-success/10' : 'text-muted-foreground'
+                      )}>
+                        <Bot className="w-3 h-3" />
+                        <span className="font-mono font-bold">{store.agents.length}</span>
+                      </span>
+                      <span className={cn(
+                        'flex items-center gap-1 px-1.5 py-0.5 rounded-md transition-colors',
+                        store.squads.length > 0 ? 'text-glow-success bg-glow-success/10' : 'text-muted-foreground'
+                      )}>
+                        <Users className="w-3 h-3" />
+                        <span className="font-mono font-bold">{store.squads.length}</span>
+                      </span>
+                      <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-primary bg-primary/10">
+                        <FileText className="w-3 h-3" />
+                        <span className="font-mono font-bold">{fileCount}</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Tabs value={rightPanel} onValueChange={(v) => setRightPanel(v as any)} className="flex flex-col flex-1 min-h-0">
+                <TabsList className="mx-3 mt-3 shrink-0 bg-muted/50 p-1 rounded-lg">
+                  <TabsTrigger value="agents" className="gap-1.5 text-xs rounded-md">
+                    <Bot className="w-3.5 h-3.5" /> Agentes
+                    <span className={cn(
+                      'ml-1 w-4 h-4 rounded-full text-[10px] flex items-center justify-center',
+                      store.agents.length > 0 ? 'bg-glow-success/20 text-glow-success' : 'bg-secondary text-muted-foreground'
+                    )}>{store.agents.length}</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="squads" className="gap-1.5 text-xs rounded-md">
+                    <Users className="w-3.5 h-3.5" /> Squads
+                    <span className={cn(
+                      'ml-1 w-4 h-4 rounded-full text-[10px] flex items-center justify-center',
+                      store.squads.length > 0 ? 'bg-glow-success/20 text-glow-success' : 'bg-secondary text-muted-foreground'
+                    )}>{store.squads.length}</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="workflows" className="gap-1.5 text-xs rounded-md">
+                    <GitBranch className="w-3.5 h-3.5" /> Workflows
+                    <span className={cn(
+                      'ml-1 w-4 h-4 rounded-full text-[10px] flex items-center justify-center',
+                      workflowStore.workflows.length > 0 ? 'bg-glow-success/20 text-glow-success' : 'bg-secondary text-muted-foreground'
+                    )}>{workflowStore.workflows.length}</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="diagram" className="gap-1.5 text-xs rounded-md"><Network className="w-3.5 h-3.5" /> Diagrama</TabsTrigger>
+                  <TabsTrigger value="preview" className="gap-1.5 text-xs rounded-md">
+                    <FileText className="w-3.5 h-3.5" /> Arquivos
+                    <span className="ml-1 w-5 h-4 rounded-full bg-primary/20 text-primary text-[10px] flex items-center justify-center">{fileCount}</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="manual" className="gap-1.5 text-xs rounded-md"><BookOpen className="w-3.5 h-3.5" /> Manual</TabsTrigger>
+                </TabsList>
+                <TabsContent value="agents" className="flex-1 overflow-hidden m-0"><AgentCatalog /></TabsContent>
+                <TabsContent value="squads" className="flex-1 overflow-hidden m-0"><SquadBuilder /></TabsContent>
+                <TabsContent value="workflows" className="flex-1 overflow-hidden m-0"><WorkflowEditor /></TabsContent>
+                <TabsContent value="diagram" className="flex-1 overflow-hidden m-0"><ArchitectureDiagram /></TabsContent>
+                <TabsContent value="preview" className="flex-1 overflow-hidden m-0"><FilePreview /></TabsContent>
+                <TabsContent value="manual" className="flex-1 overflow-hidden m-0"><ManualPanel /></TabsContent>
+              </Tabs>
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </div>
     </div>
   );

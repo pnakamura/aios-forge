@@ -50,7 +50,7 @@ Return results using the validate_files tool.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.0-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Validate these ${files.length} AIOS files:\n\n${filesDescription}` },

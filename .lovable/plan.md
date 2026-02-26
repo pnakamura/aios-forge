@@ -1,75 +1,130 @@
 
 
-# AIOS Compliance Review Step
+# Workflows Macro-Level: Definicao e Visualizacao
 
-## Overview
-Add an AI-powered compliance review system that validates every generated file against AIOS standards before the project can be saved or exported. This includes a new backend function for automated review, a visual compliance dashboard in the FilePreview panel, and integration into the wizard flow.
+## Diagnostico Tecnico
 
-## What Changes
+### Estado atual
+Os workflows estao acoplados exclusivamente a `AiosSquad.workflows[]` (tipo `SquadWorkflow`). A UI no `SquadBuilder.tsx` permite apenas criar workflows e editar nomes - nao ha edicao de steps. O `orchestrator.ts` gerado **ignora completamente os workflows** e roteia tarefas apenas pelo `pattern` hardcoded. Ou seja, workflows sao decorativos - nao influenciam a execucao.
 
-### 1. New Edge Function: `aios-compliance-review`
-A backend function that receives generated file content and uses Lovable AI (gemini-3-flash-preview) to validate each file against AIOS compliance rules:
-- YAML files: valid structure, required fields (name, version, slug), proper agent/squad references
-- MD files: frontmatter present, required sections (Role, System Prompt, Commands for agents)
-- Squad manifests: agent references exist, tasks have assigned agents, workflows have steps
-- Config files: all agents/squads referenced, orchestration pattern valid
-
-The function returns per-file results: `passed`, `failed`, or `warning` with specific notes.
-
-Uses tool calling to extract structured output (array of file results with status and notes).
-
-### 2. Update `FilePreview.tsx`
-- Add a "Run Compliance Review" button at the top of the file tree panel
-- Show compliance status badges (green checkmark, yellow warning, red X) next to each file in the tree
-- Display compliance notes below the file content when a file is selected
-- Show an overall compliance summary bar (e.g., "6/8 files passed")
-- Loading state while review is running
-
-### 3. Update `WizardPage.tsx` Review Step
-- In the `review` step content, add a compliance summary section showing pass/fail counts
-- Add a "Run Review" button that triggers the compliance check on all generated files
-- Store compliance results in the wizard store
-- Disable "Save Project" and "Download ZIP" buttons until compliance review has been run (warn, don't block)
-
-### 4. Update `wizard-store.ts`
-- Add `complianceResults: Record<string, { status: string; notes: string }>` to state
-- Add `setComplianceResults` action
-- Add `complianceReviewed: boolean` flag
-
-### 5. Update `generateFileTree` function
-- Use compliance results from store to set `complianceStatus` and `complianceNotes` on each `GeneratedFile` instead of hardcoding `'passed'`
-
-### 6. Persist compliance in database
-- When saving the project, store each file's `compliance_status` and `compliance_notes` (columns already exist in `generated_files` table)
+### Problemas identificados
+1. **Escopo limitado**: workflows existem apenas dentro de squads, sem visao projeto-nivel
+2. **UI incompleta**: sem edicao de steps (agente, condicao, dependencias, taskId)
+3. **Desconexao runtime**: o orchestrator gerado nao consome os workflows definidos
+4. **Sem auto-geracao**: nenhum workflow e criado automaticamente com base no padrao de orquestracao
 
 ---
 
-## Technical Details
+## Solucao Proposta
 
-### Edge Function: `supabase/functions/aios-compliance-review/index.ts`
-- Input: `{ files: Array<{ path, content, type }> }`
-- Uses tool calling with a `validate_files` function schema to get structured output
-- System prompt defines AIOS compliance rules (required fields per file type, naming conventions, cross-references)
-- Returns: `{ results: Array<{ path, status: 'passed'|'failed'|'warning', notes: string }> }`
+### 1. Novos tipos em `src/types/aios.ts`
 
-### Config update: `supabase/config.toml`
-- Add `[functions.aios-compliance-review]` with `verify_jwt = false`
+Adicionar `ProjectWorkflow` como entidade de nivel projeto, separada dos squad workflows:
 
-### Store changes
 ```text
-complianceResults: {}
-complianceReviewed: false
-setComplianceResults(results) -> updates both fields
-reset() -> clears compliance state
+interface ProjectWorkflow {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  trigger: 'manual' | 'on_task' | 'scheduled' | 'event';
+  steps: WorkflowStep[];
+  squadSlug?: string;       // opcional - vinculo a squad especifico
+}
 ```
 
-### FilePreview UI additions
-- Badge component per file showing status color
-- Summary bar at top: "X/Y passed | Z warnings | W failed"
-- Button triggers `supabase.functions.invoke('aios-compliance-review', { body: { files } })`
-- Notes panel below file content viewer
+Estender `WorkflowStep` existente:
 
-### Review step changes
-- Show compliance card with summary stats
-- "Review Compliance" button
-- Toast warning if user tries to save without review
+```text
+interface WorkflowStep {
+  id: string;
+  name: string;
+  agentSlug: string;
+  taskId?: string;
+  condition?: string;
+  dependsOn?: string[];     // IDs de steps predecessores
+  timeout_ms?: number;
+  retryPolicy?: { maxRetries: number; backoffMs: number };
+}
+```
+
+Adicionar `workflows: ProjectWorkflow[]` ao `AiosProject`.
+
+### 2. Store: `wizard-store.ts`
+
+Adicionar ao state:
+- `workflows: ProjectWorkflow[]`
+- Actions: `addWorkflow`, `removeWorkflow`, `updateWorkflow`, `addWorkflowStep`, `removeWorkflowStep`, `updateWorkflowStep`
+- `autoGenerateWorkflows()` - gera workflows padrao baseado no `orchestrationPattern` e agentes/squads selecionados
+
+### 3. Auto-geracao por padrao de orquestracao
+
+Funcao `generateDefaultWorkflows(pattern, agents, squads)`:
+
+| Padrao | Workflow gerado |
+|--------|----------------|
+| SEQUENTIAL_PIPELINE | Um workflow linear: agent1 -> agent2 -> ... -> agentN |
+| PARALLEL_SWARM | Um workflow com todos os steps sem dependencias (paralelo) |
+| HIERARCHICAL | Workflow master -> squad-leaders -> workers (arvore) |
+| WATCHDOG | Workflow workers paralelos -> supervisor review |
+| COLLABORATIVE | Workflow com N rounds de iteracao entre agentes |
+| TASK_FIRST | Um workflow por squad com steps baseados nas tasks |
+
+Chamada automatica quando o usuario muda o padrao de orquestracao ou avanca para o step de squads.
+
+### 4. Novo componente: `WorkflowEditor.tsx`
+
+Editor visual de workflows com:
+- Lista de workflows do projeto (nao apenas de squads)
+- Para cada workflow: nome, descricao, trigger type
+- Lista de steps arrastavel (reorder) com:
+  - Select de agente (de todos os agentes do projeto)
+  - Select de task (opcional, das tasks dos squads)
+  - Campo condicao (string livre)
+  - Multi-select de dependencias (outros steps)
+- Botao "Auto-gerar" que chama `autoGenerateWorkflows()`
+- Visualizacao em lista e em mini-diagrama (reutilizando ReactFlow simplificado)
+
+### 5. Integracao no Wizard
+
+Duas opcoes de integracao (recomendo a primeira):
+
+**Opcao A - Tab dentro da etapa Squads**: Adicionar aba "Workflows" ao lado de Squads no `WizardPage.tsx`, usando `Tabs` do shadcn. Isso mantem o fluxo linear do wizard sem adicionar um step novo.
+
+**Opcao B - Novo step no wizard**: Adicionar step `workflows` entre `squads` e `integrations`. Requer alterar `WIZARD_STEPS` e `WizardStep` type.
+
+Recomendo **Opcao A** porque workflows dependem de agentes e squads ja definidos, e a visualizacao conjunta facilita a consistencia.
+
+### 6. Atualizacao no `ArchitectureDiagram.tsx`
+
+Renderizar workflows como edges com label no diagrama de arquitetura:
+- Steps com `dependsOn` geram edges direcionais entre nodes de agentes
+- Workflows sem dependencias (paralelos) mostram edges do orchestrator para todos os agentes
+
+### 7. Atualizacao no gerador de pacotes
+
+**`generate-aios-package.ts`**:
+- Novo arquivo gerado: `workflows/<slug>.yaml` para cada ProjectWorkflow
+- Atualizar `aios.config.yaml` com secao `workflows:`
+- Atualizar `orchestrator.ts` gerado para consumir os workflows definidos em YAML em vez de logica hardcoded
+- Atualizar `types.ts` gerado com `WorkflowConfig`
+
+### 8. Persistencia no banco
+
+Adicionar coluna `workflows jsonb default '[]'` na tabela `projects` (ou criar tabela `workflows` separada). Atualizar o `handleSaveProject` no `WizardPage.tsx` para persistir.
+
+---
+
+## Arquivos impactados
+
+| Arquivo | Acao |
+|---------|------|
+| `src/types/aios.ts` | Adicionar `ProjectWorkflow`, estender `WorkflowStep`, campo em `AiosProject` |
+| `src/stores/wizard-store.ts` | State + actions para workflows, auto-geracao |
+| `src/components/wizard/WorkflowEditor.tsx` | **Novo** - editor completo de workflows |
+| `src/pages/WizardPage.tsx` | Integrar WorkflowEditor como tab na etapa Squads |
+| `src/components/wizard/SquadBuilder.tsx` | Remover secao de workflows inline (migra para WorkflowEditor) |
+| `src/components/wizard/ArchitectureDiagram.tsx` | Renderizar workflows como edges |
+| `src/lib/generate-aios-package.ts` | Gerar `workflows/*.yaml`, atualizar orchestrator |
+| `supabase/migrations/` | Coluna `workflows` na tabela `projects` |
+

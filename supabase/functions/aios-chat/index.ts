@@ -44,14 +44,13 @@ Estado atual do projeto:
 - Squads: ${squads.length > 0 ? squads.map((s: any) => s.name).join(', ') : '(nenhum)'}`;
 
   const stepInstructions: Record<string, string> = {
-    welcome: `\nEstamos na etapa de boas-vindas. Pergunte ao usuário sobre o projeto: qual é o domínio, o objetivo e o contexto. Seja acolhedor e guie a conversa.`,
-    context_analysis: `\nEstamos na etapa de análise de contexto. Analise o que o usuário descreveu e sugira o melhor padrão de orquestração e agentes iniciais.`,
-    project_config: `\nEstamos configurando o projeto. Ajude a definir nome, descrição e confirmar o padrão de orquestração escolhido.`,
-    agents: `\nEstamos na etapa de seleção de agentes. Sugira quais agentes nativos são mais adequados para o projeto. Ofereça criar agentes customizados se necessário. Explique o papel de cada agente sugerido.`,
-    squads: `\nEstamos montando squads. Sugira como agrupar os agentes em equipes (squads) com tasks e workflows. Cada squad deve ter um propósito claro.`,
-    integrations: `\nEstamos configurando integrações. Pergunte sobre ferramentas externas que o usuário usa (N8N, Notion, Miro, APIs).`,
-    review: `\nEstamos na etapa de revisão final. Resuma toda a configuração do projeto e peça confirmação.`,
-    generation: `\nO projeto está pronto para geração. Confirme que está tudo certo e oriente o usuário a salvar ou exportar.`,
+    welcome: `\nEstamos na etapa de descoberta. Pergunte ao usuário sobre o projeto: qual é o domínio, o objetivo, o contexto e o tipo de sistema. Sugira o melhor padrão de orquestração e agentes iniciais. Seja acolhedor e guie a conversa. NÃO peça informações que serão coletadas no formulário (nome, descrição) — foque no contexto e estratégia.`,
+    project_config: `\nO usuário está preenchendo o formulário do projeto. Ajude a confirmar o padrão de orquestração se perguntado.`,
+    agents: `\nO usuário está selecionando agentes no catálogo. Sugira quais agentes são mais adequados se perguntado.`,
+    squads: `\nO usuário está montando squads no builder. Sugira como agrupar os agentes em equipes se perguntado.`,
+    integrations: `\nEstamos configurando integrações. Pergunte sobre ferramentas externas que o usuário usa.`,
+    review: `\nEstamos na revisão final. Resuma a configuração e peça confirmação.`,
+    generation: `\nO projeto está pronto para geração. Oriente o usuário a salvar ou exportar.`,
   };
 
   return basePrompt + (stepInstructions[step] || '');
@@ -76,7 +75,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.0-flash",
         messages: [
           { role: "system", content: systemPrompt },
           ...messages,

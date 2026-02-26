@@ -1,6 +1,5 @@
 export type WizardStep =
   | 'welcome'
-  | 'context_analysis'
   | 'project_config'
   | 'agents'
   | 'squads'
@@ -9,14 +8,13 @@ export type WizardStep =
   | 'generation';
 
 export const WIZARD_STEPS: { key: WizardStep; label: string; number: number }[] = [
-  { key: 'welcome', label: 'Boas-vindas', number: 1 },
-  { key: 'context_analysis', label: 'Análise', number: 2 },
-  { key: 'project_config', label: 'Projeto', number: 3 },
-  { key: 'agents', label: 'Agentes', number: 4 },
-  { key: 'squads', label: 'Squads', number: 5 },
-  { key: 'integrations', label: 'Integrações', number: 6 },
-  { key: 'review', label: 'Revisão', number: 7 },
-  { key: 'generation', label: 'Geração', number: 8 },
+  { key: 'welcome', label: 'Descoberta', number: 1 },
+  { key: 'project_config', label: 'Projeto', number: 2 },
+  { key: 'agents', label: 'Agentes', number: 3 },
+  { key: 'squads', label: 'Squads', number: 4 },
+  { key: 'integrations', label: 'Integracoes', number: 5 },
+  { key: 'review', label: 'Revisao', number: 6 },
+  { key: 'generation', label: 'Geracao', number: 7 },
 ];
 
 export type OrchestrationPatternType =
@@ -52,6 +50,13 @@ export interface NativeAgent {
   compatiblePatterns: OrchestrationPatternType[];
 }
 
+export interface AgentMemory {
+  id: string;
+  key: string;
+  content: string;
+  type: 'short_term' | 'long_term' | 'episodic';
+}
+
 export interface AiosAgent {
   id?: string;
   slug: string;
@@ -62,6 +67,7 @@ export interface AiosAgent {
   commands: string[];
   tools: string[];
   skills: string[];
+  memory: AgentMemory[];
   visibility: 'full' | 'quick' | 'key';
   isCustom: boolean;
   category?: AgentCategory;
@@ -100,6 +106,21 @@ export interface WorkflowStep {
   agentSlug: string;
   taskId?: string;
   condition?: string;
+  dependsOn?: string[];
+  timeout_ms?: number;
+  retryPolicy?: { maxRetries: number; backoffMs: number };
+}
+
+export type WorkflowTrigger = 'manual' | 'on_task' | 'scheduled' | 'event';
+
+export interface ProjectWorkflow {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  trigger: WorkflowTrigger;
+  steps: WorkflowStep[];
+  squadSlug?: string;
 }
 
 export interface AiosProject {
@@ -110,6 +131,7 @@ export interface AiosProject {
   orchestrationPattern: OrchestrationPatternType;
   agents: AiosAgent[];
   squads: AiosSquad[];
+  workflows: ProjectWorkflow[];
   config: Record<string, unknown>;
 }
 
