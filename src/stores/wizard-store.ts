@@ -49,7 +49,7 @@ interface WizardState {
 const initialState = {
   currentStep: 'welcome' as WizardStep,
   highestStepIndex: 0,
-  project: { name: '', description: '', domain: 'software', orchestrationPattern: 'TASK_FIRST' as const },
+  project: { name: '', description: '', domain: 'software', orchestrationPattern: 'TASK_FIRST' as const, workflows: [] },
   agents: [] as AiosAgent[],
   squads: [] as AiosSquad[],
   messages: [] as ChatMessage[],

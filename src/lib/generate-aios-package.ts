@@ -1,10 +1,11 @@
-import { AiosAgent, AiosSquad, AiosProject, GeneratedFile, OrchestrationPatternType } from '@/types/aios';
+import { AiosAgent, AiosSquad, AiosProject, GeneratedFile, OrchestrationPatternType, ProjectWorkflow } from '@/types/aios';
 import { ORCHESTRATION_PATTERNS } from '@/data/orchestration-patterns';
 
 interface GenerationInput {
   project: Partial<AiosProject>;
   agents: AiosAgent[];
   squads: AiosSquad[];
+  workflows?: ProjectWorkflow[];
   complianceResults?: Record<string, { status: string; notes: string }>;
 }
 
@@ -13,7 +14,7 @@ interface GenerationInput {
  * configuration, runtime scaffolding, and documentation files.
  */
 export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
-  const { project, agents, squads, complianceResults } = input;
+  const { project, agents, squads, workflows = [], complianceResults } = input;
   const files: GeneratedFile[] = [];
   const name = project.name || 'meu-aios';
   const slug = name.toLowerCase().replace(/\s+/g, '-');
@@ -21,7 +22,7 @@ export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
   const patternInfo = ORCHESTRATION_PATTERNS.find(p => p.id === pattern);
 
   // ── Core config ──────────────────────────────────────────────
-  files.push(generateAiosConfig(name, project, agents, squads, pattern));
+  files.push(generateAiosConfig(name, project, agents, squads, workflows, pattern));
 
   // ── Agent definitions ────────────────────────────────────────
   agents.forEach(agent => {
@@ -33,6 +34,11 @@ export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
   squads.forEach(squad => {
     files.push(generateSquadYaml(squad, agents));
     files.push(generateSquadReadme(squad, agents));
+  });
+
+  // ── Workflow definitions ──────────────────────────────────────
+  workflows.forEach(wf => {
+    files.push(generateWorkflowYaml(wf, agents));
   });
 
   // ── Runtime scaffolding ──────────────────────────────────────
@@ -88,11 +94,40 @@ export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
 // Individual file generators
 // ════════════════════════════════════════════════════════════════
 
+function generateWorkflowYaml(wf: ProjectWorkflow, agents: AiosAgent[]): GeneratedFile {
+  const stepsYaml = wf.steps.length > 0
+    ? wf.steps.map(s => {
+        const agent = agents.find(a => a.slug === s.agentSlug);
+        return `  - id: "${s.id}"
+    name: "${s.name}"
+    agent: "${s.agentSlug}"
+    agent_name: "${agent?.name || s.agentSlug}"${s.taskId ? `\n    task_id: "${s.taskId}"` : ''}${s.condition ? `\n    condition: "${s.condition}"` : ''}${(s.dependsOn || []).length > 0 ? `\n    depends_on: [${s.dependsOn!.map(d => `"${d}"`).join(', ')}]` : ''}${s.timeout_ms ? `\n    timeout_ms: ${s.timeout_ms}` : ''}${s.retryPolicy ? `\n    retry_policy:\n      max_retries: ${s.retryPolicy.maxRetries}\n      backoff_ms: ${s.retryPolicy.backoffMs}` : ''}`;
+      }).join('\n')
+    : '  []';
+
+  return {
+    path: `workflows/${wf.slug}.yaml`,
+    type: 'yaml',
+    complianceStatus: 'pending',
+    content: `# Workflow: ${wf.name}
+name: "${wf.name}"
+slug: "${wf.slug}"
+description: "${wf.description || ''}"
+trigger: "${wf.trigger}"
+${wf.squadSlug ? `squad: "${wf.squadSlug}"` : ''}
+
+steps:
+${stepsYaml}
+`,
+  };
+}
+
 function generateAiosConfig(
   name: string,
   project: Partial<AiosProject>,
   agents: AiosAgent[],
   squads: AiosSquad[],
+  workflows: ProjectWorkflow[],
   pattern: OrchestrationPatternType,
 ): GeneratedFile {
   return {
@@ -139,6 +174,13 @@ logging:
   level: "info"
   format: "json"
   output: "stdout"
+
+# Workflows
+workflows:
+${workflows.length > 0 ? workflows.map(w => `  - slug: "${w.slug}"
+    name: "${w.name}"
+    trigger: "${w.trigger}"
+    config: "workflows/${w.slug}.yaml"`).join('\n') : '  []'}
 
 # Runtime
 runtime:
@@ -849,6 +891,7 @@ export interface AiosConfig {
   pattern: string;
   agents: AgentConfig[];
   squads: SquadConfig[];
+  workflows: WorkflowConfig[];
 }
 
 export interface AgentConfig {
@@ -862,6 +905,22 @@ export interface SquadConfig {
   slug: string;
   name: string;
   agentSlugs: string[];
+}
+
+export interface WorkflowConfig {
+  slug: string;
+  name: string;
+  trigger: string;
+  steps: WorkflowStepConfig[];
+}
+
+export interface WorkflowStepConfig {
+  id: string;
+  name: string;
+  agentSlug: string;
+  taskId?: string;
+  condition?: string;
+  dependsOn?: string[];
 }
 
 export interface TaskRequest {
