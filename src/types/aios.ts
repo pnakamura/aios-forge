@@ -50,6 +50,13 @@ export interface NativeAgent {
   compatiblePatterns: OrchestrationPatternType[];
 }
 
+export interface AgentMemory {
+  id: string;
+  key: string;
+  content: string;
+  type: 'short_term' | 'long_term' | 'episodic';
+}
+
 export interface AiosAgent {
   id?: string;
   slug: string;
@@ -60,6 +67,7 @@ export interface AiosAgent {
   commands: string[];
   tools: string[];
   skills: string[];
+  memory: AgentMemory[];
   visibility: 'full' | 'quick' | 'key';
   isCustom: boolean;
   category?: AgentCategory;

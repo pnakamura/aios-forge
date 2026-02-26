@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ORCHESTRATION_PATTERNS } from '@/data/orchestration-patterns';
+import { AgentEditor } from './AgentEditor';
 
 const iconMap: Record<string, React.FC<any>> = {
   Crown, Network, Search, Target, Building2, Palette,
@@ -33,6 +34,7 @@ export function AgentCatalog() {
   const { agents, addAgent, removeAgent, project } = useWizardStore();
   const [filter, setFilter] = useState<AgentCategory | 'all'>('all');
   const [detailAgent, setDetailAgent] = useState<typeof NATIVE_AGENTS[0] | null>(null);
+  const [editAgent, setEditAgent] = useState<AiosAgent | null>(null);
   const [showCustom, setShowCustom] = useState(false);
   const [customAgent, setCustomAgent] = useState({ name: '', slug: '', role: '', systemPrompt: '' });
 
@@ -53,6 +55,7 @@ export function AgentCatalog() {
       commands: native.defaultCommands,
       tools: [],
       skills: [],
+      memory: [],
       visibility: 'full',
       isCustom: false,
       category: native.category,
@@ -76,6 +79,7 @@ export function AgentCatalog() {
       commands: [],
       tools: [],
       skills: [],
+      memory: [],
       visibility: 'full',
       isCustom: true,
     };
@@ -153,7 +157,14 @@ export function AgentCatalog() {
                     ? 'border-primary/15 bg-primary/[0.02] hover:border-primary/30'
                     : 'border-border/50 bg-card/50 hover:border-primary/20'
               )}
-              onClick={() => setDetailAgent(agent)}
+              onClick={() => {
+                if (isAdded) {
+                  const storeAgent = agents.find(a => a.slug === agent.slug);
+                  if (storeAgent) setEditAgent({ ...storeAgent });
+                } else {
+                  setDetailAgent(agent);
+                }
+              }}
             >
               <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', categoryColors[agent.category])}>
                 <Icon className="w-4 h-4" />
@@ -283,6 +294,13 @@ export function AgentCatalog() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Agent Editor for editing added agents */}
+      <AgentEditor
+        agent={editAgent}
+        open={!!editAgent}
+        onOpenChange={(open) => { if (!open) setEditAgent(null); }}
+      />
     </div>
   );
 }

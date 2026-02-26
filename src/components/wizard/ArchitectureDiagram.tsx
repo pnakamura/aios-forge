@@ -1,5 +1,6 @@
 import { useWizardStore } from '@/stores/wizard-store';
 import { AiosAgent, AiosSquad } from '@/types/aios';
+import { AgentEditor } from './AgentEditor';
 import { useMemo, useEffect, useCallback, useState, useRef } from 'react';
 import {
   ReactFlow,
@@ -19,6 +20,7 @@ import {
   NodeToolbar,
   Panel,
   ConnectionMode,
+  ConnectionLineType,
   getBezierPath,
   EdgeLabelRenderer,
   BaseEdge,
@@ -736,7 +738,7 @@ export function ArchitectureDiagram() {
         fitView
         fitViewOptions={{ padding: 0.35 }}
         connectionLineStyle={{ stroke: connLineColor, strokeWidth: 2 }}
-        connectionLineType="smoothstep"
+        connectionLineType={ConnectionLineType.SmoothStep}
         deleteKeyCode="Delete"
         proOptions={{ hideAttribution: true }}
         className="aios-diagram"
@@ -885,109 +887,12 @@ export function ArchitectureDiagram() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Edit Agent Dialog ── */}
-      <Dialog open={!!editingAgent} onOpenChange={(open) => { if (!open) setEditingAgent(null); }}>
-        <DialogContent className="glass max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-sm flex items-center gap-2">
-              <Bot className="w-4 h-4 text-accent" />
-              Editar Agente
-            </DialogTitle>
-          </DialogHeader>
-          {editingAgent && (
-            <div className="space-y-4 -mt-1">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Nome</Label>
-                <Input
-                  value={editingAgent.name}
-                  onChange={e => setEditingAgent({ ...editingAgent, name: e.target.value })}
-                  className="h-9 text-sm"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">Role (funcao)</Label>
-                <Input
-                  value={editingAgent.role}
-                  onChange={e => setEditingAgent({ ...editingAgent, role: e.target.value })}
-                  className="h-9 text-sm"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">Modelo LLM</Label>
-                <select
-                  value={editingAgent.llmModel}
-                  onChange={e => setEditingAgent({ ...editingAgent, llmModel: e.target.value })}
-                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                >
-                  {MODEL_OPTIONS.map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                  {!MODEL_OPTIONS.includes(editingAgent.llmModel) && (
-                    <option value={editingAgent.llmModel}>{editingAgent.llmModel}</option>
-                  )}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">Visibilidade</Label>
-                <div className="flex gap-2">
-                  {VISIBILITY_OPTIONS.map(opt => (
-                    <button key={opt.value}
-                      onClick={() => setEditingAgent({ ...editingAgent, visibility: opt.value })}
-                      className={cn(
-                        'flex-1 py-1.5 rounded-md border text-xs font-medium transition-all',
-                        editingAgent.visibility === opt.value
-                          ? 'border-primary bg-primary/10 text-primary'
-                          : 'border-border bg-card text-muted-foreground hover:border-primary/30'
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">System Prompt</Label>
-                <Textarea
-                  value={editingAgent.systemPrompt}
-                  onChange={e => setEditingAgent({ ...editingAgent, systemPrompt: e.target.value })}
-                  rows={4}
-                  className="text-xs font-mono resize-y"
-                />
-              </div>
-
-              <div className="flex gap-2 text-[10px] text-muted-foreground">
-                <span className="px-2 py-0.5 rounded-md bg-secondary border border-border">
-                  {editingAgent.tools.length} tools
-                </span>
-                <span className="px-2 py-0.5 rounded-md bg-secondary border border-border">
-                  {editingAgent.commands.length} commands
-                </span>
-                <span className="px-2 py-0.5 rounded-md bg-secondary border border-border">
-                  {editingAgent.skills.length} skills
-                </span>
-                {editingAgent.isCustom && (
-                  <span className="px-2 py-0.5 rounded-md bg-accent/10 border border-accent/20 text-accent">
-                    Custom
-                  </span>
-                )}
-              </div>
-
-              <div className="flex gap-2 pt-1">
-                <Button onClick={handleSaveAgent} size="sm" className="flex-1 gap-1.5">
-                  Salvar alteracoes
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setEditingAgent(null)}>
-                  Cancelar
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* ── Edit Agent via AgentEditor ── */}
+      <AgentEditor
+        agent={editingAgent}
+        open={!!editingAgent}
+        onOpenChange={(open) => { if (!open) setEditingAgent(null); }}
+      />
     </div>
   );
 }
