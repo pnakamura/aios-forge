@@ -523,13 +523,16 @@ function buildDiagramData(agents: AiosAgent[], squads: AiosSquad[], pattern: str
     const stepMap = new Map(workflow.steps.map(s => [s.id, s.agentSlug]));
 
     for (const step of workflow.steps) {
+      const tgtNode = `agent-${step.agentSlug}`;
+      if (!agentNodeIds.has(tgtNode)) continue;
+
       if (step.dependsOn && step.dependsOn.length > 0) {
+        // Edge from predecessor agent → current agent
         for (const depId of step.dependsOn) {
           const srcSlug = stepMap.get(depId);
           if (!srcSlug) continue;
           const srcNode = `agent-${srcSlug}`;
-          const tgtNode = `agent-${step.agentSlug}`;
-          if (!agentNodeIds.has(srcNode) || !agentNodeIds.has(tgtNode)) continue;
+          if (!agentNodeIds.has(srcNode)) continue;
           const key = `${srcNode}->${tgtNode}`;
           if (wfSeen.has(key)) continue;
           wfSeen.add(key);
@@ -544,6 +547,21 @@ function buildDiagramData(agents: AiosAgent[], squads: AiosSquad[], pattern: str
             reconnectable: false,
           });
         }
+      } else {
+        // Steps without dependencies: edge from orchestrator → agent
+        const key = `orchestrator->${tgtNode}`;
+        if (wfSeen.has(key)) continue;
+        wfSeen.add(key);
+        edges.push({
+          id: `wf-${workflow.slug}-${step.id}-orch`,
+          source: 'orchestrator',
+          target: tgtNode,
+          sourceHandle: 'bottom',
+          targetHandle: 'top',
+          type: 'relation',
+          data: { relationType: 'workflow', customLabel: workflow.name },
+          reconnectable: false,
+        });
       }
     }
   }
