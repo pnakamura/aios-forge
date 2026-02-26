@@ -1,5 +1,6 @@
 import { useWizardStore } from '@/stores/wizard-store';
-import { AiosAgent, AiosSquad } from '@/types/aios';
+import { useWorkflowStore } from '@/stores/workflow-store';
+import { AiosAgent, AiosSquad, ProjectWorkflow } from '@/types/aios';
 import { AgentEditor } from './AgentEditor';
 import { useMemo, useEffect, useCallback, useState, useRef } from 'react';
 import {
@@ -47,6 +48,7 @@ const RELATIONS: Record<string, { label: string; dark: string; light: string; da
   reporta:      { label: 'Reporta',       dark: 'hsl(200 80% 65%)',  light: 'hsl(200 70% 32%)', dash: '4 4', animated: false },
   coordena:     { label: 'Coordena',      dark: 'hsl(220 80% 70%)',  light: 'hsl(220 70% 35%)', dash: '',    animated: false },
   membro:       { label: 'Membro',        dark: 'hsl(150 80% 50%)',  light: 'hsl(150 65% 28%)', dash: '',    animated: false },
+  workflow:     { label: 'Workflow',      dark: 'hsl(25 95% 60%)',   light: 'hsl(25 80% 38%)',  dash: '8 4', animated: true },
 };
 
 const RELATION_OPTIONS = [
@@ -425,7 +427,7 @@ const edgeTypes = { relation: RelationEdge };
 
 // ── Build system nodes & edges from store ──
 
-function buildDiagramData(agents: AiosAgent[], squads: AiosSquad[], pattern: string) {
+function buildDiagramData(agents: AiosAgent[], squads: AiosSquad[], pattern: string, workflows: ProjectWorkflow[] = []) {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
 
@@ -513,6 +515,39 @@ function buildDiagramData(agents: AiosAgent[], squads: AiosSquad[], pattern: str
     });
   });
 
+  // ── Workflow edges ──
+  const agentNodeIds = new Set(agents.map(a => `agent-${a.slug}`));
+  const wfSeen = new Set<string>();
+
+  for (const workflow of workflows) {
+    const stepMap = new Map(workflow.steps.map(s => [s.id, s.agentSlug]));
+
+    for (const step of workflow.steps) {
+      if (step.dependsOn && step.dependsOn.length > 0) {
+        for (const depId of step.dependsOn) {
+          const srcSlug = stepMap.get(depId);
+          if (!srcSlug) continue;
+          const srcNode = `agent-${srcSlug}`;
+          const tgtNode = `agent-${step.agentSlug}`;
+          if (!agentNodeIds.has(srcNode) || !agentNodeIds.has(tgtNode)) continue;
+          const key = `${srcNode}->${tgtNode}`;
+          if (wfSeen.has(key)) continue;
+          wfSeen.add(key);
+          edges.push({
+            id: `wf-${workflow.slug}-${step.id}-${depId}`,
+            source: srcNode,
+            target: tgtNode,
+            sourceHandle: 'right',
+            targetHandle: 'left',
+            type: 'relation',
+            data: { relationType: 'workflow', customLabel: workflow.name },
+            reconnectable: false,
+          });
+        }
+      }
+    }
+  }
+
   return { nodes, edges };
 }
 
@@ -521,6 +556,7 @@ function buildDiagramData(agents: AiosAgent[], squads: AiosSquad[], pattern: str
 export function ArchitectureDiagram() {
   const store = useWizardStore();
   const { agents, squads, project, updateSquad, addSquad, updateAgent } = store;
+  const { workflows } = useWorkflowStore();
   const { theme } = useTheme();
   const isLight = theme === 'light';
 
@@ -545,8 +581,8 @@ export function ArchitectureDiagram() {
   }, [agents]);
 
   const { nodes: sysNodes, edges: sysEdges } = useMemo(
-    () => buildDiagramData(agents, squads, project.orchestrationPattern || 'TASK_FIRST'),
-    [agents, squads, project.orchestrationPattern]
+    () => buildDiagramData(agents, squads, project.orchestrationPattern || 'TASK_FIRST', workflows),
+    [agents, squads, project.orchestrationPattern, workflows]
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(sysNodes);
