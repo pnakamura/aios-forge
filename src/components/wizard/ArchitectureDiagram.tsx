@@ -586,6 +586,26 @@ export function ArchitectureDiagram() {
   const [editingAgent, setEditingAgent] = useState<AiosAgent | null>(null);
   const customEdgesRef = useRef<Edge[]>([]);
   const nextCustomId = useRef(0);
+  const [visibleWorkflowIds, setVisibleWorkflowIds] = useState<Set<string>>(new Set());
+  const [showWorkflowFilter, setShowWorkflowFilter] = useState(false);
+
+  // Sync visibleWorkflowIds with available workflows
+  useEffect(() => {
+    setVisibleWorkflowIds(prev => {
+      const allIds = new Set(workflows.map(w => w.id));
+      const next = new Set<string>();
+      for (const id of allIds) {
+        // Keep existing selections, add new workflows as visible by default
+        if (prev.size === 0 || prev.has(id) || !prev.has(id)) next.add(id);
+      }
+      return next;
+    });
+  }, [workflows]);
+
+  const filteredWorkflows = useMemo(
+    () => workflows.filter(w => visibleWorkflowIds.has(w.id)),
+    [workflows, visibleWorkflowIds]
+  );
 
   // Listen for edit-agent events from nodes
   useEffect(() => {
@@ -599,8 +619,8 @@ export function ArchitectureDiagram() {
   }, [agents]);
 
   const { nodes: sysNodes, edges: sysEdges } = useMemo(
-    () => buildDiagramData(agents, squads, project.orchestrationPattern || 'TASK_FIRST', workflows),
-    [agents, squads, project.orchestrationPattern, workflows]
+    () => buildDiagramData(agents, squads, project.orchestrationPattern || 'TASK_FIRST', filteredWorkflows),
+    [agents, squads, project.orchestrationPattern, filteredWorkflows]
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(sysNodes);
@@ -853,12 +873,82 @@ export function ArchitectureDiagram() {
 
         {/* Top-right action bar */}
         <Panel position="top-right">
-          <div className="flex gap-1.5">
-            <Button variant="outline" size="sm"
-              className="h-7 text-[10px] gap-1.5 bg-card/95 backdrop-blur-sm border-border shadow-sm font-semibold"
-              onClick={() => setShowCreateSquad(true)}>
-              <Plus className="w-3 h-3" /> Squad
-            </Button>
+          <div className="flex flex-col items-end gap-1.5">
+            <div className="flex gap-1.5">
+              {workflows.length > 0 && (
+                <Button variant="outline" size="sm"
+                  className="h-7 text-[10px] gap-1.5 bg-card/95 backdrop-blur-sm border-border shadow-sm font-semibold"
+                  onClick={() => setShowWorkflowFilter(!showWorkflowFilter)}
+                  style={{ color: isLight ? RELATIONS.workflow.light : RELATIONS.workflow.dark }}
+                >
+                  <Zap className="w-3 h-3" />
+                  Workflows
+                  <span className="text-[9px] opacity-70">({visibleWorkflowIds.size}/{workflows.length})</span>
+                  {showWorkflowFilter ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                </Button>
+              )}
+              <Button variant="outline" size="sm"
+                className="h-7 text-[10px] gap-1.5 bg-card/95 backdrop-blur-sm border-border shadow-sm font-semibold"
+                onClick={() => setShowCreateSquad(true)}>
+                <Plus className="w-3 h-3" /> Squad
+              </Button>
+            </div>
+
+            {/* Workflow filter dropdown */}
+            {showWorkflowFilter && workflows.length > 0 && (
+              <div className="bg-card/95 backdrop-blur-sm rounded-lg border border-border shadow-lg p-2.5 min-w-[200px] max-w-[260px]">
+                {/* Bulk actions */}
+                {workflows.length > 1 && (
+                  <div className="flex gap-1.5 mb-2">
+                    <button
+                      className="text-[9px] font-semibold px-2 py-0.5 rounded-md bg-secondary/60 hover:bg-secondary text-foreground transition-colors"
+                      onClick={() => setVisibleWorkflowIds(new Set(workflows.map(w => w.id)))}
+                    >
+                      Todos
+                    </button>
+                    <button
+                      className="text-[9px] font-semibold px-2 py-0.5 rounded-md bg-secondary/60 hover:bg-secondary text-foreground transition-colors"
+                      onClick={() => setVisibleWorkflowIds(new Set())}
+                    >
+                      Nenhum
+                    </button>
+                  </div>
+                )}
+                {/* Workflow list */}
+                <div className="space-y-1">
+                  {workflows.map(wf => {
+                    const isVisible = visibleWorkflowIds.has(wf.id);
+                    const wfColor = isLight ? RELATIONS.workflow.light : RELATIONS.workflow.dark;
+                    return (
+                      <button
+                        key={wf.id}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-left transition-colors",
+                          isVisible ? "bg-secondary/40 hover:bg-secondary/60" : "opacity-50 hover:opacity-75 hover:bg-secondary/20"
+                        )}
+                        onClick={() => {
+                          setVisibleWorkflowIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(wf.id)) next.delete(wf.id);
+                            else next.add(wf.id);
+                            return next;
+                          });
+                        }}
+                      >
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-black/10 transition-opacity"
+                          style={{ background: wfColor, opacity: isVisible ? 1 : 0.3 }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[11px] font-semibold text-foreground truncate">{wf.name}</div>
+                          <div className="text-[9px] text-muted-foreground">{wf.steps.length} steps</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </Panel>
 
