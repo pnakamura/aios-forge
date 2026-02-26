@@ -146,9 +146,10 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       commands: a.commands || [],
       tools: a.tools || [],
       skills: a.skills || [],
+      memory: a.memory || [],
       visibility: a.visibility || 'full',
       isCustom: a.is_custom || false,
-      category: undefined, // not stored in DB, will be inferred from native agents
+      category: undefined,
     }));
 
     const squads: AiosSquad[] = dbSquads.map((s: any) => ({
