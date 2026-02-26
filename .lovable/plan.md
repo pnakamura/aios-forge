@@ -1,78 +1,112 @@
 
-# Filtro de Workflows no Diagrama de Arquitetura
+
+# Destaque de Elementos do Workflow Selecionado no Diagrama
 
 ## Objetivo
 
-Adicionar um seletor multi-escolha no painel do diagrama que permita ao usuario escolher quais workflows visualizar como edges. Quando ha multiplos workflows, o usuario pode ativar/desativar cada um individualmente.
+Quando o usuario seleciona um (ou mais) workflow(s) no filtro, destacar visualmente apenas os nodes e edges que participam desses workflows. Todos os demais elementos (nodes e edges nao relacionados) ficam transparentes/esmaecidos.
 
 ## Abordagem
 
-### 1. Estado local de workflows visiveis
+### 1. Calcular o conjunto de nodes relevantes aos workflows visiveis
 
-Adicionar `useState<Set<string>>` chamado `visibleWorkflowIds` inicializado com todos os IDs dos workflows. Sempre que a lista de workflows mudar (novo workflow adicionado/removido), sincronizar o Set para incluir novos e remover inexistentes.
+A partir dos `filteredWorkflows`, extrair todos os `agentSlug` presentes nos steps e o node `orchestrator` (quando steps sem dependencias existem). Armazenar em um `Set<string>` chamado `highlightedNodeIds`.
 
-### 2. Filtrar workflows antes de passar para `buildDiagramData`
+- Se nenhum workflow estiver visivel (`filteredWorkflows.length === 0` e `workflows.length > 0`), considerar que o usuario desligou tudo -- nesse caso nenhum destaque e aplicado (tudo normal).
+- Se todos os workflows estiverem visiveis (`visibleWorkflowIds.size === workflows.length`), tambem nao aplicar destaque -- tudo normal.
+- O destaque so e aplicado quando ha uma **selecao parcial** (pelo menos 1 workflow visivel, mas nao todos).
 
-Em vez de passar `workflows` direto, filtrar apenas os que estao no `visibleWorkflowIds`:
+### 2. Propagar informacao de destaque para nodes via `data`
+
+No `buildDiagramData`, adicionar um campo `dimmed: boolean` no `data` de cada node. Esse campo indica se o node deve ser renderizado com opacidade reduzida.
+
+Alternativamente (e mais simples), aplicar a opacidade via `style` diretamente no array de nodes apos o `buildDiagramData`, no `useEffect` de sincronizacao. Isso evita alterar a funcao de build.
+
+**Abordagem escolhida**: Aplicar `style.opacity` nos nodes e edges no `useEffect` de sync, baseado no `highlightedNodeIds`.
+
+### 3. Aplicar opacidade reduzida em nodes nao-destacados
+
+No `useEffect` que sincroniza `sysNodes` com o estado do React Flow, aplicar:
 
 ```text
-const filteredWorkflows = workflows.filter(w => visibleWorkflowIds.has(w.id));
+node.style = { opacity: shouldDim ? 0.2 : 1, transition: 'opacity 0.3s ease' }
 ```
 
-Passar `filteredWorkflows` para `buildDiagramData` no `useMemo`.
+Nodes que pertencem ao `highlightedNodeIds` mantem opacidade 1. Nodes fora do conjunto recebem opacidade 0.2.
 
-### 3. UI: Painel de selecao de workflows
+### 4. Aplicar opacidade reduzida em edges nao-relacionados
 
-Adicionar um componente no `Panel position="top-right"` (ao lado do botao "+ Squad") com:
+Edges de workflow (tipo `relationType: 'workflow'`) que estao nos `filteredWorkflows` mantem opacidade 1. Edges de sistema (`sys-orch-*`, `sys-chain-*`, `sys-member-*`) que conectam nodes fora do conjunto ficam esmaecidos. Custom edges tambem.
 
-- Um botao dropdown "Workflows" com icone `Zap` que abre/fecha uma lista
-- A lista mostra cada workflow com:
-  - Checkbox colorido (laranja/coral, a cor do tipo `workflow`)
-  - Nome do workflow
-  - Contagem de steps
-- Botoes rapidos "Todos" e "Nenhum" para toggle em massa
-- O painel so aparece quando `workflows.length > 0`
-- Quando ha apenas 1 workflow, ele fica ativo por padrao e o seletor aparece simplificado (apenas toggle on/off)
+Logica simplificada: uma edge e destacada se **ambos** source e target estao no `highlightedNodeIds`, OU se e uma edge de workflow visivel.
 
-### 4. Estilo visual
+### 5. Transicao suave
 
-- Background `bg-card/95 backdrop-blur-sm` consistente com os outros paineis do diagrama
-- Texto `text-[10px]` e `text-[11px]` seguindo o padrao existente
-- Indicador visual (bolinha laranja) ao lado de cada workflow para reforcar a cor dos edges
-- Border e shadow consistentes com os paineis existentes
+Adicionar `transition: 'opacity 0.3s ease'` no `style` dos nodes e edges para que o efeito de destaque/esmaecimento seja animado.
 
 ## Arquivo impactado
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/components/wizard/ArchitectureDiagram.tsx` | Adicionar estado `visibleWorkflowIds`, filtrar workflows no `useMemo`, renderizar painel de selecao no `Panel` top-right |
+| `src/components/wizard/ArchitectureDiagram.tsx` | Calcular `highlightedNodeIds` via `useMemo`, aplicar `style.opacity` nos nodes e edges no `useEffect` de sync |
 
 ## Detalhes tecnicos
 
 ```text
-// Novo estado
-const [visibleWorkflowIds, setVisibleWorkflowIds] = useState<Set<string>>(new Set());
+// Calcular nodes destacados
+const highlightedNodeIds = useMemo(() => {
+  // Sem destaque se todos visiveis ou nenhum workflow existe
+  const isPartialSelection = workflows.length > 0
+    && filteredWorkflows.length > 0
+    && filteredWorkflows.length < workflows.length;
+  if (!isPartialSelection) return null; // null = sem destaque
 
-// Sync com workflows disponveis
-useEffect(() => {
-  setVisibleWorkflowIds(prev => {
-    const allIds = new Set(workflows.map(w => w.id));
-    const next = new Set<string>();
-    // Manter selecionados que ainda existem + adicionar novos
-    for (const id of allIds) {
-      if (prev.size === 0 || prev.has(id) || !prev.has(id)) next.add(id);
+  const ids = new Set<string>();
+  for (const wf of filteredWorkflows) {
+    for (const step of wf.steps) {
+      ids.add(`agent-${step.agentSlug}`);
+      if (!step.dependsOn || step.dependsOn.length === 0) {
+        ids.add('orchestrator');
+      }
     }
-    return next;
+  }
+  return ids;
+}, [workflows, filteredWorkflows]);
+
+// No useEffect de sync de nodes:
+setNodes(prev => {
+  const posMap = new Map(prev.map(n => [n.id, n.position]));
+  return sysNodes.map(sn => {
+    const existingPos = posMap.get(sn.id);
+    const dimmed = highlightedNodeIds && !highlightedNodeIds.has(sn.id);
+    return {
+      ...sn,
+      position: existingPos || sn.position,
+      style: {
+        opacity: dimmed ? 0.15 : 1,
+        transition: 'opacity 0.3s ease',
+      },
+    };
   });
-}, [workflows]);
+});
 
-// Filtrar antes do useMemo
-const filteredWorkflows = useMemo(
-  () => workflows.filter(w => visibleWorkflowIds.has(w.id)),
-  [workflows, visibleWorkflowIds]
-);
-
-// Passar filteredWorkflows em vez de workflows para buildDiagramData
+// No useEffect de sync de edges:
+setEdges(() => {
+  const allEdges = [...sysEdges, ...customEdgesRef.current];
+  if (!highlightedNodeIds) return allEdges;
+  return allEdges.map(e => {
+    const relevant = highlightedNodeIds.has(e.source) && highlightedNodeIds.has(e.target);
+    return {
+      ...e,
+      style: {
+        ...e.style,
+        opacity: relevant ? 1 : 0.1,
+        transition: 'opacity 0.3s ease',
+      },
+    };
+  });
+});
 ```
 
-O painel de selecao sera um dropdown colapsavel renderizado dentro do `Panel position="top-right"` existente, usando estado local `showWorkflowFilter` para toggle.
+A alteracao e isolada a um unico arquivo e nao impacta outros componentes.
+
