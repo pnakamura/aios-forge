@@ -665,7 +665,17 @@ export function ArchitectureDiagram() {
     setEdges(() => {
       const allEdges = [...sysEdges, ...customEdgesRef.current];
       if (!highlightedNodeIds) return allEdges;
-      return allEdges.filter(e => highlightedNodeIds.has(e.source) && highlightedNodeIds.has(e.target));
+      return allEdges.map(e => {
+        const relevant = highlightedNodeIds.has(e.source) && highlightedNodeIds.has(e.target);
+        return {
+          ...e,
+          style: {
+            ...e.style,
+            opacity: relevant ? 1 : 0.1,
+            transition: 'opacity 0.3s ease',
+          },
+        };
+      });
     });
   }, [sysEdges, sysNodes, setNodes, setEdges, highlightedNodeIds]);
 
