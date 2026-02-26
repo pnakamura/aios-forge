@@ -6,6 +6,8 @@ import { StepContextPanel } from '@/components/wizard/StepContextPanel';
 import { ChatPanel } from '@/components/wizard/ChatPanel';
 import { AgentCatalog } from '@/components/wizard/AgentCatalog';
 import { SquadBuilder } from '@/components/wizard/SquadBuilder';
+import { WorkflowEditor } from '@/components/wizard/WorkflowEditor';
+import { useWorkflowStore } from '@/stores/workflow-store';
 import { FilePreview } from '@/components/wizard/FilePreview';
 import { ArchitectureDiagram } from '@/components/wizard/ArchitectureDiagram';
 import { ManualPanel } from '@/components/wizard/ManualPanel';
@@ -35,7 +37,8 @@ export default function WizardPage() {
   const navigate = useNavigate();
   const { id: editId } = useParams<{ id: string }>();
   const { theme, toggleTheme } = useTheme();
-  const [rightPanel, setRightPanel] = useState<'preview' | 'diagram' | 'agents' | 'squads' | 'manual'>('agents');
+  const workflowStore = useWorkflowStore();
+  const [rightPanel, setRightPanel] = useState<'preview' | 'diagram' | 'agents' | 'squads' | 'workflows' | 'manual'>('agents');
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [loadingProject, setLoadingProject] = useState(false);
@@ -129,8 +132,8 @@ export default function WizardPage() {
 
   // Compute live file count for the evolution header
   const fileCount = useMemo(
-    () => generateAiosPackage({ project: store.project, agents: store.agents, squads: store.squads, complianceResults: store.complianceResults }).length,
-    [store.project, store.agents, store.squads, store.complianceResults]
+    () => generateAiosPackage({ project: store.project, agents: store.agents, squads: store.squads, workflows: workflowStore.workflows, complianceResults: store.complianceResults }).length,
+    [store.project, store.agents, store.squads, store.complianceResults, workflowStore.workflows]
   );
 
   const handleSaveProject = async () => {
@@ -151,6 +154,7 @@ export default function WizardPage() {
           domain: store.project.domain || 'software',
           orchestration_pattern: (store.project.orchestrationPattern || 'TASK_FIRST') as any,
           config: JSON.parse(JSON.stringify(store.project.config || {})),
+          workflows: JSON.parse(JSON.stringify(workflowStore.workflows)),
         } as any).eq('id', projectId);
         if (projErr) throw projErr;
 
@@ -168,6 +172,7 @@ export default function WizardPage() {
           domain: store.project.domain || 'software',
           orchestration_pattern: (store.project.orchestrationPattern || 'TASK_FIRST') as any,
           config: JSON.parse(JSON.stringify(store.project.config || {})),
+          workflows: JSON.parse(JSON.stringify(workflowStore.workflows)),
           user_id: user.id,
         } as any).select().single();
         if (projErr) throw projErr;
@@ -212,7 +217,7 @@ export default function WizardPage() {
       }
 
       // Save generated files
-      const files = generateAiosPackage({ project: store.project, agents: store.agents, squads: store.squads, complianceResults: store.complianceResults });
+      const files = generateAiosPackage({ project: store.project, agents: store.agents, squads: store.squads, workflows: workflowStore.workflows, complianceResults: store.complianceResults });
       if (files.length > 0) {
         const fileRows = files.map(file => ({
           project_id: projectId,
@@ -237,7 +242,7 @@ export default function WizardPage() {
   };
 
   const handleDownloadZip = useCallback(async () => {
-    const files = generateAiosPackage({ project: store.project, agents: store.agents, squads: store.squads, complianceResults: store.complianceResults });
+    const files = generateAiosPackage({ project: store.project, agents: store.agents, squads: store.squads, workflows: workflowStore.workflows, complianceResults: store.complianceResults });
     const zip = new JSZip();
     files.forEach(f => zip.file(f.path, f.content));
     const blob = await zip.generateAsync({ type: 'blob' });
@@ -248,7 +253,7 @@ export default function WizardPage() {
     a.click();
     URL.revokeObjectURL(url);
     toast.success('ZIP baixado!');
-  }, [store.project, store.agents, store.squads, store.complianceResults]);
+  }, [store.project, store.agents, store.squads, store.complianceResults, workflowStore.workflows]);
 
   const canProceed = store.canProceed();
   const stepIdx = store.getStepIndex();
@@ -426,7 +431,7 @@ export default function WizardPage() {
         const passed = Object.values(store.complianceResults).filter(r => r.status === 'passed').length;
         const warnings = Object.values(store.complianceResults).filter(r => r.status === 'warning').length;
         const failed = Object.values(store.complianceResults).filter(r => r.status === 'failed').length;
-        const files = generateAiosPackage({ project: store.project, agents: store.agents, squads: store.squads });
+        const files = generateAiosPackage({ project: store.project, agents: store.agents, squads: store.squads, workflows: workflowStore.workflows });
 
         return (
           <div className="p-6 space-y-4 overflow-y-auto h-full">
@@ -741,7 +746,14 @@ export default function WizardPage() {
                       store.squads.length > 0 ? 'bg-glow-success/20 text-glow-success' : 'bg-secondary text-muted-foreground'
                     )}>{store.squads.length}</span>
                   </TabsTrigger>
-                  <TabsTrigger value="diagram" className="gap-1.5 text-xs rounded-md"><GitBranch className="w-3.5 h-3.5" /> Diagrama</TabsTrigger>
+                  <TabsTrigger value="workflows" className="gap-1.5 text-xs rounded-md">
+                    <GitBranch className="w-3.5 h-3.5" /> Workflows
+                    <span className={cn(
+                      'ml-1 w-4 h-4 rounded-full text-[10px] flex items-center justify-center',
+                      workflowStore.workflows.length > 0 ? 'bg-glow-success/20 text-glow-success' : 'bg-secondary text-muted-foreground'
+                    )}>{workflowStore.workflows.length}</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="diagram" className="gap-1.5 text-xs rounded-md"><Network className="w-3.5 h-3.5" /> Diagrama</TabsTrigger>
                   <TabsTrigger value="preview" className="gap-1.5 text-xs rounded-md">
                     <FileText className="w-3.5 h-3.5" /> Arquivos
                     <span className="ml-1 w-5 h-4 rounded-full bg-primary/20 text-primary text-[10px] flex items-center justify-center">{fileCount}</span>
@@ -750,6 +762,7 @@ export default function WizardPage() {
                 </TabsList>
                 <TabsContent value="agents" className="flex-1 overflow-hidden m-0"><AgentCatalog /></TabsContent>
                 <TabsContent value="squads" className="flex-1 overflow-hidden m-0"><SquadBuilder /></TabsContent>
+                <TabsContent value="workflows" className="flex-1 overflow-hidden m-0"><WorkflowEditor /></TabsContent>
                 <TabsContent value="diagram" className="flex-1 overflow-hidden m-0"><ArchitectureDiagram /></TabsContent>
                 <TabsContent value="preview" className="flex-1 overflow-hidden m-0"><FilePreview /></TabsContent>
                 <TabsContent value="manual" className="flex-1 overflow-hidden m-0"><ManualPanel /></TabsContent>

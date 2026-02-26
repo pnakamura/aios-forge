@@ -106,6 +106,21 @@ export interface WorkflowStep {
   agentSlug: string;
   taskId?: string;
   condition?: string;
+  dependsOn?: string[];
+  timeout_ms?: number;
+  retryPolicy?: { maxRetries: number; backoffMs: number };
+}
+
+export type WorkflowTrigger = 'manual' | 'on_task' | 'scheduled' | 'event';
+
+export interface ProjectWorkflow {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  trigger: WorkflowTrigger;
+  steps: WorkflowStep[];
+  squadSlug?: string;
 }
 
 export interface AiosProject {
@@ -116,6 +131,7 @@ export interface AiosProject {
   orchestrationPattern: OrchestrationPatternType;
   agents: AiosAgent[];
   squads: AiosSquad[];
+  workflows: ProjectWorkflow[];
   config: Record<string, unknown>;
 }
 

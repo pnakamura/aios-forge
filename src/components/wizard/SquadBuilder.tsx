@@ -1,11 +1,11 @@
 import { useWizardStore } from '@/stores/wizard-store';
-import { AiosSquad, SquadTask, SquadWorkflow } from '@/types/aios';
+import { AiosSquad, SquadTask } from '@/types/aios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Users, ListChecks, GitBranch, Bot, ChevronDown, ChevronRight, Edit2 } from 'lucide-react';
+import { Plus, Trash2, Users, ListChecks, Bot, ChevronDown, ChevronRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -65,16 +65,6 @@ export function SquadBuilder() {
     updateSquad(squadSlug, { tasks: squad.tasks.filter(t => t.id !== taskId) });
   };
 
-  const addWorkflowToSquad = (squadSlug: string) => {
-    const squad = squads.find(s => s.slug === squadSlug);
-    if (!squad) return;
-    const newWf: SquadWorkflow = {
-      id: crypto.randomUUID(),
-      name: 'Novo Workflow',
-      steps: [],
-    };
-    updateSquad(squadSlug, { workflows: [...squad.workflows, newWf] });
-  };
 
   return (
     <div className="p-4 space-y-4 overflow-y-auto h-full">
@@ -230,36 +220,6 @@ export function SquadBuilder() {
                       )}
                     </div>
 
-                    {/* Workflows */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                          <GitBranch className="w-3 h-3" /> Workflows
-                        </p>
-                        <Button variant="ghost" size="sm" className="h-5 text-[10px] px-2" onClick={() => addWorkflowToSquad(squad.slug)}>
-                          <Plus className="w-3 h-3 mr-1" /> Adicionar
-                        </Button>
-                      </div>
-                      {squad.workflows.length === 0 ? (
-                        <p className="text-[11px] text-muted-foreground py-1">Nenhum workflow definido</p>
-                      ) : (
-                        <div className="space-y-1">
-                          {squad.workflows.map(wf => (
-                            <div key={wf.id} className="text-xs bg-secondary/30 rounded-md px-2.5 py-1.5 flex items-center gap-2">
-                              <GitBranch className="w-3 h-3 text-muted-foreground/70 shrink-0" />
-                              <Input
-                                className="h-5 text-xs bg-transparent border-none p-0 flex-1"
-                                value={wf.name}
-                                onChange={(e) => {
-                                  const updated = squad.workflows.map(w => w.id === wf.id ? { ...w, name: e.target.value } : w);
-                                  updateSquad(squad.slug, { workflows: updated });
-                                }}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
                   </div>
                 )}
               </div>
