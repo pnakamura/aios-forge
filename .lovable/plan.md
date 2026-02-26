@@ -1,89 +1,130 @@
 
 
-# Aprimorar Criacao e Edicao de Agentes
+# Workflows Macro-Level: Definicao e Visualizacao
 
-## Resumo
-Criar um editor completo de agentes com suporte a CRUD de comandos, ferramentas (tools), skills e memoria. Substituir os dialogs limitados atuais por um editor unificado e reutilizavel.
+## Diagnostico Tecnico
 
-## O que muda
+### Estado atual
+Os workflows estao acoplados exclusivamente a `AiosSquad.workflows[]` (tipo `SquadWorkflow`). A UI no `SquadBuilder.tsx` permite apenas criar workflows e editar nomes - nao ha edicao de steps. O `orchestrator.ts` gerado **ignora completamente os workflows** e roteia tarefas apenas pelo `pattern` hardcoded. Ou seja, workflows sao decorativos - nao influenciam a execucao.
 
-### 1. Novo tipo: campo `memory` no AiosAgent
-Adicionar campo `memory` ao tipo `AiosAgent` em `src/types/aios.ts`:
-- `memory: AgentMemory[]` - lista de entradas de memoria
-- Novo tipo `AgentMemory` com campos: `id`, `key`, `content`, `type` (short_term | long_term | episodic)
-
-### 2. Novo componente: `AgentEditor.tsx`
-Criar `src/components/wizard/AgentEditor.tsx` - um dialog/sheet completo com abas para editar todos os campos de um agente:
-
-**Aba "Geral":**
-- Nome, Slug, Role, Categoria, Modelo LLM, Visibilidade
-- System Prompt (textarea expandivel)
-
-**Aba "Comandos":**
-- Lista de comandos existentes com botao de remover (X)
-- Input + botao "Adicionar" para novos comandos
-- Cada comando exibido como badge editavel
-
-**Aba "Ferramentas":**
-- Mesmo padrao: lista + adicionar/remover
-- Cada ferramenta com nome e descricao opcional
-
-**Aba "Skills":**
-- Lista + adicionar/remover
-- Cada skill como tag/badge
-
-**Aba "Memoria":**
-- Lista de entradas de memoria com key/content/type
-- Botao para adicionar nova entrada
-- Select para tipo (short_term, long_term, episodic)
-- Botao remover por entrada
-
-Usa o componente `Tabs` do shadcn/ui para organizar as secoes.
-
-### 3. Atualizar `AgentCatalog.tsx`
-- Dialog de criacao customizado: incluir campos para comandos, tools, skills (com o mesmo padrao de lista + adicionar)
-- Ao clicar em um agente ja adicionado, abrir o `AgentEditor` em modo edicao em vez do dialog de detalhes read-only
-- Manter o dialog de detalhes para agentes nativos nao adicionados (visualizacao)
-
-### 4. Atualizar `ArchitectureDiagram.tsx`
-- Substituir o dialog de edicao simples (linhas 888-990) pelo componente `AgentEditor`
-- Corrigir o bug de build na linha 739: usar `ConnectionLineType.SmoothStep` em vez da string `"smoothstep"`
-
-### 5. Atualizar `wizard-store.ts`
-- `updateAgent` ja funciona com `Partial<AiosAgent>`, nenhuma alteracao necessaria no store
-
-### 6. Atualizar banco de dados
-- Nao precisa de migracao: o campo `memory` sera armazenado dentro do JSONB `config` do projeto, ou podemos adicionar uma coluna `memory jsonb default '[]'` na tabela `agents`
+### Problemas identificados
+1. **Escopo limitado**: workflows existem apenas dentro de squads, sem visao projeto-nivel
+2. **UI incompleta**: sem edicao de steps (agente, condicao, dependencias, taskId)
+3. **Desconexao runtime**: o orchestrator gerado nao consome os workflows definidos
+4. **Sem auto-geracao**: nenhum workflow e criado automaticamente com base no padrao de orquestracao
 
 ---
 
-## Detalhes Tecnicos
+## Solucao Proposta
 
-### Novo tipo `AgentMemory`
+### 1. Novos tipos em `src/types/aios.ts`
+
+Adicionar `ProjectWorkflow` como entidade de nivel projeto, separada dos squad workflows:
+
 ```text
-interface AgentMemory {
+interface ProjectWorkflow {
   id: string;
-  key: string;
-  content: string;
-  type: 'short_term' | 'long_term' | 'episodic';
+  name: string;
+  slug: string;
+  description: string;
+  trigger: 'manual' | 'on_task' | 'scheduled' | 'event';
+  steps: WorkflowStep[];
+  squadSlug?: string;       // opcional - vinculo a squad especifico
 }
 ```
 
-### Componente `AgentEditor` - padrao de lista editavel
-Cada secao (commands, tools, skills, memory) segue o mesmo padrao:
-- Estado local com array de itens
-- Input controlado + botao "Adicionar" (ou Enter para confirmar)
-- Itens renderizados como badges/cards com botao X para remover
-- Ao salvar, chama `updateAgent(slug, { commands, tools, skills, memory })`
+Estender `WorkflowStep` existente:
 
-### Correcao do bug de build
-Na linha 739 de `ArchitectureDiagram.tsx`:
-- Importar `ConnectionLineType` de `@xyflow/react`
-- Trocar `connectionLineType="smoothstep"` por `connectionLineType={ConnectionLineType.SmoothStep}`
+```text
+interface WorkflowStep {
+  id: string;
+  name: string;
+  agentSlug: string;
+  taskId?: string;
+  condition?: string;
+  dependsOn?: string[];     // IDs de steps predecessores
+  timeout_ms?: number;
+  retryPolicy?: { maxRetries: number; backoffMs: number };
+}
+```
 
-### Arquivos impactados
-- `src/types/aios.ts` - adicionar `AgentMemory`, campo `memory` em `AiosAgent`
-- `src/components/wizard/AgentEditor.tsx` - novo componente (editor completo com abas)
-- `src/components/wizard/AgentCatalog.tsx` - integrar AgentEditor, melhorar dialog de criacao
-- `src/components/wizard/ArchitectureDiagram.tsx` - usar AgentEditor, corrigir bug de build
-- `supabase/migrations/` - adicionar coluna `memory` na tabela `agents` (opcional)
+Adicionar `workflows: ProjectWorkflow[]` ao `AiosProject`.
+
+### 2. Store: `wizard-store.ts`
+
+Adicionar ao state:
+- `workflows: ProjectWorkflow[]`
+- Actions: `addWorkflow`, `removeWorkflow`, `updateWorkflow`, `addWorkflowStep`, `removeWorkflowStep`, `updateWorkflowStep`
+- `autoGenerateWorkflows()` - gera workflows padrao baseado no `orchestrationPattern` e agentes/squads selecionados
+
+### 3. Auto-geracao por padrao de orquestracao
+
+Funcao `generateDefaultWorkflows(pattern, agents, squads)`:
+
+| Padrao | Workflow gerado |
+|--------|----------------|
+| SEQUENTIAL_PIPELINE | Um workflow linear: agent1 -> agent2 -> ... -> agentN |
+| PARALLEL_SWARM | Um workflow com todos os steps sem dependencias (paralelo) |
+| HIERARCHICAL | Workflow master -> squad-leaders -> workers (arvore) |
+| WATCHDOG | Workflow workers paralelos -> supervisor review |
+| COLLABORATIVE | Workflow com N rounds de iteracao entre agentes |
+| TASK_FIRST | Um workflow por squad com steps baseados nas tasks |
+
+Chamada automatica quando o usuario muda o padrao de orquestracao ou avanca para o step de squads.
+
+### 4. Novo componente: `WorkflowEditor.tsx`
+
+Editor visual de workflows com:
+- Lista de workflows do projeto (nao apenas de squads)
+- Para cada workflow: nome, descricao, trigger type
+- Lista de steps arrastavel (reorder) com:
+  - Select de agente (de todos os agentes do projeto)
+  - Select de task (opcional, das tasks dos squads)
+  - Campo condicao (string livre)
+  - Multi-select de dependencias (outros steps)
+- Botao "Auto-gerar" que chama `autoGenerateWorkflows()`
+- Visualizacao em lista e em mini-diagrama (reutilizando ReactFlow simplificado)
+
+### 5. Integracao no Wizard
+
+Duas opcoes de integracao (recomendo a primeira):
+
+**Opcao A - Tab dentro da etapa Squads**: Adicionar aba "Workflows" ao lado de Squads no `WizardPage.tsx`, usando `Tabs` do shadcn. Isso mantem o fluxo linear do wizard sem adicionar um step novo.
+
+**Opcao B - Novo step no wizard**: Adicionar step `workflows` entre `squads` e `integrations`. Requer alterar `WIZARD_STEPS` e `WizardStep` type.
+
+Recomendo **Opcao A** porque workflows dependem de agentes e squads ja definidos, e a visualizacao conjunta facilita a consistencia.
+
+### 6. Atualizacao no `ArchitectureDiagram.tsx`
+
+Renderizar workflows como edges com label no diagrama de arquitetura:
+- Steps com `dependsOn` geram edges direcionais entre nodes de agentes
+- Workflows sem dependencias (paralelos) mostram edges do orchestrator para todos os agentes
+
+### 7. Atualizacao no gerador de pacotes
+
+**`generate-aios-package.ts`**:
+- Novo arquivo gerado: `workflows/<slug>.yaml` para cada ProjectWorkflow
+- Atualizar `aios.config.yaml` com secao `workflows:`
+- Atualizar `orchestrator.ts` gerado para consumir os workflows definidos em YAML em vez de logica hardcoded
+- Atualizar `types.ts` gerado com `WorkflowConfig`
+
+### 8. Persistencia no banco
+
+Adicionar coluna `workflows jsonb default '[]'` na tabela `projects` (ou criar tabela `workflows` separada). Atualizar o `handleSaveProject` no `WizardPage.tsx` para persistir.
+
+---
+
+## Arquivos impactados
+
+| Arquivo | Acao |
+|---------|------|
+| `src/types/aios.ts` | Adicionar `ProjectWorkflow`, estender `WorkflowStep`, campo em `AiosProject` |
+| `src/stores/wizard-store.ts` | State + actions para workflows, auto-geracao |
+| `src/components/wizard/WorkflowEditor.tsx` | **Novo** - editor completo de workflows |
+| `src/pages/WizardPage.tsx` | Integrar WorkflowEditor como tab na etapa Squads |
+| `src/components/wizard/SquadBuilder.tsx` | Remover secao de workflows inline (migra para WorkflowEditor) |
+| `src/components/wizard/ArchitectureDiagram.tsx` | Renderizar workflows como edges |
+| `src/lib/generate-aios-package.ts` | Gerar `workflows/*.yaml`, atualizar orchestrator |
+| `supabase/migrations/` | Coluna `workflows` na tabela `projects` |
+
