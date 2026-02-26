@@ -1,81 +1,78 @@
 
-
-# Renderizar Workflows como Edges no Diagrama de Arquitetura
+# Filtro de Workflows no Diagrama de Arquitetura
 
 ## Objetivo
 
-Adicionar edges direcionais ao diagrama de arquitetura (`ArchitectureDiagram.tsx`) que representem visualmente o fluxo de execucao definido nos workflows do projeto. Cada step com `dependsOn` gera edges entre os nodes dos agentes correspondentes.
+Adicionar um seletor multi-escolha no painel do diagrama que permita ao usuario escolher quais workflows visualizar como edges. Quando ha multiplos workflows, o usuario pode ativar/desativar cada um individualmente.
 
 ## Abordagem
 
-### 1. Novo tipo de relacao para workflows
+### 1. Estado local de workflows visiveis
 
-Adicionar entrada `workflow` ao objeto `RELATIONS` com estilo visual distinto (cor laranja/coral, animado, tracejado diferenciado) para diferenciar edges de workflow das relacoes manuais existentes (orquestra, delega, membro, etc.).
+Adicionar `useState<Set<string>>` chamado `visibleWorkflowIds` inicializado com todos os IDs dos workflows. Sempre que a lista de workflows mudar (novo workflow adicionado/removido), sincronizar o Set para incluir novos e remover inexistentes.
 
-### 2. Importar workflow store no diagrama
+### 2. Filtrar workflows antes de passar para `buildDiagramData`
 
-O componente `ArchitectureDiagram` passara a consumir `useWorkflowStore` para acessar os workflows do projeto.
+Em vez de passar `workflows` direto, filtrar apenas os que estao no `visibleWorkflowIds`:
 
-### 3. Alterar `buildDiagramData` para aceitar workflows
+```text
+const filteredWorkflows = workflows.filter(w => visibleWorkflowIds.has(w.id));
+```
 
-A funcao `buildDiagramData` recebera um parametro adicional `workflows: ProjectWorkflow[]` e gerara edges adicionais:
+Passar `filteredWorkflows` para `buildDiagramData` no `useMemo`.
 
-- Para cada workflow, iterar sobre seus steps
-- Para cada step com `dependsOn` nao vazio, encontrar o step predecessor pelo ID
-- Mapear `step.agentSlug` para o node `agent-<slug>` correspondente
-- Criar edge direcional do agente predecessor para o agente do step atual, com tipo `relation` e `relationType: 'workflow'`
-- Steps sem dependencias (paralelos) receberao edge do orchestrator para o agente
-- Label do edge mostrara o nome do workflow (abreviado se necessario)
-- Deduplicar edges entre o mesmo par de agentes (evitar sobreposicao)
+### 3. UI: Painel de selecao de workflows
 
-### 4. Logica de deduplicacao
+Adicionar um componente no `Panel position="top-right"` (ao lado do botao "+ Squad") com:
 
-Como multiplos steps podem conectar os mesmos agentes, usar um Set de `source-target` para evitar edges duplicados. Quando houver duplicatas, o label acumulara os nomes.
+- Um botao dropdown "Workflows" com icone `Zap` que abre/fecha uma lista
+- A lista mostra cada workflow com:
+  - Checkbox colorido (laranja/coral, a cor do tipo `workflow`)
+  - Nome do workflow
+  - Contagem de steps
+- Botoes rapidos "Todos" e "Nenhum" para toggle em massa
+- O painel so aparece quando `workflows.length > 0`
+- Quando ha apenas 1 workflow, ele fica ativo por padrao e o seletor aparece simplificado (apenas toggle on/off)
 
-## Arquivos impactados
+### 4. Estilo visual
+
+- Background `bg-card/95 backdrop-blur-sm` consistente com os outros paineis do diagrama
+- Texto `text-[10px]` e `text-[11px]` seguindo o padrao existente
+- Indicador visual (bolinha laranja) ao lado de cada workflow para reforcar a cor dos edges
+- Border e shadow consistentes com os paineis existentes
+
+## Arquivo impactado
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/components/wizard/ArchitectureDiagram.tsx` | Importar `useWorkflowStore`, adicionar relacao `workflow` ao `RELATIONS`, estender `buildDiagramData` com parametro workflows, gerar edges de workflow no diagrama |
+| `src/components/wizard/ArchitectureDiagram.tsx` | Adicionar estado `visibleWorkflowIds`, filtrar workflows no `useMemo`, renderizar painel de selecao no `Panel` top-right |
 
 ## Detalhes tecnicos
 
 ```text
-// Nova entrada em RELATIONS
-workflow: {
-  label: 'Workflow',
-  dark: 'hsl(25 95% 60%)',
-  light: 'hsl(25 80% 38%)',
-  dash: '8 4',
-  animated: true
-}
+// Novo estado
+const [visibleWorkflowIds, setVisibleWorkflowIds] = useState<Set<string>>(new Set());
 
-// Pseudo-logica em buildDiagramData
-for (workflow of workflows) {
-  // Map stepId -> agentSlug
-  const stepMap = new Map(workflow.steps.map(s => [s.id, s.agentSlug]));
-  const seen = new Set<string>();
-
-  for (step of workflow.steps) {
-    if (step.dependsOn?.length) {
-      for (depId of step.dependsOn) {
-        const srcSlug = stepMap.get(depId);
-        if (!srcSlug) continue;
-        const key = `agent-${srcSlug}->agent-${step.agentSlug}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        edges.push({
-          id: `wf-${workflow.slug}-${step.id}-${depId}`,
-          source: `agent-${srcSlug}`,
-          target: `agent-${step.agentSlug}`,
-          sourceHandle: 'right', targetHandle: 'left',
-          type: 'relation',
-          data: { relationType: 'workflow', customLabel: workflow.name },
-        });
-      }
+// Sync com workflows disponveis
+useEffect(() => {
+  setVisibleWorkflowIds(prev => {
+    const allIds = new Set(workflows.map(w => w.id));
+    const next = new Set<string>();
+    // Manter selecionados que ainda existem + adicionar novos
+    for (const id of allIds) {
+      if (prev.size === 0 || prev.has(id) || !prev.has(id)) next.add(id);
     }
-  }
-}
+    return next;
+  });
+}, [workflows]);
+
+// Filtrar antes do useMemo
+const filteredWorkflows = useMemo(
+  () => workflows.filter(w => visibleWorkflowIds.has(w.id)),
+  [workflows, visibleWorkflowIds]
+);
+
+// Passar filteredWorkflows em vez de workflows para buildDiagramData
 ```
 
-A alteracao e isolada a um unico arquivo, sem impacto em outros componentes.
+O painel de selecao sera um dropdown colapsavel renderizado dentro do `Panel position="top-right"` existente, usando estado local `showWorkflowFilter` para toggle.
