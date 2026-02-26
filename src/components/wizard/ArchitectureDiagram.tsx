@@ -607,6 +607,25 @@ export function ArchitectureDiagram() {
     [workflows, visibleWorkflowIds]
   );
 
+  // Compute which nodes should be highlighted (partial workflow selection)
+  const highlightedNodeIds = useMemo(() => {
+    const isPartialSelection = workflows.length > 0
+      && filteredWorkflows.length > 0
+      && filteredWorkflows.length < workflows.length;
+    if (!isPartialSelection) return null; // null = no dimming
+
+    const ids = new Set<string>();
+    for (const wf of filteredWorkflows) {
+      for (const step of wf.steps) {
+        ids.add(`agent-${step.agentSlug}`);
+        if (!step.dependsOn || step.dependsOn.length === 0) {
+          ids.add('orchestrator');
+        }
+      }
+    }
+    return ids;
+  }, [workflows, filteredWorkflows]);
+
   // Listen for edit-agent events from nodes
   useEffect(() => {
     const handler = (e: Event) => {
@@ -632,11 +651,33 @@ export function ArchitectureDiagram() {
       const posMap = new Map(prev.map(n => [n.id, n.position]));
       return sysNodes.map(sn => {
         const existingPos = posMap.get(sn.id);
-        return existingPos ? { ...sn, position: existingPos } : sn;
+        const dimmed = highlightedNodeIds && !highlightedNodeIds.has(sn.id);
+        return {
+          ...sn,
+          position: existingPos || sn.position,
+          style: {
+            opacity: dimmed ? 0.15 : 1,
+            transition: 'opacity 0.3s ease',
+          },
+        };
       });
     });
-    setEdges(() => [...sysEdges, ...customEdgesRef.current]);
-  }, [sysEdges, sysNodes, setNodes, setEdges]);
+    setEdges(() => {
+      const allEdges = [...sysEdges, ...customEdgesRef.current];
+      if (!highlightedNodeIds) return allEdges;
+      return allEdges.map(e => {
+        const relevant = highlightedNodeIds.has(e.source) && highlightedNodeIds.has(e.target);
+        return {
+          ...e,
+          style: {
+            ...e.style,
+            opacity: relevant ? 1 : 0.1,
+            transition: 'opacity 0.3s ease',
+          },
+        };
+      });
+    });
+  }, [sysEdges, sysNodes, setNodes, setEdges, highlightedNodeIds]);
 
   // ── Connection: open relationship picker ──
   const onConnect = useCallback((connection: Connection) => {
