@@ -84,6 +84,13 @@ export default function WizardPage() {
           agents: aRes.data || [],
           squads: sRes.data || [],
         });
+
+        // Restaurar workflows salvos no projeto
+        const savedWorkflows = pRes.data.workflows;
+        if (Array.isArray(savedWorkflows) && savedWorkflows.length > 0) {
+          workflowStore.setWorkflows(savedWorkflows as unknown as import('@/types/aios').ProjectWorkflow[]);
+        }
+
         toast.success(`Projeto "${pRes.data.name}" carregado para edicao`);
       } catch (err) {
         toast.error('Erro ao carregar projeto');
