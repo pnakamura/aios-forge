@@ -1,130 +1,81 @@
 
 
-# Workflows Macro-Level: Definicao e Visualizacao
+# Renderizar Workflows como Edges no Diagrama de Arquitetura
 
-## Diagnostico Tecnico
+## Objetivo
 
-### Estado atual
-Os workflows estao acoplados exclusivamente a `AiosSquad.workflows[]` (tipo `SquadWorkflow`). A UI no `SquadBuilder.tsx` permite apenas criar workflows e editar nomes - nao ha edicao de steps. O `orchestrator.ts` gerado **ignora completamente os workflows** e roteia tarefas apenas pelo `pattern` hardcoded. Ou seja, workflows sao decorativos - nao influenciam a execucao.
+Adicionar edges direcionais ao diagrama de arquitetura (`ArchitectureDiagram.tsx`) que representem visualmente o fluxo de execucao definido nos workflows do projeto. Cada step com `dependsOn` gera edges entre os nodes dos agentes correspondentes.
 
-### Problemas identificados
-1. **Escopo limitado**: workflows existem apenas dentro de squads, sem visao projeto-nivel
-2. **UI incompleta**: sem edicao de steps (agente, condicao, dependencias, taskId)
-3. **Desconexao runtime**: o orchestrator gerado nao consome os workflows definidos
-4. **Sem auto-geracao**: nenhum workflow e criado automaticamente com base no padrao de orquestracao
+## Abordagem
 
----
+### 1. Novo tipo de relacao para workflows
 
-## Solucao Proposta
+Adicionar entrada `workflow` ao objeto `RELATIONS` com estilo visual distinto (cor laranja/coral, animado, tracejado diferenciado) para diferenciar edges de workflow das relacoes manuais existentes (orquestra, delega, membro, etc.).
 
-### 1. Novos tipos em `src/types/aios.ts`
+### 2. Importar workflow store no diagrama
 
-Adicionar `ProjectWorkflow` como entidade de nivel projeto, separada dos squad workflows:
+O componente `ArchitectureDiagram` passara a consumir `useWorkflowStore` para acessar os workflows do projeto.
 
-```text
-interface ProjectWorkflow {
-  id: string;
-  name: string;
-  slug: string;
-  description: string;
-  trigger: 'manual' | 'on_task' | 'scheduled' | 'event';
-  steps: WorkflowStep[];
-  squadSlug?: string;       // opcional - vinculo a squad especifico
-}
-```
+### 3. Alterar `buildDiagramData` para aceitar workflows
 
-Estender `WorkflowStep` existente:
+A funcao `buildDiagramData` recebera um parametro adicional `workflows: ProjectWorkflow[]` e gerara edges adicionais:
 
-```text
-interface WorkflowStep {
-  id: string;
-  name: string;
-  agentSlug: string;
-  taskId?: string;
-  condition?: string;
-  dependsOn?: string[];     // IDs de steps predecessores
-  timeout_ms?: number;
-  retryPolicy?: { maxRetries: number; backoffMs: number };
-}
-```
+- Para cada workflow, iterar sobre seus steps
+- Para cada step com `dependsOn` nao vazio, encontrar o step predecessor pelo ID
+- Mapear `step.agentSlug` para o node `agent-<slug>` correspondente
+- Criar edge direcional do agente predecessor para o agente do step atual, com tipo `relation` e `relationType: 'workflow'`
+- Steps sem dependencias (paralelos) receberao edge do orchestrator para o agente
+- Label do edge mostrara o nome do workflow (abreviado se necessario)
+- Deduplicar edges entre o mesmo par de agentes (evitar sobreposicao)
 
-Adicionar `workflows: ProjectWorkflow[]` ao `AiosProject`.
+### 4. Logica de deduplicacao
 
-### 2. Store: `wizard-store.ts`
-
-Adicionar ao state:
-- `workflows: ProjectWorkflow[]`
-- Actions: `addWorkflow`, `removeWorkflow`, `updateWorkflow`, `addWorkflowStep`, `removeWorkflowStep`, `updateWorkflowStep`
-- `autoGenerateWorkflows()` - gera workflows padrao baseado no `orchestrationPattern` e agentes/squads selecionados
-
-### 3. Auto-geracao por padrao de orquestracao
-
-Funcao `generateDefaultWorkflows(pattern, agents, squads)`:
-
-| Padrao | Workflow gerado |
-|--------|----------------|
-| SEQUENTIAL_PIPELINE | Um workflow linear: agent1 -> agent2 -> ... -> agentN |
-| PARALLEL_SWARM | Um workflow com todos os steps sem dependencias (paralelo) |
-| HIERARCHICAL | Workflow master -> squad-leaders -> workers (arvore) |
-| WATCHDOG | Workflow workers paralelos -> supervisor review |
-| COLLABORATIVE | Workflow com N rounds de iteracao entre agentes |
-| TASK_FIRST | Um workflow por squad com steps baseados nas tasks |
-
-Chamada automatica quando o usuario muda o padrao de orquestracao ou avanca para o step de squads.
-
-### 4. Novo componente: `WorkflowEditor.tsx`
-
-Editor visual de workflows com:
-- Lista de workflows do projeto (nao apenas de squads)
-- Para cada workflow: nome, descricao, trigger type
-- Lista de steps arrastavel (reorder) com:
-  - Select de agente (de todos os agentes do projeto)
-  - Select de task (opcional, das tasks dos squads)
-  - Campo condicao (string livre)
-  - Multi-select de dependencias (outros steps)
-- Botao "Auto-gerar" que chama `autoGenerateWorkflows()`
-- Visualizacao em lista e em mini-diagrama (reutilizando ReactFlow simplificado)
-
-### 5. Integracao no Wizard
-
-Duas opcoes de integracao (recomendo a primeira):
-
-**Opcao A - Tab dentro da etapa Squads**: Adicionar aba "Workflows" ao lado de Squads no `WizardPage.tsx`, usando `Tabs` do shadcn. Isso mantem o fluxo linear do wizard sem adicionar um step novo.
-
-**Opcao B - Novo step no wizard**: Adicionar step `workflows` entre `squads` e `integrations`. Requer alterar `WIZARD_STEPS` e `WizardStep` type.
-
-Recomendo **Opcao A** porque workflows dependem de agentes e squads ja definidos, e a visualizacao conjunta facilita a consistencia.
-
-### 6. Atualizacao no `ArchitectureDiagram.tsx`
-
-Renderizar workflows como edges com label no diagrama de arquitetura:
-- Steps com `dependsOn` geram edges direcionais entre nodes de agentes
-- Workflows sem dependencias (paralelos) mostram edges do orchestrator para todos os agentes
-
-### 7. Atualizacao no gerador de pacotes
-
-**`generate-aios-package.ts`**:
-- Novo arquivo gerado: `workflows/<slug>.yaml` para cada ProjectWorkflow
-- Atualizar `aios.config.yaml` com secao `workflows:`
-- Atualizar `orchestrator.ts` gerado para consumir os workflows definidos em YAML em vez de logica hardcoded
-- Atualizar `types.ts` gerado com `WorkflowConfig`
-
-### 8. Persistencia no banco
-
-Adicionar coluna `workflows jsonb default '[]'` na tabela `projects` (ou criar tabela `workflows` separada). Atualizar o `handleSaveProject` no `WizardPage.tsx` para persistir.
-
----
+Como multiplos steps podem conectar os mesmos agentes, usar um Set de `source-target` para evitar edges duplicados. Quando houver duplicatas, o label acumulara os nomes.
 
 ## Arquivos impactados
 
-| Arquivo | Acao |
-|---------|------|
-| `src/types/aios.ts` | Adicionar `ProjectWorkflow`, estender `WorkflowStep`, campo em `AiosProject` |
-| `src/stores/wizard-store.ts` | State + actions para workflows, auto-geracao |
-| `src/components/wizard/WorkflowEditor.tsx` | **Novo** - editor completo de workflows |
-| `src/pages/WizardPage.tsx` | Integrar WorkflowEditor como tab na etapa Squads |
-| `src/components/wizard/SquadBuilder.tsx` | Remover secao de workflows inline (migra para WorkflowEditor) |
-| `src/components/wizard/ArchitectureDiagram.tsx` | Renderizar workflows como edges |
-| `src/lib/generate-aios-package.ts` | Gerar `workflows/*.yaml`, atualizar orchestrator |
-| `supabase/migrations/` | Coluna `workflows` na tabela `projects` |
+| Arquivo | Alteracao |
+|---------|-----------|
+| `src/components/wizard/ArchitectureDiagram.tsx` | Importar `useWorkflowStore`, adicionar relacao `workflow` ao `RELATIONS`, estender `buildDiagramData` com parametro workflows, gerar edges de workflow no diagrama |
 
+## Detalhes tecnicos
+
+```text
+// Nova entrada em RELATIONS
+workflow: {
+  label: 'Workflow',
+  dark: 'hsl(25 95% 60%)',
+  light: 'hsl(25 80% 38%)',
+  dash: '8 4',
+  animated: true
+}
+
+// Pseudo-logica em buildDiagramData
+for (workflow of workflows) {
+  // Map stepId -> agentSlug
+  const stepMap = new Map(workflow.steps.map(s => [s.id, s.agentSlug]));
+  const seen = new Set<string>();
+
+  for (step of workflow.steps) {
+    if (step.dependsOn?.length) {
+      for (depId of step.dependsOn) {
+        const srcSlug = stepMap.get(depId);
+        if (!srcSlug) continue;
+        const key = `agent-${srcSlug}->agent-${step.agentSlug}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        edges.push({
+          id: `wf-${workflow.slug}-${step.id}-${depId}`,
+          source: `agent-${srcSlug}`,
+          target: `agent-${step.agentSlug}`,
+          sourceHandle: 'right', targetHandle: 'left',
+          type: 'relation',
+          data: { relationType: 'workflow', customLabel: workflow.name },
+        });
+      }
+    }
+  }
+}
+```
+
+A alteracao e isolada a um unico arquivo, sem impacto em outros componentes.
