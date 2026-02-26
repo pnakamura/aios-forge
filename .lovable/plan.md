@@ -1,55 +1,43 @@
 
+# Correcao: Conectores ignoram opacidade do estilo
 
-# Conectores transparentes + Persistencia de Workflows
+## Causa raiz
 
-## Problema 1: Conectores nao ficam transparentes
+O componente customizado `RelationEdge` (linha 377) **nao recebe nem utiliza** a propriedade `style` do edge. Ele define seu proprio `style` inline no `BaseEdge` com opacidade fixa (0.8 ou 0.9). Por isso, a opacidade `0.1` aplicada via `setEdges` e completamente ignorada pelo React Flow -- o edge sempre renderiza opaco.
 
-Atualmente, quando um workflow e selecionado parcialmente, os edges (conectores) que nao pertencem ao workflow sao **removidos completamente** via `.filter()`. O comportamento correto e mante-los visiveis porem **transparentes** (opacidade reduzida), igual ao que ja acontece com os nodes.
+## Correcao
 
-### Correcao
+### 1. Receber `style` no `RelationEdge`
 
-No `useEffect` de sincronizacao de edges em `ArchitectureDiagram.tsx` (linha 668), substituir o `.filter()` por `.map()` que aplica opacidade:
+Adicionar `style` aos props desestruturados do `RelationEdge` (extrair de `EdgeProps`).
 
-```text
-// De (atual):
-return allEdges.filter(e => highlightedNodeIds.has(e.source) && highlightedNodeIds.has(e.target));
+### 2. Propagar opacidade externa para o `BaseEdge` e label
 
-// Para:
-return allEdges.map(e => {
-  const relevant = highlightedNodeIds.has(e.source) && highlightedNodeIds.has(e.target);
-  return {
-    ...e,
-    style: {
-      ...e.style,
-      opacity: relevant ? 1 : 0.1,
-      transition: 'opacity 0.3s ease',
-    },
-  };
-});
-```
-
-## Problema 2: Workflows nao sao restaurados ao editar projeto
-
-Os workflows sao salvos corretamente no campo JSONB `workflows` da tabela `projects` (linhas 157 e 175 do WizardPage). Porem, ao carregar um projeto para edicao, os workflows salvos **nao sao restaurados** no `workflowStore`.
-
-### Correcao
-
-No `useEffect` de `loadExistingProject` em `WizardPage.tsx` (linha 81-86), apos chamar `store.loadProject()`, restaurar os workflows:
+Dentro do componente, usar a opacidade do `style` externo (quando presente) multiplicando-a com a opacidade interna, ou simplesmente aplicando-a como override. A abordagem mais simples: usar `style?.opacity` se definida, senao manter o padrao atual.
 
 ```text
-store.loadProject({ projectId: editId, project: pRes.data, agents: aRes.data || [], squads: sRes.data || [] });
+// No BaseEdge:
+style={{
+  stroke: color,
+  strokeDasharray: cfg.dash || undefined,
+  strokeWidth: selected ? 3 : 2,
+  opacity: style?.opacity ?? (selected ? 1 : (isLight ? 0.9 : 0.8)),
+  filter: selected ? ... : undefined,
+  transition: style?.transition,
+}}
 
-// Restaurar workflows salvos no projeto
-const savedWorkflows = pRes.data.workflows;
-if (Array.isArray(savedWorkflows) && savedWorkflows.length > 0) {
-  workflowStore.setWorkflows(savedWorkflows);
-}
+// No label (EdgeLabelRenderer div):
+style={{
+  ...existingStyles,
+  opacity: style?.opacity ?? 1,
+  transition: style?.transition,
+}}
 ```
 
-## Arquivos impactados
+Isso garante que tanto a linha do conector quanto seu label de texto fiquem transparentes quando o edge nao pertence ao workflow selecionado.
+
+## Arquivo impactado
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/components/wizard/ArchitectureDiagram.tsx` | Linha 668: trocar `.filter()` por `.map()` com `style.opacity` |
-| `src/pages/WizardPage.tsx` | Linha 86: restaurar workflows do DB no `workflowStore` ao carregar projeto |
-
+| `src/components/wizard/ArchitectureDiagram.tsx` | Linhas 377-422: adicionar `style` aos props de `RelationEdge` e propagar `opacity` e `transition` para `BaseEdge` e label |
