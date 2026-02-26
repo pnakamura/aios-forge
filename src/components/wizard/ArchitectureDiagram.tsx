@@ -374,7 +374,7 @@ function SquadNode({ data, id, selected }: NodeProps) {
 
 // ── Custom Edge: RelationEdge (with label) ──
 
-function RelationEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data }: EdgeProps) {
+function RelationEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data, style }: EdgeProps) {
   const { theme } = useTheme();
   const isLight = theme === 'light';
   const relType = (data?.relationType as string) || 'coordena';
@@ -395,8 +395,9 @@ function RelationEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, 
           stroke: color,
           strokeDasharray: cfg.dash || undefined,
           strokeWidth: selected ? 3 : 2,
-          opacity: selected ? 1 : (isLight ? 0.9 : 0.8),
+          opacity: style?.opacity ?? (selected ? 1 : (isLight ? 0.9 : 0.8)),
           filter: selected ? `drop-shadow(0 0 4px ${color})` : undefined,
+          transition: style?.transition,
         }}
       />
       <EdgeLabelRenderer>
@@ -404,6 +405,8 @@ function RelationEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, 
           style={{
             transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
             pointerEvents: 'all',
+            opacity: style?.opacity ?? 1,
+            transition: style?.transition,
           }}
           className="nodrag nopan absolute"
         >
