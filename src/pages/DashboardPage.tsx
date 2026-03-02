@@ -7,7 +7,8 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { listProjects as fetchProjects } from '@/services/project.service';
+import { getSession, signOut as authSignOut } from '@/services/auth.service';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Cpu, Plus, FolderOpen, LogOut, Bot, Users, Network, Package, Calendar, Pencil, Sun, Moon } from 'lucide-react';
@@ -36,20 +37,19 @@ export default function DashboardPage() {
   }, []);
 
   const loadProjects = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { navigate('/auth'); return; }
-
-    const { data, error } = await supabase.from('projects').select('*').order('updated_at', { ascending: false });
-    if (error) {
+    try {
+      const session = await getSession();
+      if (!session) { navigate('/auth'); return; }
+      const data = await fetchProjects();
+      setProjects(data);
+    } catch {
       toast.error('Erro ao carregar projetos');
-    } else {
-      setProjects(data || []);
     }
     setLoading(false);
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await authSignOut();
     navigate('/');
   };
 
