@@ -50,6 +50,8 @@ export interface NativeAgent {
   defaultCommands: string[];
   icon: string;
   compatiblePatterns: OrchestrationPatternType[];
+  defaultTools: string[];
+  defaultSkills: string[];
 }
 
 export interface AgentMemory {
