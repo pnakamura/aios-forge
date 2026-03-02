@@ -1,68 +1,107 @@
 
 
-# Adicionar Tools e Skills Padrao aos Agentes Nativos
+# Melhorar Criacao de Agente Customizado — Padrao Agent File v4.2.13
 
 ## Resumo
 
-Expandir a interface `NativeAgent` com campos `defaultTools` e `defaultSkills`, preencher cada um dos 11 agentes nativos com ferramentas e habilidades coerentes ao seu papel, e atualizar o `AgentCatalog` para usa-los ao adicionar um agente.
+O dialogo atual de criacao de agente customizado tem apenas 4 campos (nome, slug, role, system prompt). Vamos expandi-lo para gerar agentes completos seguindo a estrutura do Agent File, com comandos estruturados (description, visibility, handler), dependencias (services, hooks, types), tools, skills e context.
 
 ## Mudancas
 
-### 1. Expandir a interface `NativeAgent`
+### 1. Expandir tipo de comando no AiosAgent
 
 **Arquivo:** `src/types/aios.ts`
 
-Adicionar dois campos opcionais ao `NativeAgent`:
+Adicionar um tipo estruturado para comandos, mantendo retrocompatibilidade:
 
 ```text
-defaultTools: string[]
-defaultSkills: string[]
+AgentCommand {
+  name: string
+  description: string
+  visibility: 'public' | 'internal' | 'admin'
+  handler: string  // referencia ao service/hook que implementa
+}
+
+AgentDependencies {
+  services: string[]
+  hooks: string[]
+  types: string[]
+}
 ```
 
-### 2. Preencher tools e skills em cada agente nativo
+Adicionar a `AiosAgent`:
+- `structuredCommands: AgentCommand[]` (os comandos ricos)
+- `dependencies: AgentDependencies` (mapeamento de arquivos relacionados)
+- `context: string` (descricao do caso de uso, separado do systemPrompt)
 
-**Arquivo:** `src/data/native-agents.ts`
-
-Cada agente recebera ferramentas e habilidades contextuais ao seu papel:
-
-| Agente | Tools | Skills |
-|--------|-------|--------|
-| AIOS Master | agent-registry, task-dispatcher, status-dashboard, config-loader | coordenacao-multi-agente, resolucao-de-conflitos, planejamento-estrategico, priorizacao-dinamica |
-| AIOS Orchestrator | queue-manager, event-bus, retry-engine, health-checker | roteamento-inteligente, balanceamento-de-carga, monitoramento-em-tempo-real, recuperacao-de-falhas |
-| Analyst | document-parser, data-extractor, interview-recorder, requirement-tracker | elicitacao-de-requisitos, analise-de-dominio, mapeamento-de-stakeholders, modelagem-de-processos |
-| Product Manager | backlog-manager, story-mapper, roadmap-builder, metrics-tracker | priorizacao-por-valor, escrita-de-user-stories, gestao-de-roadmap, analise-de-metricas |
-| Architect | diagram-generator, tech-radar, dependency-analyzer, adr-writer | design-de-sistemas, avaliacao-de-trade-offs, definicao-de-padroes, documentacao-tecnica |
-| UX Expert | wireframe-tool, prototype-builder, heatmap-analyzer, accessibility-checker | design-de-interfaces, pesquisa-com-usuarios, avaliacao-heuristica, design-responsivo |
-| Scrum Master | sprint-board, velocity-tracker, burndown-chart, retrospective-tool | facilitacao-agil, remocao-de-impedimentos, coaching-de-time, melhoria-continua |
-| Developer | code-editor, linter, test-runner, git-client | implementacao-limpa, refatoracao, code-review, integracao-de-apis |
-| QA Engineer | test-framework, bug-tracker, coverage-analyzer, load-tester | planejamento-de-testes, automacao-de-testes, teste-de-regressao, validacao-de-criterios |
-| Product Owner | acceptance-tracker, value-calculator, feedback-collector, demo-recorder | definicao-de-visao, validacao-de-entregas, priorizacao-de-negocios, gestao-de-feedback |
-| DevOps Engineer | ci-cd-runner, container-manager, infra-provisioner, log-aggregator | automacao-de-deploy, infraestrutura-como-codigo, monitoramento-de-producao, gestao-de-containers |
-
-### 3. Usar defaultTools e defaultSkills no AgentCatalog
+### 2. Redesenhar o dialogo de criacao customizada
 
 **Arquivo:** `src/components/wizard/AgentCatalog.tsx`
 
-Na funcao `handleAddNative`, trocar os arrays vazios pelos valores do agente nativo:
+Substituir o dialogo simples por um formulario multi-secao com:
+
+- **Identidade**: nome, slug (auto-gerado), role, squad (selecionavel entre squads existentes)
+- **Contexto**: campo context (quando ativar este agente) separado do system prompt
+- **Comandos**: lista editavel de comandos com campos name, description, visibility (public/internal/admin) e handler
+- **Dependencias**: campos para services, hooks e types (listas editaveis)
+- **Tools e Skills**: listas editaveis (reaproveitando o componente EditableList do AgentEditor)
+- **System Prompt**: textarea para o prompt
+
+### 3. Atualizar geracao do .agent.ts
+
+**Arquivo:** `src/lib/generate-aios-package.ts`
+
+Na funcao `generateAgentTs`, usar `structuredCommands` quando disponivel para gerar a estrutura completa:
 
 ```text
-tools: native.defaultTools || [],
-skills: native.defaultSkills || [],
+commands: {
+  [nome]: {
+    description: '[descricao]',
+    visibility: 'public',
+    handler: '[service.method]',
+  },
+},
+
+dependencies: {
+  services: ['nome.service.ts'],
+  hooks: ['useNome.ts'],
+  types: ['nome.types.ts'],
+},
 ```
+
+Tambem gerar o type export `[Nome]Commands` e `[Nome]Visibility`.
+
+### 4. Atualizar AgentEditor para suportar os novos campos
+
+**Arquivo:** `src/components/wizard/AgentEditor.tsx`
+
+Adicionar abas ou secoes para:
+- **Comandos estruturados**: editar name, description, visibility, handler por comando
+- **Dependencias**: editar services, hooks, types
+- **Context**: campo separado do system prompt
+
+### 5. Extrair EditableList para componente reutilizavel
+
+**Arquivo:** `src/components/wizard/EditableList.tsx`
+
+Mover o componente `EditableList` (atualmente inline no AgentEditor) para arquivo proprio, permitindo reuso no dialogo de criacao customizada.
 
 ## Arquivos impactados
 
 | Arquivo | Acao |
 |---------|------|
-| `src/types/aios.ts` | Adicionar `defaultTools` e `defaultSkills` a `NativeAgent` |
-| `src/data/native-agents.ts` | Preencher tools e skills para os 11 agentes |
-| `src/components/wizard/AgentCatalog.tsx` | Usar `defaultTools`/`defaultSkills` ao adicionar agente |
+| `src/types/aios.ts` | Adicionar AgentCommand, AgentDependencies, novos campos em AiosAgent |
+| `src/components/wizard/EditableList.tsx` | Extrair componente reutilizavel |
+| `src/components/wizard/AgentCatalog.tsx` | Redesenhar dialogo de criacao customizada |
+| `src/components/wizard/AgentEditor.tsx` | Adicionar edicao de comandos estruturados, deps e context |
+| `src/lib/generate-aios-package.ts` | Usar structuredCommands e dependencies na geracao |
+| `src/stores/wizard-store.ts` | Ajustar initialState para novos campos opcionais |
 
 ## Detalhes tecnicos
 
-- Os campos sao `string[]` consistentes com `AiosAgent.tools` e `AiosAgent.skills`
-- Nomes de tools usam kebab-case (ex: `queue-manager`) para consistencia com o padrao de slugs do AIOS
-- Nomes de skills usam kebab-case com descricao funcional (ex: `coordenacao-multi-agente`)
-- Os arquivos gerados (.md, .yaml, .agent.ts) ja leem `tools` e `skills` do `AiosAgent` — nenhuma alteracao necessaria nos geradores
+- `structuredCommands` e opcional — agentes nativos continuam usando `commands: string[]` e o gerador faz fallback para o formato atual
+- `AgentCommand.handler` segue o padrao `[service].[method]` (ex: `contractAnalysis.service.analyze`)
+- O slug e auto-gerado a partir do nome via kebab-case, editavel manualmente
+- O campo `context` do AiosAgent e diferente do `systemPrompt`: context descreve QUANDO usar, systemPrompt descreve COMO o agente se comporta
 - Nenhuma dependencia nova
 
