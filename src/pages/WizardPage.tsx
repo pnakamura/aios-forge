@@ -129,6 +129,7 @@ export default function WizardPage() {
         break;
       case 'review':
       case 'generation':
+      case 'post_creation':
         setRightPanel('manual');
         break;
       default:
@@ -601,6 +602,75 @@ export default function WizardPage() {
           </div>
         );
 
+      case 'post_creation':
+        return (
+          <div className="p-6 space-y-6 overflow-y-auto h-full">
+            <div className="flex items-center gap-3 mb-2">
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+                className="w-10 h-10 rounded-xl bg-glow-success/10 border border-glow-success/30 flex items-center justify-center shadow-[0_0_20px_-5px_hsl(var(--glow-success)/0.3)]"
+              >
+                <Check className="w-5 h-5 text-glow-success" />
+              </motion.div>
+              <div>
+                <h3 className="font-semibold">Pós-Criação & First-Run</h3>
+                <p className="text-xs text-muted-foreground">Checklist de primeiro uso — first-value em ≤ 10 min</p>
+              </div>
+            </div>
+
+            {/* Included vs You Provide */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-4 rounded-xl border border-glow-success/30 bg-glow-success/5 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <Package className="w-4 h-4 text-glow-success" />
+                  <span className="text-xs font-semibold text-glow-success">Incluído no pacote</span>
+                </div>
+                <ul className="space-y-1.5 text-xs text-muted-foreground">
+                  <li>• aios.config.yaml configurado</li>
+                  <li>• Definições de {store.agents.length} agente(s)</li>
+                  <li>• {store.squads.length} squad(s) com manifests</li>
+                  <li>• .env.example com variáveis</li>
+                  <li>• package.json + Docker</li>
+                  <li>• README.md + FIRST-RUN.md</li>
+                  <li>• Configurações de IDE</li>
+                  <li>• Runtime completo TypeScript</li>
+                </ul>
+              </div>
+
+              <div className="p-4 rounded-xl border border-glow-warning/30 bg-glow-warning/5 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertCircle className="w-4 h-4 text-glow-warning" />
+                  <span className="text-xs font-semibold text-glow-warning">Você precisa prover</span>
+                </div>
+                <ul className="space-y-1.5 text-xs text-muted-foreground">
+                  <li>• Node.js 18+ e npm 9+</li>
+                  <li>• API Key da Anthropic</li>
+                  <li>• IDE compatível instalada</li>
+                  <li>• .env preenchido com suas keys</li>
+                  <li>• npm install executado</li>
+                  <li>• Autenticação na IDE</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* First-Value steps */}
+            <div className="p-4 rounded-xl border border-primary/25 bg-primary/5 shadow-sm">
+              <p className="text-sm font-semibold mb-3">🚀 First-Value em 3 passos (≤ 10 min)</p>
+              <ol className="space-y-2 text-sm text-muted-foreground list-decimal list-inside">
+                <li>Ativar um agente na IDE (ex: <code className="px-1 py-0.5 rounded bg-muted text-xs">@dev</code>)</li>
+                <li>Confirmar recebimento do greeting do agente</li>
+                <li>Executar <code className="px-1 py-0.5 rounded bg-muted text-xs">*help</code> e verificar comandos</li>
+              </ol>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              O arquivo <code className="px-1 py-0.5 rounded bg-muted text-xs">FIRST-RUN.md</code> com o checklist completo está incluído no pacote ZIP.
+            </p>
+          </div>
+        );
+
       default:
         return <ChatPanel />;
     }
@@ -660,7 +730,7 @@ export default function WizardPage() {
           <Button
             size="sm"
             onClick={store.nextStep}
-            disabled={store.currentStep === 'generation' || !canProceed}
+            disabled={store.currentStep === 'post_creation' || !canProceed}
             className={cn('gap-1.5', !canProceed && 'opacity-50')}
           >
             Proximo <ArrowRight className="w-4 h-4" />
@@ -697,12 +767,12 @@ export default function WizardPage() {
                         strokeWidth="3"
                         strokeLinecap="round"
                         strokeDasharray={113.1}
-                        animate={{ strokeDashoffset: 113.1 - (113.1 * ((highestIdx + 1) / 7)) }}
+                        animate={{ strokeDashoffset: 113.1 - (113.1 * ((highestIdx + 1) / 8)) }}
                         transition={{ duration: 0.5, ease: 'easeOut' }}
                       />
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-[10px] font-bold text-primary">{highestIdx + 1}/7</span>
+                      <span className="text-[10px] font-bold text-primary">{highestIdx + 1}/8</span>
                     </div>
                   </div>
 

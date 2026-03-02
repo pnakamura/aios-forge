@@ -5,7 +5,8 @@ export type WizardStep =
   | 'squads'
   | 'integrations'
   | 'review'
-  | 'generation';
+  | 'generation'
+  | 'post_creation';
 
 export const WIZARD_STEPS: { key: WizardStep; label: string; number: number }[] = [
   { key: 'welcome', label: 'Descoberta', number: 1 },
@@ -15,6 +16,7 @@ export const WIZARD_STEPS: { key: WizardStep; label: string; number: number }[] 
   { key: 'integrations', label: 'Integracoes', number: 5 },
   { key: 'review', label: 'Revisao', number: 6 },
   { key: 'generation', label: 'Geracao', number: 7 },
+  { key: 'post_creation', label: 'First-Run', number: 8 },
 ];
 
 export type OrchestrationPatternType =

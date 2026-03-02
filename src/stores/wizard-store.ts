@@ -201,6 +201,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       case 'squads': return true;
       case 'integrations': return true;
       case 'review': return true;
+      case 'generation': return true;
       default: return false;
     }
   },
