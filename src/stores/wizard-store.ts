@@ -11,7 +11,7 @@ interface WizardState {
   messages: ChatMessage[];
   sessionId: string | null;
   isLoading: boolean;
-  complianceResults: Record<string, { status: string; notes: string; violations?: { rule: string; severity: string; detail: string }[] }>;
+  complianceResults: Record<string, { status: string; notes: string; violations?: { rule: string; severity: string; detail: string; guardrail?: string; fix_instruction?: string }[] }>;
   complianceReviewed: boolean;
   /** When editing a saved project, holds the Supabase project ID */
   editingProjectId: string | null;
@@ -32,7 +32,7 @@ interface WizardState {
   addMessage: (message: ChatMessage) => void;
   setSessionId: (id: string) => void;
   setLoading: (loading: boolean) => void;
-  setComplianceResults: (results: Record<string, { status: string; notes: string; violations?: { rule: string; severity: string; detail: string }[] }>) => void;
+  setComplianceResults: (results: Record<string, { status: string; notes: string; violations?: { rule: string; severity: string; detail: string; guardrail?: string; fix_instruction?: string }[] }>) => void;
   reset: () => void;
   getStepIndex: () => number;
   canProceed: () => boolean;
@@ -55,7 +55,7 @@ const initialState = {
   messages: [] as ChatMessage[],
   sessionId: null as string | null,
   isLoading: false,
-  complianceResults: {} as Record<string, { status: string; notes: string; violations?: { rule: string; severity: string; detail: string }[] }>,
+  complianceResults: {} as Record<string, { status: string; notes: string; violations?: { rule: string; severity: string; detail: string; guardrail?: string; fix_instruction?: string }[] }>,
   complianceReviewed: false,
   editingProjectId: null as string | null,
 };

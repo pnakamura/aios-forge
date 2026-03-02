@@ -54,7 +54,39 @@ SEVERIDADE:
 - warning: campo opcional ausente, descricao vazia, inconsistencia menor entre arquivos
 - passed: totalmente conforme ao padrao v4.2.13
 
-Para cada arquivo, retorne o status geral e uma lista detalhada de violations encontradas.`;
+GUARDRAILS DE CORRECAO DE ROTA:
+
+Ao encontrar violacoes, classifique cada uma com o guardrail correspondente no campo "guardrail":
+
+GUARDRAIL_A (missing_agent_header):
+Arquivo sem header @agent completo no topo. Campos obrigatorios: @agent, @persona, @version, @squad, @commands, @deps, @context.
+Na correcao (fix_instruction), indique exatamente quais campos estao faltando e forneca o template do header.
+
+GUARDRAIL_B (business_logic_in_component):
+Componente UI contendo logica de negocio (chamadas de API, acesso a banco, processamento de dados). Violacao do principio Agent Authority.
+Na correcao, indique a separacao correta: service para logica, hook para estado, componente apenas para apresentacao.
+
+GUARDRAIL_C (uninstructed_feature):
+Arquivo contendo funcionalidades nao declaradas no @context do agente. Violacao do principio No Invention.
+Na correcao, liste os elementos que excedem o escopo do @context.
+
+GUARDRAIL_D (wrong_file_location):
+Arquivo criado fora da estrutura de pastas obrigatoria:
+  src/agents/ -> .agent.ts
+  src/components/[Dominio]/ -> componentes UI
+  src/hooks/ -> React hooks
+  src/services/ -> camada de servico
+  src/types/ -> interfaces
+  src/pages/ -> paginas
+  src/utils/ -> utilitarios
+Na correcao, indique o caminho correto.
+
+GUARDRAIL_E (audit_inconsistency):
+Inconsistencia detectada na auditoria cruzada: @persona vazio ou generico, campos obrigatorios faltando por tipo de arquivo, comandos inconsistentes entre .md/.yaml/.agent.ts do mesmo agente.
+
+Se a violacao nao se encaixa em nenhum guardrail especifico, use "NONE".
+
+Para cada arquivo, retorne o status geral, notas resumidas, e uma lista detalhada de violations com guardrail e fix_instruction.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -105,13 +137,15 @@ serve(async (req) => {
                         description: "List of individual rule violations found",
                         items: {
                           type: "object",
-                          properties: {
-                            rule: { type: "string", description: "Rule identifier (e.g. missing_header, cross_ref_broken, missing_section, empty_field, missing_visibility)" },
-                            severity: { type: "string", enum: ["error", "warning", "info"], description: "Violation severity" },
-                            detail: { type: "string", description: "Human-readable explanation of the violation" },
-                          },
-                          required: ["rule", "severity", "detail"],
-                          additionalProperties: false,
+                            properties: {
+                              rule: { type: "string", description: "Rule identifier (e.g. missing_header, cross_ref_broken, missing_section)" },
+                              severity: { type: "string", enum: ["error", "warning", "info"], description: "Violation severity" },
+                              detail: { type: "string", description: "Human-readable explanation of the violation" },
+                              guardrail: { type: "string", enum: ["GUARDRAIL_A", "GUARDRAIL_B", "GUARDRAIL_C", "GUARDRAIL_D", "GUARDRAIL_E", "NONE"], description: "Guardrail category" },
+                              fix_instruction: { type: "string", description: "Specific fix instruction for this violation" },
+                            },
+                            required: ["rule", "severity", "detail", "guardrail", "fix_instruction"],
+                            additionalProperties: false,
                         },
                       },
                     },

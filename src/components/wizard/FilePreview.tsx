@@ -73,7 +73,7 @@ function TreeItem({ node, selectedPath, onSelect, complianceResults, depth = 0 }
   node: TreeNode;
   selectedPath: string;
   onSelect: (path: string) => void;
-  complianceResults: Record<string, { status: string; notes: string; violations?: { rule: string; severity: string; detail: string }[] }>;
+  complianceResults: Record<string, { status: string; notes: string; violations?: { rule: string; severity: string; detail: string; guardrail?: string; fix_instruction?: string }[] }>;
   depth?: number;
 }) {
   const [open, setOpen] = useState(depth < 2);
@@ -298,17 +298,37 @@ export function FilePreview() {
                 </div>
               )}
               {complianceResults[selectedFile.path]?.violations && complianceResults[selectedFile.path].violations!.length > 0 && (
-                <div className="px-4 py-2 border-t border-border/50 text-xs space-y-1.5 bg-card/30 max-h-40 overflow-y-auto">
+                <div className="px-4 py-2 border-t border-border/50 text-xs space-y-2 bg-card/30 max-h-60 overflow-y-auto">
                   <strong className="text-muted-foreground">Violacoes detalhadas:</strong>
                   {complianceResults[selectedFile.path].violations!.map((v, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                      {v.severity === 'error' ? <XCircle className="w-3 h-3 text-destructive shrink-0 mt-0.5" /> :
-                       v.severity === 'warning' ? <AlertTriangle className="w-3 h-3 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" /> :
-                       <CheckCircle className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5" />}
-                      <div>
-                        <span className="font-mono text-[10px] text-muted-foreground">[{v.rule}]</span>{' '}
-                        <span className="text-secondary-foreground">{v.detail}</span>
+                    <div key={i} className="space-y-1">
+                      <div className="flex items-start gap-2">
+                        {v.severity === 'error' ? <XCircle className="w-3 h-3 text-destructive shrink-0 mt-0.5" /> :
+                         v.severity === 'warning' ? <AlertTriangle className="w-3 h-3 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" /> :
+                         <CheckCircle className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5" />}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono text-[10px] text-muted-foreground">[{v.rule}]</span>
+                            {v.guardrail && v.guardrail !== 'NONE' && (
+                              <Badge variant="outline" className={cn('text-[9px] px-1 py-0 h-4',
+                                v.guardrail === 'GUARDRAIL_A' ? 'border-cyan-500/40 text-cyan-600 dark:text-cyan-400' :
+                                v.guardrail === 'GUARDRAIL_B' ? 'border-orange-500/40 text-orange-600 dark:text-orange-400' :
+                                v.guardrail === 'GUARDRAIL_C' ? 'border-purple-500/40 text-purple-600 dark:text-purple-400' :
+                                v.guardrail === 'GUARDRAIL_D' ? 'border-pink-500/40 text-pink-600 dark:text-pink-400' :
+                                'border-amber-500/40 text-amber-600 dark:text-amber-400'
+                              )}>
+                                {v.guardrail.replace('GUARDRAIL_', 'Guard ')}
+                              </Badge>
+                            )}
+                          </div>
+                          <span className="text-secondary-foreground">{v.detail}</span>
+                        </div>
                       </div>
+                      {v.fix_instruction && (
+                        <div className="ml-5 px-2 py-1.5 rounded bg-primary/5 border border-primary/10 text-[11px] text-muted-foreground whitespace-pre-wrap">
+                          <span className="font-semibold text-primary/70">Correcao:</span> {v.fix_instruction}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
