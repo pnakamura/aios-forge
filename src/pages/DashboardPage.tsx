@@ -1,3 +1,10 @@
+/**
+ * @agent     DashboardPage
+ * @persona   Pagina de listagem e gestao de projetos do usuario
+ * @squad     pages
+ * @context   Exibida na rota /dashboard apos login. Lista projetos e permite criar/editar.
+ */
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';

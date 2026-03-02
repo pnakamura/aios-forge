@@ -1,3 +1,12 @@
+/**
+ * @agent     GenerateAiosPackage
+ * @persona   Engine de geracao de arquivos do pacote AIOS instalavel
+ * @version   1.0.0
+ * @commands  generateAiosPackage
+ * @deps      aios.ts, orchestration-patterns.ts
+ * @context   Chamado nas etapas de revisao e geracao do wizard para produzir o pacote completo.
+ */
+
 import { AiosAgent, AiosSquad, AiosProject, GeneratedFile, OrchestrationPatternType, ProjectWorkflow } from '@/types/aios';
 import { ORCHESTRATION_PATTERNS } from '@/data/orchestration-patterns';
 

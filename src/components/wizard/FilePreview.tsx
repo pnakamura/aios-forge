@@ -1,3 +1,11 @@
+/**
+ * @agent     FilePreview
+ * @persona   Visualizador de arquivos gerados com syntax highlighting e revisao de conformidade
+ * @commands  previewFile, runComplianceReview, copyContent
+ * @deps      wizard-store.ts, generate-aios-package.ts, supabase/client
+ * @context   Exibido no painel direito do wizard. Mostra arvore de arquivos e conteudo com highlighting.
+ */
+
 import { useWizardStore } from '@/stores/wizard-store';
 import { GeneratedFile } from '@/types/aios';
 import { useState, useMemo } from 'react';

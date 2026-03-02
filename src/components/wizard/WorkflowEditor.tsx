@@ -1,3 +1,11 @@
+/**
+ * @agent     WorkflowEditor
+ * @persona   Editor visual de workflows com steps, triggers e dependencias
+ * @commands  createWorkflow, autoGenerate, addStep, removeStep
+ * @deps      workflow-store.ts, wizard-store.ts
+ * @context   Usado na aba Workflows do wizard. Permite criar, editar e auto-gerar workflows.
+ */
+
 import { useWorkflowStore } from '@/stores/workflow-store';
 import { useWizardStore } from '@/stores/wizard-store';
 import { ProjectWorkflow, WorkflowStep, WorkflowTrigger } from '@/types/aios';

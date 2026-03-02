@@ -1,3 +1,10 @@
+/**
+ * @agent     NotFound
+ * @persona   Pagina 404 para rotas inexistentes
+ * @squad     pages
+ * @context   Exibida quando o usuario acessa uma rota nao mapeada.
+ */
+
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
 

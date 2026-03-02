@@ -1,3 +1,11 @@
+/**
+ * @agent     ThemeProvider
+ * @persona   Provider de tema (dark/light) com persistencia em localStorage
+ * @commands  toggleTheme
+ * @deps      react
+ * @context   Envolve toda a aplicacao. Permite alternar entre tema escuro e claro.
+ */
+
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
 type Theme = 'dark' | 'light';

@@ -1,3 +1,10 @@
+/**
+ * @agent     WizardPage
+ * @persona   Pagina principal do wizard de criacao/edicao de projetos AIOS
+ * @squad     pages
+ * @context   Exibida nas rotas /wizard e /wizard/:id. Orquestra as 8 etapas do wizard.
+ */
+
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useWizardStore } from '@/stores/wizard-store';

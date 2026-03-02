@@ -1,3 +1,9 @@
+/**
+ * @agent     AiosTypes
+ * @persona   Definicoes de tipos centrais do dominio AIOS
+ * @context   Tipos compartilhados: WizardStep, AiosAgent, AiosSquad, AiosProject, GeneratedFile, etc.
+ */
+
 export type WizardStep =
   | 'welcome'
   | 'project_config'

@@ -1,3 +1,11 @@
+/**
+ * @agent     ArchitectureDiagram
+ * @persona   Diagrama interativo de arquitetura com React Flow (3 tiers: orquestrador, agentes, squads)
+ * @commands  connectNodes, editAgent, removeNode, createSquad
+ * @deps      wizard-store.ts, workflow-store.ts, @xyflow/react
+ * @context   Exibido no painel direito durante a etapa de Agentes. Permite manipulacao visual da arquitetura.
+ */
+
 import { useWizardStore } from '@/stores/wizard-store';
 import { useWorkflowStore } from '@/stores/workflow-store';
 import { AiosAgent, AiosSquad, ProjectWorkflow } from '@/types/aios';

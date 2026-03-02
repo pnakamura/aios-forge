@@ -1,3 +1,10 @@
+/**
+ * @agent     NavLink
+ * @persona   Componente wrapper do NavLink do React Router com suporte a classes condicionais
+ * @commands  render
+ * @context   Usado para navegacao com estilos ativos/pendentes em menus.
+ */
+
 import { NavLink as RouterNavLink, NavLinkProps } from "react-router-dom";
 import { forwardRef } from "react";
 import { cn } from "@/lib/utils";

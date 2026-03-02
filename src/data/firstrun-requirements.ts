@@ -1,3 +1,9 @@
+/**
+ * @agent     FirstRunRequirements
+ * @persona   Dados do checklist de first-run para projetos gerados
+ * @context   Define os itens de verificacao pos-instalacao (prerequisites, setup, first-value).
+ */
+
 export type FirstRunSection =
   | 'prerequisites'
   | 'setup'
