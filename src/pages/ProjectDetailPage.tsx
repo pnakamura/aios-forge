@@ -7,13 +7,12 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { getProjectWithChildren, deleteProject, downloadProjectZip } from '@/services/project.service';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { ArrowLeft, Bot, Users, Network, Download, FileText, Trash2, Package, Calendar, Terminal, Copy, Check, Pencil } from 'lucide-react';
 import { motion } from 'framer-motion';
-import JSZip from 'jszip';
 import { cn } from '@/lib/utils';
 
 export default function ProjectDetailPage() {
@@ -33,36 +32,27 @@ export default function ProjectDetailPage() {
   }, [id]);
 
   const loadProject = async () => {
-    const [pRes, aRes, sRes, fRes] = await Promise.all([
-      supabase.from('projects').select('*').eq('id', id).single(),
-      supabase.from('agents').select('*').eq('project_id', id),
-      supabase.from('squads').select('*').eq('project_id', id),
-      supabase.from('generated_files').select('*').eq('project_id', id),
-    ]);
-    if (pRes.error) { toast.error('Projeto nao encontrado'); navigate('/dashboard'); return; }
-    setProject(pRes.data);
-    setAgents(aRes.data || []);
-    setSquads(sRes.data || []);
-    setFiles(fRes.data || []);
+    try {
+      const result = await getProjectWithChildren(id!);
+      setProject(result.project);
+      setAgents(result.agents);
+      setSquads(result.squads);
+      setFiles(result.files);
+    } catch {
+      toast.error('Projeto nao encontrado');
+      navigate('/dashboard');
+    }
     setLoading(false);
   };
 
   const handleDownload = async () => {
-    const zip = new JSZip();
-    files.forEach((f: any) => zip.file(f.path, f.content));
-    const blob = await zip.generateAsync({ type: 'blob' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${project.name.toLowerCase().replace(/\s+/g, '-')}.zip`;
-    a.click();
-    URL.revokeObjectURL(url);
+    await downloadProjectZip(files, project.name);
     toast.success('ZIP baixado!');
   };
 
   const handleDelete = async () => {
     if (!confirm('Tem certeza que deseja excluir este projeto? Essa acao nao pode ser desfeita.')) return;
-    await supabase.from('projects').delete().eq('id', id);
+    await deleteProject(id!);
     toast.success('Projeto excluido');
     navigate('/dashboard');
   };

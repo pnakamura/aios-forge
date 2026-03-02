@@ -26,7 +26,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
-import { supabase } from '@/integrations/supabase/client';
+import { getSession, getUser } from '@/services/auth.service';
+import { saveProject, loadProjectForEditing, downloadProjectZip } from '@/services/project.service';
 import { toast } from 'sonner';
 import {
   ArrowLeft, ArrowRight, Cpu, Bot, Users, Network,
@@ -36,7 +37,6 @@ import {
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/lib/theme';
 import { generateAiosPackage } from '@/lib/generate-aios-package';
-import JSZip from 'jszip';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function WizardPage() {
@@ -53,7 +53,7 @@ export default function WizardPage() {
   // Auth check
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await getSession();
       if (!session) navigate('/auth');
     };
     checkAuth();
@@ -72,41 +72,31 @@ export default function WizardPage() {
     // Only load if not already editing this project
     if (store.editingProjectId === editId) return;
 
-    const loadExistingProject = async () => {
+    const loadExisting = async () => {
       setLoadingProject(true);
       try {
-        const [pRes, aRes, sRes] = await Promise.all([
-          supabase.from('projects').select('*').eq('id', editId).single(),
-          supabase.from('agents').select('*').eq('project_id', editId),
-          supabase.from('squads').select('*').eq('project_id', editId),
-        ]);
-        if (pRes.error) {
-          toast.error('Projeto nao encontrado');
-          navigate('/dashboard');
-          return;
-        }
+        const result = await loadProjectForEditing(editId);
         store.loadProject({
           projectId: editId,
-          project: pRes.data,
-          agents: aRes.data || [],
-          squads: sRes.data || [],
+          project: result.project,
+          agents: result.agents,
+          squads: result.squads,
         });
 
-        // Restaurar workflows salvos no projeto
-        const savedWorkflows = pRes.data.workflows;
+        const savedWorkflows = result.project.workflows;
         if (Array.isArray(savedWorkflows) && savedWorkflows.length > 0) {
           workflowStore.setWorkflows(savedWorkflows as unknown as import('@/types/aios').ProjectWorkflow[]);
         }
 
-        toast.success(`Projeto "${pRes.data.name}" carregado para edicao`);
-      } catch (err) {
+        toast.success(`Projeto "${result.project.name}" carregado para edicao`);
+      } catch {
         toast.error('Erro ao carregar projeto');
         navigate('/dashboard');
       } finally {
         setLoadingProject(false);
       }
     };
-    loadExistingProject();
+    loadExisting();
   }, [editId]);
 
   // Track unsaved changes
@@ -154,100 +144,23 @@ export default function WizardPage() {
   const handleSaveProject = async () => {
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getUser();
       if (!user) throw new Error('Nao autenticado');
 
-      const isUpdate = !!store.editingProjectId;
-      let projectId: string;
-
-      if (isUpdate) {
-        // ── Update existing project ──
-        projectId = store.editingProjectId!;
-        const { error: projErr } = await supabase.from('projects').update({
-          name: store.project.name || 'Meu AIOS',
-          description: store.project.description || '',
-          domain: store.project.domain || 'software',
-          orchestration_pattern: (store.project.orchestrationPattern || 'TASK_FIRST') as any,
-          config: JSON.parse(JSON.stringify(store.project.config || {})),
-          workflows: JSON.parse(JSON.stringify(workflowStore.workflows)),
-        } as any).eq('id', projectId);
-        if (projErr) throw projErr;
-
-        // Delete old children and re-insert (simplest approach for full sync)
-        await Promise.all([
-          supabase.from('agents').delete().eq('project_id', projectId),
-          supabase.from('squads').delete().eq('project_id', projectId),
-          supabase.from('generated_files').delete().eq('project_id', projectId),
-        ]);
-      } else {
-        // ── Create new project ──
-        const { data: proj, error: projErr } = await supabase.from('projects').insert({
-          name: store.project.name || 'Meu AIOS',
-          description: store.project.description || '',
-          domain: store.project.domain || 'software',
-          orchestration_pattern: (store.project.orchestrationPattern || 'TASK_FIRST') as any,
-          config: JSON.parse(JSON.stringify(store.project.config || {})),
-          workflows: JSON.parse(JSON.stringify(workflowStore.workflows)),
-          user_id: user.id,
-        } as any).select().single();
-        if (projErr) throw projErr;
-        projectId = proj.id;
-      }
-
-      // Batch insert agents
-      if (store.agents.length > 0) {
-        const agentRows = store.agents.map(agent => ({
-          project_id: projectId,
-          name: agent.name,
-          slug: agent.slug,
-          role: agent.role,
-          system_prompt: agent.systemPrompt,
-          llm_model: agent.llmModel,
-          commands: JSON.parse(JSON.stringify(agent.commands)),
-          tools: JSON.parse(JSON.stringify(agent.tools)),
-          skills: JSON.parse(JSON.stringify(agent.skills)),
-          visibility: agent.visibility,
-          is_custom: agent.isCustom,
-          definition_md: '',
-        }));
-        const { error: agentErr } = await supabase.from('agents').insert(agentRows as any);
-        if (agentErr) throw agentErr;
-      }
-
-      // Batch insert squads
-      if (store.squads.length > 0) {
-        const squadRows = store.squads.map(squad => ({
-          project_id: projectId,
-          name: squad.name,
-          slug: squad.slug,
-          description: squad.description,
-          manifest_yaml: squad.manifestYaml || '',
-          tasks: JSON.parse(JSON.stringify(squad.tasks)),
-          workflows: JSON.parse(JSON.stringify(squad.workflows)),
-          agent_ids: JSON.parse(JSON.stringify(squad.agentIds)),
-          is_validated: squad.isValidated,
-        }));
-        const { error: squadErr } = await supabase.from('squads').insert(squadRows as any);
-        if (squadErr) throw squadErr;
-      }
-
-      // Save generated files
       const files = generateAiosPackage({ project: store.project, agents: store.agents, squads: store.squads, workflows: workflowStore.workflows, complianceResults: store.complianceResults });
-      if (files.length > 0) {
-        const fileRows = files.map(file => ({
-          project_id: projectId,
-          path: file.path,
-          content: file.content,
-          file_type: file.type,
-          compliance_status: file.complianceStatus,
-          compliance_notes: file.complianceNotes || null,
-        }));
-        const { error: fileErr } = await supabase.from('generated_files').insert(fileRows);
-        if (fileErr) throw fileErr;
-      }
+
+      const projectId = await saveProject({
+        editingProjectId: store.editingProjectId,
+        userId: user.id,
+        project: store.project,
+        agents: store.agents,
+        squads: store.squads,
+        workflows: workflowStore.workflows,
+        files: files.map(f => ({ path: f.path, content: f.content, type: f.type, complianceStatus: f.complianceStatus, complianceNotes: f.complianceNotes })),
+      });
 
       setHasUnsavedChanges(false);
-      toast.success(isUpdate ? 'Projeto atualizado!' : 'Projeto salvo!');
+      toast.success(store.editingProjectId ? 'Projeto atualizado!' : 'Projeto salvo!');
       navigate(`/project/${projectId}`);
     } catch (err: any) {
       toast.error(err.message || 'Erro ao salvar');
@@ -258,15 +171,7 @@ export default function WizardPage() {
 
   const handleDownloadZip = useCallback(async () => {
     const files = generateAiosPackage({ project: store.project, agents: store.agents, squads: store.squads, workflows: workflowStore.workflows, complianceResults: store.complianceResults });
-    const zip = new JSZip();
-    files.forEach(f => zip.file(f.path, f.content));
-    const blob = await zip.generateAsync({ type: 'blob' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${(store.project.name || 'aios').toLowerCase().replace(/\s+/g, '-')}.zip`;
-    a.click();
-    URL.revokeObjectURL(url);
+    await downloadProjectZip(files, store.project.name || 'aios');
     toast.success('ZIP baixado!');
   }, [store.project, store.agents, store.squads, store.complianceResults, workflowStore.workflows]);
 
