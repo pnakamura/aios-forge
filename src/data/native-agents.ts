@@ -12,6 +12,8 @@ export const NATIVE_AGENTS: NativeAgent[] = [
     defaultCommands: ['*orchestrate', '*delegate', '*status', '*plan'],
     icon: 'Crown',
     compatiblePatterns: ['SEQUENTIAL_PIPELINE', 'PARALLEL_SWARM', 'HIERARCHICAL', 'WATCHDOG', 'COLLABORATIVE', 'TASK_FIRST'],
+    defaultTools: ['agent-registry', 'task-dispatcher', 'status-dashboard', 'config-loader'],
+    defaultSkills: ['coordenacao-multi-agente', 'resolucao-de-conflitos', 'planejamento-estrategico', 'priorizacao-dinamica'],
   },
   {
     slug: 'aios-orchestrator',
@@ -24,6 +26,8 @@ export const NATIVE_AGENTS: NativeAgent[] = [
     defaultCommands: ['*route', '*queue', '*monitor', '*retry'],
     icon: 'Network',
     compatiblePatterns: ['SEQUENTIAL_PIPELINE', 'PARALLEL_SWARM', 'HIERARCHICAL', 'WATCHDOG', 'COLLABORATIVE', 'TASK_FIRST'],
+    defaultTools: ['queue-manager', 'event-bus', 'retry-engine', 'health-checker'],
+    defaultSkills: ['roteamento-inteligente', 'balanceamento-de-carga', 'monitoramento-em-tempo-real', 'recuperacao-de-falhas'],
   },
   {
     slug: 'analyst',
@@ -36,6 +40,8 @@ export const NATIVE_AGENTS: NativeAgent[] = [
     defaultCommands: ['*analyze', '*requirements', '*stakeholders', '*specs'],
     icon: 'Search',
     compatiblePatterns: ['SEQUENTIAL_PIPELINE', 'HIERARCHICAL', 'TASK_FIRST'],
+    defaultTools: ['document-parser', 'data-extractor', 'interview-recorder', 'requirement-tracker'],
+    defaultSkills: ['elicitacao-de-requisitos', 'analise-de-dominio', 'mapeamento-de-stakeholders', 'modelagem-de-processos'],
   },
   {
     slug: 'pm',
@@ -48,6 +54,8 @@ export const NATIVE_AGENTS: NativeAgent[] = [
     defaultCommands: ['*backlog', '*prioritize', '*story', '*roadmap'],
     icon: 'Target',
     compatiblePatterns: ['SEQUENTIAL_PIPELINE', 'HIERARCHICAL', 'COLLABORATIVE', 'TASK_FIRST'],
+    defaultTools: ['backlog-manager', 'story-mapper', 'roadmap-builder', 'metrics-tracker'],
+    defaultSkills: ['priorizacao-por-valor', 'escrita-de-user-stories', 'gestao-de-roadmap', 'analise-de-metricas'],
   },
   {
     slug: 'architect',
@@ -60,6 +68,8 @@ export const NATIVE_AGENTS: NativeAgent[] = [
     defaultCommands: ['*architecture', '*patterns', '*stack', '*components'],
     icon: 'Building2',
     compatiblePatterns: ['SEQUENTIAL_PIPELINE', 'HIERARCHICAL', 'COLLABORATIVE', 'TASK_FIRST'],
+    defaultTools: ['diagram-generator', 'tech-radar', 'dependency-analyzer', 'adr-writer'],
+    defaultSkills: ['design-de-sistemas', 'avaliacao-de-trade-offs', 'definicao-de-padroes', 'documentacao-tecnica'],
   },
   {
     slug: 'ux-expert',
@@ -72,6 +82,8 @@ export const NATIVE_AGENTS: NativeAgent[] = [
     defaultCommands: ['*wireframe', '*flow', '*usability', '*prototype'],
     icon: 'Palette',
     compatiblePatterns: ['SEQUENTIAL_PIPELINE', 'COLLABORATIVE', 'TASK_FIRST'],
+    defaultTools: ['wireframe-tool', 'prototype-builder', 'heatmap-analyzer', 'accessibility-checker'],
+    defaultSkills: ['design-de-interfaces', 'pesquisa-com-usuarios', 'avaliacao-heuristica', 'design-responsivo'],
   },
   {
     slug: 'sm',
@@ -84,6 +96,8 @@ export const NATIVE_AGENTS: NativeAgent[] = [
     defaultCommands: ['*sprint', '*standup', '*retro', '*impediment'],
     icon: 'Users',
     compatiblePatterns: ['HIERARCHICAL', 'COLLABORATIVE', 'TASK_FIRST'],
+    defaultTools: ['sprint-board', 'velocity-tracker', 'burndown-chart', 'retrospective-tool'],
+    defaultSkills: ['facilitacao-agil', 'remocao-de-impedimentos', 'coaching-de-time', 'melhoria-continua'],
   },
   {
     slug: 'dev',
@@ -96,6 +110,8 @@ export const NATIVE_AGENTS: NativeAgent[] = [
     defaultCommands: ['*code', '*implement', '*refactor', '*review'],
     icon: 'Code',
     compatiblePatterns: ['SEQUENTIAL_PIPELINE', 'PARALLEL_SWARM', 'HIERARCHICAL', 'COLLABORATIVE', 'TASK_FIRST'],
+    defaultTools: ['code-editor', 'linter', 'test-runner', 'git-client'],
+    defaultSkills: ['implementacao-limpa', 'refatoracao', 'code-review', 'integracao-de-apis'],
   },
   {
     slug: 'qa',
@@ -108,6 +124,8 @@ export const NATIVE_AGENTS: NativeAgent[] = [
     defaultCommands: ['*test', '*bug', '*validate', '*regression'],
     icon: 'ShieldCheck',
     compatiblePatterns: ['SEQUENTIAL_PIPELINE', 'PARALLEL_SWARM', 'TASK_FIRST'],
+    defaultTools: ['test-framework', 'bug-tracker', 'coverage-analyzer', 'load-tester'],
+    defaultSkills: ['planejamento-de-testes', 'automacao-de-testes', 'teste-de-regressao', 'validacao-de-criterios'],
   },
   {
     slug: 'po',
@@ -120,6 +138,8 @@ export const NATIVE_AGENTS: NativeAgent[] = [
     defaultCommands: ['*vision', '*prioritize', '*accept', '*reject'],
     icon: 'Star',
     compatiblePatterns: ['HIERARCHICAL', 'COLLABORATIVE', 'TASK_FIRST'],
+    defaultTools: ['acceptance-tracker', 'value-calculator', 'feedback-collector', 'demo-recorder'],
+    defaultSkills: ['definicao-de-visao', 'validacao-de-entregas', 'priorizacao-de-negocios', 'gestao-de-feedback'],
   },
   {
     slug: 'devops',
@@ -132,5 +152,7 @@ export const NATIVE_AGENTS: NativeAgent[] = [
     defaultCommands: ['*deploy', '*pipeline', '*infra', '*monitor'],
     icon: 'Server',
     compatiblePatterns: ['SEQUENTIAL_PIPELINE', 'PARALLEL_SWARM', 'HIERARCHICAL', 'TASK_FIRST'],
+    defaultTools: ['ci-cd-runner', 'container-manager', 'infra-provisioner', 'log-aggregator'],
+    defaultSkills: ['automacao-de-deploy', 'infraestrutura-como-codigo', 'monitoramento-de-producao', 'gestao-de-containers'],
   },
 ];
