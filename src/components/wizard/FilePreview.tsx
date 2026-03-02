@@ -73,7 +73,7 @@ function TreeItem({ node, selectedPath, onSelect, complianceResults, depth = 0 }
   node: TreeNode;
   selectedPath: string;
   onSelect: (path: string) => void;
-  complianceResults: Record<string, { status: string; notes: string }>;
+  complianceResults: Record<string, { status: string; notes: string; violations?: { rule: string; severity: string; detail: string }[] }>;
   depth?: number;
 }) {
   const [open, setOpen] = useState(depth < 2);
@@ -217,7 +217,9 @@ export function FilePreview() {
         f.path === 'aios.config.yaml' ||
         f.path.startsWith('agents/') ||
         f.path.startsWith('squads/') ||
+        f.path.startsWith('src/agents/') ||
         f.path === 'README.md' ||
+        f.path === 'FIRST-RUN.md' ||
         f.path === '.env.example'
       );
       const payload = reviewableFiles.map(f => ({ path: f.path, content: f.content, type: f.type }));
@@ -226,8 +228,10 @@ export function FilePreview() {
       });
       if (error) throw error;
       if (data?.results) {
-        const mapped: Record<string, { status: string; notes: string }> = {};
-        data.results.forEach((r: any) => { mapped[r.path] = { status: r.status, notes: r.notes }; });
+        const mapped: Record<string, { status: string; notes: string; violations?: { rule: string; severity: string; detail: string }[] }> = {};
+        data.results.forEach((r: any) => {
+          mapped[r.path] = { status: r.status, notes: r.notes, violations: r.violations || [] };
+        });
         setComplianceResults(mapped);
         toast.success('Revisao de conformidade concluida!');
       } else {
@@ -291,6 +295,22 @@ export function FilePreview() {
                   'border-destructive/30 bg-destructive/5 text-destructive'
                 )}>
                   <strong>Notas:</strong> {selectedFile.complianceNotes}
+                </div>
+              )}
+              {complianceResults[selectedFile.path]?.violations && complianceResults[selectedFile.path].violations!.length > 0 && (
+                <div className="px-4 py-2 border-t border-border/50 text-xs space-y-1.5 bg-card/30 max-h-40 overflow-y-auto">
+                  <strong className="text-muted-foreground">Violacoes detalhadas:</strong>
+                  {complianceResults[selectedFile.path].violations!.map((v, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      {v.severity === 'error' ? <XCircle className="w-3 h-3 text-destructive shrink-0 mt-0.5" /> :
+                       v.severity === 'warning' ? <AlertTriangle className="w-3 h-3 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" /> :
+                       <CheckCircle className="w-3 h-3 text-muted-foreground shrink-0 mt-0.5" />}
+                      <div>
+                        <span className="font-mono text-[10px] text-muted-foreground">[{v.rule}]</span>{' '}
+                        <span className="text-secondary-foreground">{v.detail}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </>
