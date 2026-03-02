@@ -61,6 +61,19 @@ export interface AgentMemory {
   type: 'short_term' | 'long_term' | 'episodic';
 }
 
+export interface AgentCommand {
+  name: string;
+  description: string;
+  visibility: 'public' | 'internal' | 'admin';
+  handler: string;
+}
+
+export interface AgentDependencies {
+  services: string[];
+  hooks: string[];
+  types: string[];
+}
+
 export interface AiosAgent {
   id?: string;
   slug: string;
@@ -75,6 +88,12 @@ export interface AiosAgent {
   visibility: 'full' | 'quick' | 'key';
   isCustom: boolean;
   category?: AgentCategory;
+  /** Structured commands with description, visibility and handler (Agent File v4.2.13) */
+  structuredCommands?: AgentCommand[];
+  /** File dependencies (services, hooks, types) */
+  dependencies?: AgentDependencies;
+  /** When to activate this agent — use case description */
+  context?: string;
 }
 
 export interface AiosSquad {
