@@ -76,6 +76,9 @@ export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
   files.push(generateGitignore());
   files.push(generateSetupScript(slug));
 
+  // ── First-Run checklist ──────────────────────────────────────
+  files.push(generateFirstRunMd(name, slug, project, agents, squads));
+
   // ── Apply compliance results ─────────────────────────────────
   if (complianceResults) {
     files.forEach(f => {
@@ -2220,5 +2223,90 @@ echo "  Setup concluido!"
 echo "  Execute: npm run dev"
 echo "================================================"
 `,
+  };
+}
+
+function generateFirstRunMd(
+  name: string,
+  _slug: string,
+  project: Partial<AiosProject>,
+  agents: AiosAgent[],
+  squads: AiosSquad[],
+): GeneratedFile {
+  const hasN8N = false;
+  const hasNotion = false;
+  const hasMiro = false;
+
+  const integrationSection = (hasN8N || hasNotion || hasMiro) ? `
+## 🔌 Integrações
+
+${hasN8N ? '- [ ] Testar conectividade N8N — verificar que a instância responde\n' : ''}${hasNotion ? '- [ ] Testar conectividade Notion — verificar token e acesso a páginas\n' : ''}${hasMiro ? '- [ ] Testar conectividade Miro — verificar token e acesso a boards\n' : ''}
+` : '';
+
+  return {
+    path: 'FIRST-RUN.md',
+    content: `# FIRST-RUN.md — ${name}
+
+> Checklist de primeiro uso do seu AIOS. Siga as seções em ordem.
+> **Tempo estimado para first-value: ≤ 10 minutos.**
+
+---
+
+## ✅ O que está incluído vs. o que você precisa prover
+
+| Incluído no Pacote | Você Precisa Prover |
+|---|---|
+| aios.config.yaml configurado | Node.js 18+ e npm 9+ |
+| Definições de ${agents.length} agente(s) | API Key da Anthropic (Claude) |
+| ${squads.length} squad(s) com manifests | IDE compatível (Claude Code, Cursor, etc.) |
+| .env.example com variáveis | .env preenchido com suas keys |
+| package.json com dependências | \`npm install\` executado |
+| Configurações de IDE | Autenticação na IDE |
+| README.md e documentação | — |
+
+---
+
+## 🔧 Pré-requisitos
+
+- [ ] **Node.js 18+** instalado → verifique com \`node --version\`
+- [ ] **npm 9+** disponível → verifique com \`npm --version\`
+- [ ] **IDE compatível** instalada (Claude Code, Cursor, Codex CLI ou Gemini CLI)
+- [ ] **API Key Anthropic** válida em mãos
+
+## 📦 Setup Inicial
+
+- [ ] Extraia o pacote ZIP em um diretório de sua escolha
+- [ ] Execute \`npm install\` na raiz do projeto
+- [ ] Copie \`.env.example\` para \`.env\` e preencha suas API keys:
+  \`\`\`bash
+  cp .env.example .env
+  # Edite .env e configure ANTHROPIC_API_KEY e outras variáveis
+  \`\`\`
+- [ ] Execute \`npm run validate\` (ou \`npx aios-core doctor\`) para verificar integridade
+
+## 🚀 Validação de First-Value (≤ 10 min)
+
+> Se estes 3 passos funcionarem, seu AIOS está operacional.
+
+- [ ] **Ativar um agente** na IDE — abra a IDE e ative um agente (ex: \`@dev\`)
+- [ ] **Confirmar greeting** — o agente deve responder com sua apresentação e papel
+- [ ] **Executar \`*help\`** — verifique a lista de comandos disponíveis
+${integrationSection}
+## 📊 Observabilidade (Opcional)
+
+- [ ] Instalar o [AIOS Dashboard](https://github.com/SynkraAI/aios-dashboard) para monitoramento visual
+- [ ] Iniciar o server de eventos SSE
+- [ ] Acessar o dashboard em \`http://localhost:3001\`
+
+---
+
+**Padrão de orquestração**: ${project.orchestrationPattern || 'TASK_FIRST'}
+**Agentes**: ${agents.map(a => a.name).join(', ') || 'Nenhum'}
+**Squads**: ${squads.map(s => s.name).join(', ') || 'Nenhum'}
+
+> Gerado pelo AIOS Builder v1.1 — ${new Date().toISOString().split('T')[0]}
+`,
+    type: 'md',
+    complianceStatus: 'passed',
   };
 }

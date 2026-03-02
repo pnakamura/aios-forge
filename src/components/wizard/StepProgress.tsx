@@ -25,7 +25,7 @@ const PHASE_COLORS: Record<string, { dot: string; line: string; text: string }> 
 const PHASE_GROUPS: { label: string; steps: WizardStep[] }[] = [
   { label: 'Descoberta', steps: ['welcome', 'project_config'] },
   { label: 'Construcao', steps: ['agents', 'squads', 'integrations'] },
-  { label: 'Finalizacao', steps: ['review', 'generation'] },
+  { label: 'Finalizacao', steps: ['review', 'generation', 'post_creation'] },
 ];
 
 function getPhaseLabel(stepKey: WizardStep): string {

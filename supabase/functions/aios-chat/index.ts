@@ -51,6 +51,12 @@ Estado atual do projeto:
     integrations: `\nEstamos configurando integrações. Pergunte sobre ferramentas externas que o usuário usa.`,
     review: `\nEstamos na revisão final. Resuma a configuração e peça confirmação.`,
     generation: `\nO projeto está pronto para geração. Oriente o usuário a salvar ou exportar.`,
+    post_creation: `\nO projeto foi gerado com sucesso! O pacote inclui um FIRST-RUN.md com checklist completo de primeiro uso. Explique ao usuário:
+1. O first-value (primeiro agente funcionando) leva no máximo 10 minutos
+2. O que está incluído: aios.config.yaml, definições de agentes, squads, .env.example, package.json, Docker, README.md, FIRST-RUN.md
+3. O que o usuário precisa prover: Node.js 18+, npm 9+, API Key Anthropic, IDE compatível, .env preenchido
+4. Os 3 passos de first-value: ativar agente → confirmar greeting → executar *help
+Seja encorajador e celebre que o AIOS está pronto!`,
   };
 
   return basePrompt + (stepInstructions[step] || '');
