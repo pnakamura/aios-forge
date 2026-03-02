@@ -1,161 +1,138 @@
 
 
-# Geracao de Agentes no Padrao @aios-master v4.2.13
+# Revisao de Conformidade por Agente IA — Padrao AIOS v4.2.13
 
 ## Resumo
 
-Atualizar a geracao de arquivos de agentes no pacote ZIP para seguir o padrao Synkra AIOS v4.2.13, incluindo `persona_profile`, `commands` estruturados com visibilidade, `dependencies`, e geracao de arquivos `.agent.ts`.
+Atualizar a edge function `aios-compliance-review` para que o agente IA valide os arquivos gerados contra o padrao completo do Synkra AIOS v4.2.13, incluindo verificacao de headers `@agent`, estrutura `persona_profile`, visibilidade de comandos, dependencias cruzadas e coerencia entre arquivos `.md`, `.agent.ts` e `.yaml`.
+
+## Problema atual
+
+O prompt de validacao atual e generico — verifica apenas campos basicos (slug, name, model) sem considerar:
+- Headers `@agent` obrigatorios nos `.agent.ts`
+- Tabela `persona_profile` nos `.md`
+- Consistencia de `commands` com niveis de visibilidade (`full`/`quick`/`key`)
+- Cross-reference entre agentes declarados em squads e arquivos individuais
+- Presenca do `AppMaster.agent.ts` como orquestrador raiz
+- Secoes obrigatorias: Dependencies, Context, Tools, Skills
 
 ## Mudancas
 
-### 1. Atualizar `generateAgentMd` em `src/lib/generate-aios-package.ts`
+### 1. Reescrever o system prompt da edge function
 
-O formato atual e simples (frontmatter YAML + sections). O novo formato segue o padrao `aios-master.md` com:
+O novo prompt sera estruturado como um "agente revisor AIOS" com regras especificas por tipo de arquivo:
 
-- **persona_profile**: nome, papel, estilo de comunicacao, constraints
-- **commands**: cada comando com nome, visibilidade (`full`/`quick`/`key`), descricao
-- **dependencies**: agentes dos quais depende, squads aos quais pertence, servicos
-- **context**: quando e como o agente deve ser ativado
+**Arquivo: `supabase/functions/aios-compliance-review/index.ts`**
 
-A funcao passara a receber tambem `squads` e `project` para enriquecer o contexto.
+O system prompt passara a incluir:
 
 ```text
-# agents/aios-master.md
+Voce e o AIOS Compliance Reviewer, um agente especializado em validar
+artefatos contra o padrao Synkra AIOS v4.2.13.
 
----
-agent: "AIOS Master"
-slug: "aios-master"
-version: "1.0.0"
-squad: "core"
-model: "gemini-2.0-flash"
----
+REGRAS POR TIPO DE ARQUIVO:
 
-## persona_profile
+1. Arquivos .agent.ts (src/agents/*.agent.ts):
+   - OBRIGATORIO: header JSDoc com @agent, @persona, @version, @squad,
+     @commands, @deps, @context
+   - OBRIGATORIO: export const [Name]Agent com campos: name, slug, persona,
+     version, squad, model, commands, context
+   - OBRIGATORIO: export type [Name]Commands
+   - Cada comando deve ter visibility (full|quick|key) e description
+   - O AppMaster.agent.ts deve ter campo squads mapeando todos os squads
 
-| Campo       | Valor                                          |
-|-------------|------------------------------------------------|
-| name        | AIOS Master                                    |
-| role        | Orquestrador principal do sistema AIOS         |
-| style       | Direto, tecnico, orientado a resultados        |
-| visibility  | full                                           |
-| constraints | Nao executa tarefas diretamente; delega        |
+2. Arquivos .md (agents/*.md):
+   - OBRIGATORIO: frontmatter YAML com agent, slug, version, squad, model
+   - OBRIGATORIO: secao persona_profile como tabela com name, role, style,
+     visibility, constraints
+   - OBRIGATORIO: secoes System Prompt, Commands (tabela com Comando,
+     Visibilidade, Descricao), Tools, Skills, Dependencies, Context
+   - Commands devem ter visibilidade inferida corretamente
 
-## System Prompt
+3. Arquivos .yaml (agents/*.yaml):
+   - OBRIGATORIO: slug, name, role, version
+   - OBRIGATORIO: bloco llm com model, temperature, max_tokens
+   - OBRIGATORIO: visibility, system_prompt, commands, tools, skills
 
-Voce e o AIOS Master, o orquestrador principal...
+4. Squad YAML (squads/*/squad.yaml):
+   - OBRIGATORIO: name, slug, version, agents, tasks, workflows
+   - Cada task: id, name, description, agent, dependencies, checklist
+   - Cada workflow: id, name, steps (com id, name, agent)
+   - Cross-check: agentes referenciados devem existir nos arquivos de agente
 
-## Commands
+5. aios.config.yaml:
+   - OBRIGATORIO: name, version, domain, orchestration.pattern, agents,
+     squads, logging, runtime
+   - Cross-check: slugs de agentes e squads devem bater com os arquivos
 
-| Comando       | Visibilidade | Descricao                              |
-|---------------|-------------|----------------------------------------|
-| *orchestrate  | full        | Orquestrar execucao de tarefa          |
-| *delegate     | full        | Delegar tarefa para agente especifico  |
-| *status       | quick       | Exibir status do sistema               |
-| *plan         | full        | Criar plano de execucao                |
+6. FIRST-RUN.md:
+   - OBRIGATORIO: secoes Pre-requisitos, Setup Inicial, First-Value, tabela
+     "incluido vs necessario"
 
-## Tools
+7. README.md:
+   - OBRIGATORIO: titulo, descricao, instrucoes de setup, lista de agentes
 
-- (lista de ferramentas)
+CROSS-VALIDATION:
+- Todo agente listado em aios.config.yaml deve ter .md, .yaml e .agent.ts
+- Todo agente em um squad.yaml deve existir em aios.config.yaml
+- O AppMaster deve listar todos os squads do projeto
+- Comandos devem ser consistentes entre .md, .yaml e .agent.ts
 
-## Skills
-
-- (lista de skills)
-
-## Dependencies
-
-- **Squads**: core, desenvolvimento
-- **Agents**: aios-orchestrator, dev, qa
-
-## Context
-
-Ativado na inicializacao do sistema. Responsavel por coordenar...
+SEVERIDADE:
+- failed: campo obrigatorio ausente, cross-reference quebrada,
+  header @agent faltando
+- warning: campo opcional ausente, descricao vazia, inconsistencia menor
+- passed: totalmente conforme ao padrao v4.2.13
 ```
 
-### 2. Adicionar `generateAgentTs` — novo gerador de `.agent.ts`
+### 2. Atualizar o modelo utilizado
 
-Para cada agente, gerar um arquivo `.agent.ts` dentro do pacote no diretorio `src/agents/`, seguindo o padrao do Knowledge File:
+Trocar `google/gemini-2.0-flash` por `google/gemini-2.5-flash` para melhor capacidade de raciocinio na validacao cruzada.
+
+### 3. Adicionar campo `severity_reason` ao tool schema
+
+Enriquecer o retorno para incluir uma razao categorizada (ex: `missing_header`, `cross_ref_broken`, `empty_field`):
 
 ```text
-// src/agents/AiosMaster.agent.ts
-
-/**
- * @agent     AiosMaster
- * @persona   Orquestrador principal do sistema AIOS.
- *            Coordena todos os agentes, define roteamento
- *            de responsabilidades e mantem coerencia arquitetural.
- * @version   1.0.0
- * @squad     core
- * @commands  *orchestrate, *delegate, *status, *plan
- * @deps      aios-orchestrator, dev, qa
- * @context   Ativado na inicializacao do app. Define a arquitetura
- *            de squads e roteia requisicoes para o modulo correto.
- */
-
-export const AiosMasterAgent = {
-  name: 'AIOS Master',
-  slug: 'aios-master',
-  persona: 'Orquestrador principal do sistema AIOS',
-  version: '1.0.0',
-  squad: 'core',
-  model: 'gemini-2.0-flash',
-
-  commands: {
-    '*orchestrate': { visibility: 'full', description: 'Orquestrar execucao' },
-    '*delegate': { visibility: 'full', description: 'Delegar tarefa' },
-    '*status': { visibility: 'quick', description: 'Status do sistema' },
-    '*plan': { visibility: 'full', description: 'Criar plano' },
-  },
-
-  context: 'Ativado na inicializacao do sistema...',
-} as const;
-
-export type AiosMasterCommands = keyof typeof AiosMasterAgent.commands;
+properties:
+  results:
+    type: array
+    items:
+      properties:
+        path: { type: string }
+        status: { type: string, enum: [passed, warning, failed] }
+        notes: { type: string }
+        violations: {
+          type: array,
+          items: {
+            type: object,
+            properties:
+              rule: { type: string }
+              severity: { type: string, enum: [error, warning, info] }
+              detail: { type: string }
+          }
+        }
 ```
 
-### 3. Gerar `AppMaster.agent.ts` — agente raiz do projeto
+### 4. Atualizar o FilePreview para exibir violacoes detalhadas
 
-Um arquivo especial `src/agents/AppMaster.agent.ts` que serve como orquestrador raiz, listando todos os squads e agentes do projeto. Gerado uma unica vez com base nos dados do wizard:
+No componente `FilePreview.tsx`, ao exibir as notas de compliance, renderizar tambem a lista de violacoes individuais quando disponivel, mostrando a regra violada e o detalhe.
 
-```text
-/**
- * @agent     AppMaster
- * @persona   Orquestrador principal do [NOME_PROJETO].
- *            Coordena todos os modulos, define o roteamento de
- *            responsabilidades e mantem a coerencia arquitetural.
- * @version   1.0.0
- * @squad     core
- * @commands  navigate, orchestrate, loadModule, validateContext
- * @deps      todos os agents de squad
- * @context   Ativado na inicializacao do app.
- */
+### 5. Atualizar o wizard-store para armazenar violacoes
 
-export const AppMasterAgent = {
-  name: 'AppMaster',
-  ...
-  squads: { ... }, // mapeamento de todos os squads
-} as const;
-```
-
-### 4. Registrar novos geradores no `generateAiosPackage`
-
-Na funcao principal, adicionar chamadas para:
-- `generateAgentTs(agent, squads)` dentro do loop de agentes (linha 28-31)
-- `generateAppMasterAgent(name, project, agents, squads)` apos o loop
-
-### 5. Atualizar assinatura de `generateAgentMd`
-
-Passar `squads` e `project` como parametros adicionais para enriquecer as secoes Dependencies e Context.
+Expandir o tipo de `complianceResults` no store para incluir o array de `violations` opcional.
 
 ## Arquivos impactados
 
 | Arquivo | Acao |
 |---------|------|
-| `src/lib/generate-aios-package.ts` | Reescrever `generateAgentMd`, adicionar `generateAgentTs` e `generateAppMasterAgent` |
+| `supabase/functions/aios-compliance-review/index.ts` | Reescrever prompt, atualizar modelo, expandir tool schema |
+| `src/components/wizard/FilePreview.tsx` | Renderizar lista de violacoes detalhadas |
+| `src/stores/wizard-store.ts` | Expandir tipo de complianceResults para incluir violations |
 
 ## Detalhes tecnicos
 
-- A funcao `generateAgentMd` atual (linhas 197-234) sera substituida pela versao enriquecida
-- Cada comando tera visibilidade inferida: comandos com `*` prefixo sao `full`, exceto `*status`/`*help` que sao `quick`
-- O slug do squad ao qual o agente pertence sera buscado em `squads.find(s => s.agentIds.includes(agent.slug))`
-- O PascalCase do nome do agente para o `.agent.ts` sera derivado do slug com conversao (`aios-master` -> `AiosMaster`)
+- O prompt e longo mas necessario para validacao precisa — o modelo `gemini-2.5-flash` suporta contextos grandes
+- A cross-validation entre arquivos e feita pela IA analisando todos os arquivos simultaneamente (ja enviados no payload atual)
 - Nenhuma dependencia nova e necessaria
+- O campo `violations` e opcional para manter compatibilidade retroativa com resultados existentes
