@@ -26,9 +26,13 @@ export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
 
   // ── Agent definitions ────────────────────────────────────────
   agents.forEach(agent => {
-    files.push(generateAgentMd(agent));
+    files.push(generateAgentMd(agent, squads, project));
     files.push(generateAgentConfig(agent));
+    files.push(generateAgentTs(agent, squads, project));
   });
+
+  // ── App Master agent (root orchestrator) ────────────────────
+  files.push(generateAppMasterAgent(name, project, agents, squads));
 
   // ── Squad manifests ──────────────────────────────────────────
   squads.forEach(squad => {
@@ -194,25 +198,55 @@ runtime:
   };
 }
 
-function generateAgentMd(agent: AiosAgent): GeneratedFile {
+function slugToPascal(slug: string): string {
+  return slug
+    .split('-')
+    .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+    .join('');
+}
+
+function inferCommandVisibility(cmd: string): 'full' | 'quick' | 'key' {
+  const lower = cmd.replace(/^\*/, '').toLowerCase();
+  if (['status', 'help', 'info', 'ping'].includes(lower)) return 'quick';
+  return 'full';
+}
+
+function generateAgentMd(agent: AiosAgent, squads: AiosSquad[], project: Partial<AiosProject>): GeneratedFile {
+  const agentSquad = squads.find(s => (s.agentIds || []).includes(agent.slug));
+  const squadName = agentSquad?.name || 'core';
+  const commands = agent.commands || [];
+  const tools = agent.tools || [];
+  const skills = agent.skills || [];
+
+  const commandsTable = commands.length > 0
+    ? commands.map(c => `| ${c} | ${inferCommandVisibility(c)} | — |`).join('\n')
+    : '| (nenhum) | — | — |';
+
+  const depsAgents = agentSquad
+    ? (agentSquad.agentIds || []).filter(id => id !== agent.slug)
+    : [];
+
   return {
     path: `agents/${agent.slug}.md`,
     type: 'md',
     complianceStatus: 'pending',
     content: `---
-name: "${agent.name}"
+agent: "${agent.name}"
 slug: "${agent.slug}"
-role: "${agent.role}"
-model: "${agent.llmModel}"
-visibility: "${agent.visibility}"
 version: "1.0.0"
-custom: ${agent.isCustom}
-category: "${agent.category || 'Desenvolvimento'}"
+squad: "${agentSquad?.slug || 'core'}"
+model: "${agent.llmModel}"
 ---
 
-# ${agent.name}
+## persona_profile
 
-> ${agent.role}
+| Campo       | Valor                                          |
+|-------------|------------------------------------------------|
+| name        | ${agent.name}                                  |
+| role        | ${agent.role}                                  |
+| style       | Direto, tecnico, orientado a resultados        |
+| visibility  | ${agent.visibility}                            |
+| constraints | Segue o padrao AIOS v4.2.13                    |
 
 ## System Prompt
 
@@ -220,15 +254,133 @@ ${agent.systemPrompt || '(a definir)'}
 
 ## Commands
 
-${(agent.commands || []).length > 0 ? agent.commands.map(c => `- \`${c}\``).join('\n') : '- (nenhum comando configurado)'}
+| Comando       | Visibilidade | Descricao                              |
+|---------------|-------------|----------------------------------------|
+${commandsTable}
 
 ## Tools
 
-${(agent.tools || []).length > 0 ? agent.tools.map(t => `- ${t}`).join('\n') : '- (nenhuma ferramenta configurada)'}
+${tools.length > 0 ? tools.map(t => `- ${t}`).join('\n') : '- (nenhuma ferramenta configurada)'}
 
 ## Skills
 
-${(agent.skills || []).length > 0 ? agent.skills.map(s => `- ${s}`).join('\n') : '- (nenhuma skill configurada)'}
+${skills.length > 0 ? skills.map(s => `- ${s}`).join('\n') : '- (nenhuma skill configurada)'}
+
+## Dependencies
+
+- **Squads**: ${squadName}
+- **Agents**: ${depsAgents.length > 0 ? depsAgents.join(', ') : '(nenhum)'}
+
+## Context
+
+Agente do projeto ${project.name || 'AIOS'}. Squad: ${squadName}.
+${agent.role}
+`,
+  };
+}
+
+function generateAgentTs(agent: AiosAgent, squads: AiosSquad[], project: Partial<AiosProject>): GeneratedFile {
+  const pascal = slugToPascal(agent.slug);
+  const agentSquad = squads.find(s => (s.agentIds || []).includes(agent.slug));
+  const squadSlug = agentSquad?.slug || 'core';
+  const commands = agent.commands || [];
+  const depsAgents = agentSquad
+    ? (agentSquad.agentIds || []).filter(id => id !== agent.slug)
+    : [];
+
+  const commandsObj = commands
+    .map(c => `    '${c}': { visibility: '${inferCommandVisibility(c)}', description: '' },`)
+    .join('\n');
+
+  return {
+    path: `src/agents/${pascal}.agent.ts`,
+    type: 'ts',
+    complianceStatus: 'pending',
+    content: `/**
+ * @agent     ${pascal}
+ * @persona   ${agent.role}
+ * @version   1.0.0
+ * @squad     ${squadSlug}
+ * @commands  ${commands.join(', ') || '(nenhum)'}
+ * @deps      ${depsAgents.join(', ') || '(nenhum)'}
+ * @context   Agente do projeto ${project.name || 'AIOS'}. ${agent.role}
+ */
+
+export const ${pascal}Agent = {
+  name: '${agent.name}',
+  slug: '${agent.slug}',
+  persona: '${agent.role}',
+  version: '1.0.0',
+  squad: '${squadSlug}',
+  model: '${agent.llmModel}',
+
+  commands: {
+${commandsObj || '    // (nenhum comando configurado)'}
+  },
+
+  context: 'Agente do projeto ${project.name || 'AIOS'}. ${agent.role}',
+} as const;
+
+export type ${pascal}Commands = keyof typeof ${pascal}Agent.commands;
+`,
+  };
+}
+
+function generateAppMasterAgent(
+  name: string,
+  project: Partial<AiosProject>,
+  agents: AiosAgent[],
+  squads: AiosSquad[],
+): GeneratedFile {
+  const squadsObj = squads
+    .map(s => {
+      const agentSlugs = (s.agentIds || []).map(id => `'${id}'`).join(', ');
+      return `    '${s.slug}': { name: '${s.name}', agents: [${agentSlugs}] },`;
+    })
+    .join('\n');
+
+  const allAgentSlugs = agents.map(a => a.slug).join(', ');
+
+  return {
+    path: 'src/agents/AppMaster.agent.ts',
+    type: 'ts',
+    complianceStatus: 'pending',
+    content: `/**
+ * @agent     AppMaster
+ * @persona   Orquestrador principal do ${name}.
+ *            Coordena todos os modulos, define o roteamento de
+ *            responsabilidades e mantem a coerencia arquitetural.
+ * @version   1.0.0
+ * @squad     core
+ * @commands  navigate, orchestrate, loadModule, validateContext
+ * @deps      ${allAgentSlugs || '(nenhum)'}
+ * @context   Ativado na inicializacao do app. Define a arquitetura
+ *            de squads e roteia requisicoes para o modulo correto.
+ */
+
+export const AppMasterAgent = {
+  name: 'AppMaster',
+  slug: 'app-master',
+  persona: 'Orquestrador principal do ${name}',
+  version: '1.0.0',
+  squad: 'core',
+  model: 'gemini-2.0-flash',
+
+  commands: {
+    'navigate': { visibility: 'full' as const, description: 'Navegar entre modulos' },
+    'orchestrate': { visibility: 'full' as const, description: 'Orquestrar execucao de tarefa' },
+    'loadModule': { visibility: 'full' as const, description: 'Carregar modulo especifico' },
+    'validateContext': { visibility: 'quick' as const, description: 'Validar contexto atual' },
+  },
+
+  squads: {
+${squadsObj || '    // (nenhum squad configurado)'}
+  },
+
+  context: 'Ativado na inicializacao do app ${name}. Orquestra ${agents.length} agente(s) em ${squads.length} squad(s).',
+} as const;
+
+export type AppMasterCommands = keyof typeof AppMasterAgent.commands;
 `,
   };
 }
