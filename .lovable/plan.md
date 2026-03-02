@@ -1,138 +1,113 @@
 
 
-# Revisao de Conformidade por Agente IA — Padrao AIOS v4.2.13
+# Guardrails de Correcao de Rota — Padrao @aios-master v4.2.13
 
 ## Resumo
 
-Atualizar a edge function `aios-compliance-review` para que o agente IA valide os arquivos gerados contra o padrao completo do Synkra AIOS v4.2.13, incluindo verificacao de headers `@agent`, estrutura `persona_profile`, visibilidade de comandos, dependencias cruzadas e coerencia entre arquivos `.md`, `.agent.ts` e `.yaml`.
-
-## Problema atual
-
-O prompt de validacao atual e generico — verifica apenas campos basicos (slug, name, model) sem considerar:
-- Headers `@agent` obrigatorios nos `.agent.ts`
-- Tabela `persona_profile` nos `.md`
-- Consistencia de `commands` com niveis de visibilidade (`full`/`quick`/`key`)
-- Cross-reference entre agentes declarados em squads e arquivos individuais
-- Presenca do `AppMaster.agent.ts` como orquestrador raiz
-- Secoes obrigatorias: Dependencies, Context, Tools, Skills
+Integrar os 5 guardrails (A-E) ao sistema de compliance review para que o agente IA identifique e classifique violacoes usando as categorias especificas dos guardrails, fornecendo instrucoes de correcao acionaveis no relatorio.
 
 ## Mudancas
 
-### 1. Reescrever o system prompt da edge function
+### 1. Expandir o system prompt da edge function com os guardrails
 
-O novo prompt sera estruturado como um "agente revisor AIOS" com regras especificas por tipo de arquivo:
+**Arquivo:** `supabase/functions/aios-compliance-review/index.ts`
 
-**Arquivo: `supabase/functions/aios-compliance-review/index.ts`**
-
-O system prompt passara a incluir:
+Adicionar ao final do system prompt existente uma secao "GUARDRAILS DE CORRECAO" com as 5 categorias. Cada violacao encontrada devera ser classificada com o guardrail correspondente no campo `rule`:
 
 ```text
-Voce e o AIOS Compliance Reviewer, um agente especializado em validar
-artefatos contra o padrao Synkra AIOS v4.2.13.
+GUARDRAILS DE CORRECAO DE ROTA:
 
-REGRAS POR TIPO DE ARQUIVO:
+Ao encontrar violacoes, classifique cada uma com o guardrail correspondente:
 
-1. Arquivos .agent.ts (src/agents/*.agent.ts):
-   - OBRIGATORIO: header JSDoc com @agent, @persona, @version, @squad,
-     @commands, @deps, @context
-   - OBRIGATORIO: export const [Name]Agent com campos: name, slug, persona,
-     version, squad, model, commands, context
-   - OBRIGATORIO: export type [Name]Commands
-   - Cada comando deve ter visibility (full|quick|key) e description
-   - O AppMaster.agent.ts deve ter campo squads mapeando todos os squads
+GUARDRAIL_A (missing_agent_header):
+Arquivo sem header @agent completo no topo. Campos obrigatorios:
+@agent, @persona, @version, @squad, @commands, @deps, @context.
+Na correcao, indique exatamente quais campos estao faltando.
 
-2. Arquivos .md (agents/*.md):
-   - OBRIGATORIO: frontmatter YAML com agent, slug, version, squad, model
-   - OBRIGATORIO: secao persona_profile como tabela com name, role, style,
-     visibility, constraints
-   - OBRIGATORIO: secoes System Prompt, Commands (tabela com Comando,
-     Visibilidade, Descricao), Tools, Skills, Dependencies, Context
-   - Commands devem ter visibilidade inferida corretamente
+GUARDRAIL_B (business_logic_in_component):
+Componente UI contendo logica de negocio (chamadas de API, acesso a
+banco, processamento de dados). Violacao do principio Agent Authority.
+Na correcao, indique a separacao correta: service para logica,
+hook para estado, componente apenas para apresentacao.
 
-3. Arquivos .yaml (agents/*.yaml):
-   - OBRIGATORIO: slug, name, role, version
-   - OBRIGATORIO: bloco llm com model, temperature, max_tokens
-   - OBRIGATORIO: visibility, system_prompt, commands, tools, skills
+GUARDRAIL_C (uninstructed_feature):
+Arquivo contendo funcionalidades nao declaradas no @context do agente.
+Violacao do principio No Invention. Na correcao, liste os elementos
+que excedem o escopo do @context.
 
-4. Squad YAML (squads/*/squad.yaml):
-   - OBRIGATORIO: name, slug, version, agents, tasks, workflows
-   - Cada task: id, name, description, agent, dependencies, checklist
-   - Cada workflow: id, name, steps (com id, name, agent)
-   - Cross-check: agentes referenciados devem existir nos arquivos de agente
+GUARDRAIL_D (wrong_file_location):
+Arquivo criado fora da estrutura de pastas obrigatoria:
+src/agents/ -> .agent.ts
+src/components/[Dominio]/ -> componentes UI
+src/hooks/ -> React hooks
+src/services/ -> camada de servico
+src/types/ -> interfaces
+src/pages/ -> paginas
+src/utils/ -> utilitarios
+Na correcao, indique o caminho correto.
 
-5. aios.config.yaml:
-   - OBRIGATORIO: name, version, domain, orchestration.pattern, agents,
-     squads, logging, runtime
-   - Cross-check: slugs de agentes e squads devem bater com os arquivos
-
-6. FIRST-RUN.md:
-   - OBRIGATORIO: secoes Pre-requisitos, Setup Inicial, First-Value, tabela
-     "incluido vs necessario"
-
-7. README.md:
-   - OBRIGATORIO: titulo, descricao, instrucoes de setup, lista de agentes
-
-CROSS-VALIDATION:
-- Todo agente listado em aios.config.yaml deve ter .md, .yaml e .agent.ts
-- Todo agente em um squad.yaml deve existir em aios.config.yaml
-- O AppMaster deve listar todos os squads do projeto
-- Comandos devem ser consistentes entre .md, .yaml e .agent.ts
-
-SEVERIDADE:
-- failed: campo obrigatorio ausente, cross-reference quebrada,
-  header @agent faltando
-- warning: campo opcional ausente, descricao vazia, inconsistencia menor
-- passed: totalmente conforme ao padrao v4.2.13
+GUARDRAIL_E (audit_inconsistency):
+Inconsistencia detectada na auditoria cruzada: @persona vazio ou
+generico, campos obrigatorios faltando por tipo de arquivo, comandos
+inconsistentes entre .md/.yaml/.agent.ts do mesmo agente.
 ```
 
-### 2. Atualizar o modelo utilizado
+### 2. Expandir o tool schema com campo `guardrail`
 
-Trocar `google/gemini-2.0-flash` por `google/gemini-2.5-flash` para melhor capacidade de raciocinio na validacao cruzada.
-
-### 3. Adicionar campo `severity_reason` ao tool schema
-
-Enriquecer o retorno para incluir uma razao categorizada (ex: `missing_header`, `cross_ref_broken`, `empty_field`):
+No schema do tool `validate_files`, adicionar o campo `guardrail` ao objeto de violation:
 
 ```text
-properties:
-  results:
-    type: array
-    items:
-      properties:
-        path: { type: string }
-        status: { type: string, enum: [passed, warning, failed] }
-        notes: { type: string }
-        violations: {
-          type: array,
-          items: {
-            type: object,
-            properties:
-              rule: { type: string }
-              severity: { type: string, enum: [error, warning, info] }
-              detail: { type: string }
-          }
-        }
+violations.items.properties:
+  rule: string
+  severity: error | warning | info
+  detail: string
+  guardrail: string (enum: GUARDRAIL_A, GUARDRAIL_B, GUARDRAIL_C,
+                      GUARDRAIL_D, GUARDRAIL_E, NONE)
+  fix_instruction: string (instrucao de correcao especifica)
 ```
 
-### 4. Atualizar o FilePreview para exibir violacoes detalhadas
+### 3. Atualizar tipo no wizard-store
 
-No componente `FilePreview.tsx`, ao exibir as notas de compliance, renderizar tambem a lista de violacoes individuais quando disponivel, mostrando a regra violada e o detalhe.
+**Arquivo:** `src/stores/wizard-store.ts`
 
-### 5. Atualizar o wizard-store para armazenar violacoes
+Expandir o tipo de violations para incluir os novos campos:
 
-Expandir o tipo de `complianceResults` no store para incluir o array de `violations` opcional.
+```text
+violations?: {
+  rule: string;
+  severity: string;
+  detail: string;
+  guardrail?: string;
+  fix_instruction?: string;
+}[]
+```
+
+### 4. Atualizar FilePreview para exibir guardrails e instrucoes de correcao
+
+**Arquivo:** `src/components/wizard/FilePreview.tsx`
+
+Na secao de violacoes detalhadas, alem do `[rule]` e `detail` ja exibidos:
+- Exibir um badge colorido com o guardrail (A-E) quando presente
+- Exibir `fix_instruction` como bloco de texto com fundo diferenciado, mostrando a instrucao de correcao sugerida pelo agente IA
+- Agrupar violacoes por guardrail quando houver multiplas do mesmo tipo
+
+### 5. Redesplegar a edge function
+
+Deplegar `aios-compliance-review` apos as mudancas.
 
 ## Arquivos impactados
 
 | Arquivo | Acao |
 |---------|------|
-| `supabase/functions/aios-compliance-review/index.ts` | Reescrever prompt, atualizar modelo, expandir tool schema |
-| `src/components/wizard/FilePreview.tsx` | Renderizar lista de violacoes detalhadas |
-| `src/stores/wizard-store.ts` | Expandir tipo de complianceResults para incluir violations |
+| `supabase/functions/aios-compliance-review/index.ts` | Expandir prompt com guardrails, adicionar campos ao tool schema |
+| `src/stores/wizard-store.ts` | Expandir tipo de violations com guardrail e fix_instruction |
+| `src/components/wizard/FilePreview.tsx` | Renderizar badges de guardrail e instrucoes de correcao |
 
 ## Detalhes tecnicos
 
-- O prompt e longo mas necessario para validacao precisa — o modelo `gemini-2.5-flash` suporta contextos grandes
-- A cross-validation entre arquivos e feita pela IA analisando todos os arquivos simultaneamente (ja enviados no payload atual)
-- Nenhuma dependencia nova e necessaria
-- O campo `violations` e opcional para manter compatibilidade retroativa com resultados existentes
+- Os guardrails B e C sao mais relevantes para arquivos `.agent.ts` e componentes gerados; o guardrail A se aplica a todos os arquivos `.ts`/`.tsx`
+- O guardrail D valida caminhos de arquivo contra a estrutura canonica — o agente IA analisa o `path` de cada arquivo
+- O guardrail E e a auditoria cruzada que ja existe no prompt, agora categorizada explicitamente
+- O campo `guardrail` e opcional (`NONE` para violacoes que nao se encaixam em nenhum guardrail especifico)
+- Nenhuma dependencia nova
+
