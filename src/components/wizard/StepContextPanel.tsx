@@ -1,3 +1,10 @@
+/**
+ * @agent     StepContextPanel
+ * @persona   Painel contextual que exibe objetivo, checklist e progresso da etapa atual
+ * @commands  render
+ * @context   Exibido acima do conteudo principal no WizardPage. Guia o usuario em cada etapa.
+ */
+
 import { useWizardStore } from '@/stores/wizard-store';
 import { WizardStep } from '@/types/aios';
 import { cn } from '@/lib/utils';

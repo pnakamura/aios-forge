@@ -1,3 +1,10 @@
+/**
+ * @agent     ProjectDetailPage
+ * @persona   Pagina de detalhes e visualizacao de um projeto salvo
+ * @squad     pages
+ * @context   Exibida na rota /project/:id. Mostra resumo, agentes, squads e arquivos gerados.
+ */
+
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';

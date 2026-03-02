@@ -1,3 +1,10 @@
+/**
+ * @agent     IndexPage
+ * @persona   Pagina fallback inicial (nao utilizada em producao)
+ * @squad     pages
+ * @context   Fallback. Substituida por LandingPage na rota /.
+ */
+
 // Update this page (the content is just a fallback if you fail to update the page)
 
 const Index = () => {

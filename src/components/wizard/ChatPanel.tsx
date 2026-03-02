@@ -1,3 +1,11 @@
+/**
+ * @agent     ChatPanel
+ * @persona   Painel de chat conversacional com IA assistente
+ * @commands  sendMessage
+ * @deps      wizard-store.ts, supabase/client
+ * @context   Usado na etapa de Descoberta (welcome) do wizard para conversa com IA.
+ */
+
 import { useState, useRef, useEffect } from 'react';
 import { useWizardStore } from '@/stores/wizard-store';
 import { Button } from '@/components/ui/button';

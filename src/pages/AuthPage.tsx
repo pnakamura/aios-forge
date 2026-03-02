@@ -1,3 +1,10 @@
+/**
+ * @agent     AuthPage
+ * @persona   Pagina de autenticacao (login/signup)
+ * @squad     pages
+ * @context   Exibida na rota /auth. Formulario de login e criacao de conta.
+ */
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';

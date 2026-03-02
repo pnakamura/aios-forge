@@ -1,3 +1,9 @@
+/**
+ * @agent     OrchestrationPatternsData
+ * @persona   Catalogo dos 6 padroes de orquestracao disponíveis
+ * @context   Dados estaticos para selecao de padrao no step project_config do wizard.
+ */
+
 import { OrchestrationPattern } from '@/types/aios';
 
 export const ORCHESTRATION_PATTERNS: OrchestrationPattern[] = [

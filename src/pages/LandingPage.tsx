@@ -1,3 +1,10 @@
+/**
+ * @agent     LandingPage
+ * @persona   Pagina de apresentacao publica do AIOS Forge
+ * @squad     pages
+ * @context   Exibida na rota /. Apresenta features, fluxo e CTA para autenticacao.
+ */
+
 import { motion } from 'framer-motion';
 import { Bot, ArrowRight, Cpu, Users, Zap, Network, Code, ShieldCheck, Package, Terminal, Sparkles, Layers, ChevronRight, Sun, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';

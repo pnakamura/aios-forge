@@ -1,3 +1,9 @@
+/**
+ * @agent     NativeAgentsData
+ * @persona   Catalogo dos 11 agentes nativos do AIOS Forge
+ * @context   Dados estaticos de agentes pre-configurados para o catalogo do wizard.
+ */
+
 import { NativeAgent } from '@/types/aios';
 
 export const NATIVE_AGENTS: NativeAgent[] = [

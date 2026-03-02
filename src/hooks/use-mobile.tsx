@@ -1,3 +1,11 @@
+/**
+ * @agent     useIsMobile
+ * @persona   Hook para detectar viewport mobile (< 768px)
+ * @commands  useIsMobile
+ * @deps      react
+ * @context   Usado em componentes responsivos para adaptar layout.
+ */
+
 import * as React from "react";
 
 const MOBILE_BREAKPOINT = 768;

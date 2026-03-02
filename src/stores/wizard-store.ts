@@ -1,3 +1,11 @@
+/**
+ * @agent     WizardStore
+ * @persona   Estado global do wizard de criacao de projetos AIOS (Zustand)
+ * @commands  setStep, nextStep, prevStep, updateProject, addAgent, removeAgent, addSquad, removeSquad, reset, loadProject
+ * @deps      zustand, aios.ts
+ * @context   Gerencia todo o estado do wizard: etapa atual, projeto, agentes, squads, mensagens e compliance.
+ */
+
 import { create } from 'zustand';
 import { WizardStep, AiosAgent, AiosSquad, AiosProject, ChatMessage, WIZARD_STEPS, OrchestrationPatternType } from '@/types/aios';
 

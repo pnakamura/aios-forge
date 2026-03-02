@@ -1,3 +1,10 @@
+/**
+ * @agent     StepProgress
+ * @persona   Barra de progresso das etapas do wizard com navegacao
+ * @commands  render
+ * @context   Exibida no header do WizardPage. Permite navegar entre etapas ja visitadas.
+ */
+
 import { WIZARD_STEPS, WizardStep } from '@/types/aios';
 import { useWizardStore } from '@/stores/wizard-store';
 import { Check } from 'lucide-react';

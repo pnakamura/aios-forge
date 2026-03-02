@@ -1,3 +1,11 @@
+/**
+ * @agent     WorkflowStore
+ * @persona   Estado global de workflows do projeto (Zustand)
+ * @commands  addWorkflow, removeWorkflow, updateWorkflow, autoGenerateWorkflows
+ * @deps      zustand, aios.ts
+ * @context   Gerencia workflows: criacao, edicao, remocao e auto-geracao por padrao de orquestracao.
+ */
+
 import { create } from 'zustand';
 import { ProjectWorkflow, WorkflowStep, WorkflowTrigger, AiosAgent, AiosSquad, OrchestrationPatternType } from '@/types/aios';
 

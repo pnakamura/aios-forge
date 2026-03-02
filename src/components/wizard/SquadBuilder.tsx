@@ -1,3 +1,10 @@
+/**
+ * @agent     SquadBuilder
+ * @persona   Builder visual para criacao e gestao de squads
+ * @commands  createSquad, toggleAgent, addTask, removeTask
+ * @context   Usado na etapa Squads do wizard. Permite criar squads, atribuir agentes e definir tasks.
+ */
+
 import { useWizardStore } from '@/stores/wizard-store';
 import { AiosSquad, SquadTask } from '@/types/aios';
 import { Button } from '@/components/ui/button';

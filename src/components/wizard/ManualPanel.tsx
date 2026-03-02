@@ -1,3 +1,10 @@
+/**
+ * @agent     ManualPanel
+ * @persona   Guia de instalacao em tempo real do projeto AIOS
+ * @commands  render
+ * @context   Exibido no painel direito durante Revisao/Geracao. Mostra checklist, passos de instalacao e arquitetura.
+ */
+
 import { useWizardStore } from '@/stores/wizard-store';
 import { ORCHESTRATION_PATTERNS } from '@/data/orchestration-patterns';
 import { Badge } from '@/components/ui/badge';
