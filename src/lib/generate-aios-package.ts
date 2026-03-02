@@ -215,16 +215,32 @@ function generateAgentMd(agent: AiosAgent, squads: AiosSquad[], project: Partial
   const agentSquad = squads.find(s => (s.agentIds || []).includes(agent.slug));
   const squadName = agentSquad?.name || 'core';
   const commands = agent.commands || [];
+  const structured = agent.structuredCommands || [];
   const tools = agent.tools || [];
   const skills = agent.skills || [];
+  const agentContext = agent.context || `Agente do projeto ${project.name || 'AIOS'}. Squad: ${squadName}. ${agent.role}`;
 
-  const commandsTable = commands.length > 0
-    ? commands.map(c => `| ${c} | ${inferCommandVisibility(c)} | — |`).join('\n')
-    : '| (nenhum) | — | — |';
+  // Use structured commands for richer table if available
+  const commandsTable = structured.length > 0
+    ? structured.map(c => `| ${c.name} | ${c.visibility} | ${c.description || '—'} | ${c.handler || '—'} |`).join('\n')
+    : commands.length > 0
+      ? commands.map(c => `| ${c} | ${inferCommandVisibility(c)} | — | — |`).join('\n')
+      : '| (nenhum) | — | — | — |';
+
+  const commandsHeader = structured.length > 0
+    ? `| Comando       | Visibilidade | Descricao                              | Handler                  |\n|---------------|-------------|----------------------------------------|--------------------------|`
+    : `| Comando       | Visibilidade | Descricao                              | Handler                  |\n|---------------|-------------|----------------------------------------|--------------------------|`;
 
   const depsAgents = agentSquad
     ? (agentSquad.agentIds || []).filter(id => id !== agent.slug)
     : [];
+
+  // File dependencies section
+  const deps = agent.dependencies || { services: [], hooks: [], types: [] };
+  const hasDeps = deps.services.length > 0 || deps.hooks.length > 0 || deps.types.length > 0;
+  const depsSection = hasDeps
+    ? `\n### Arquivos\n\n- **Services**: ${deps.services.length > 0 ? deps.services.join(', ') : '(nenhum)'}\n- **Hooks**: ${deps.hooks.length > 0 ? deps.hooks.join(', ') : '(nenhum)'}\n- **Types**: ${deps.types.length > 0 ? deps.types.join(', ') : '(nenhum)'}\n`
+    : '';
 
   return {
     path: `agents/${agent.slug}.md`,
@@ -254,8 +270,7 @@ ${agent.systemPrompt || '(a definir)'}
 
 ## Commands
 
-| Comando       | Visibilidade | Descricao                              |
-|---------------|-------------|----------------------------------------|
+${commandsHeader}
 ${commandsTable}
 
 ## Tools
@@ -270,11 +285,10 @@ ${skills.length > 0 ? skills.map(s => `- ${s}`).join('\n') : '- (nenhuma skill c
 
 - **Squads**: ${squadName}
 - **Agents**: ${depsAgents.length > 0 ? depsAgents.join(', ') : '(nenhum)'}
-
+${depsSection}
 ## Context
 
-Agente do projeto ${project.name || 'AIOS'}. Squad: ${squadName}.
-${agent.role}
+${agentContext}
 `,
   };
 }
@@ -284,13 +298,33 @@ function generateAgentTs(agent: AiosAgent, squads: AiosSquad[], project: Partial
   const agentSquad = squads.find(s => (s.agentIds || []).includes(agent.slug));
   const squadSlug = agentSquad?.slug || 'core';
   const commands = agent.commands || [];
+  const structured = agent.structuredCommands || [];
+  const deps = agent.dependencies || { services: [], hooks: [], types: [] };
+  const agentContext = agent.context || `Agente do projeto ${project.name || 'AIOS'}. ${agent.role}`;
   const depsAgents = agentSquad
     ? (agentSquad.agentIds || []).filter(id => id !== agent.slug)
     : [];
 
-  const commandsObj = commands
-    .map(c => `    '${c}': { visibility: '${inferCommandVisibility(c)}', description: '' },`)
-    .join('\n');
+  // Use structured commands if available, fallback to simple
+  const hasStructured = structured.length > 0;
+  const commandsObj = hasStructured
+    ? structured.map(c => `    '${c.name}': {\n      description: '${c.description.replace(/'/g, "\\'")}',\n      visibility: '${c.visibility}' as const,\n      handler: '${c.handler}',\n    },`).join('\n')
+    : commands.map(c => `    '${c}': { visibility: '${inferCommandVisibility(c)}' as const, description: '' },`).join('\n');
+
+  const commandNames = hasStructured ? structured.map(c => c.name).join(', ') : commands.join(', ');
+
+  // Dependencies block
+  const hasDeps = deps.services.length > 0 || deps.hooks.length > 0 || deps.types.length > 0;
+  const depsBlock = hasDeps
+    ? `\n  dependencies: {\n    services: [${deps.services.map(s => `'${s}'`).join(', ')}],\n    hooks: [${deps.hooks.map(h => `'${h}'`).join(', ')}],\n    types: [${deps.types.map(t => `'${t}'`).join(', ')}],\n  },\n`
+    : '';
+
+  // Deps string for header
+  const depsStr = [
+    ...deps.services,
+    ...deps.hooks,
+    ...depsAgents,
+  ].join(', ') || '(nenhum)';
 
   return {
     path: `src/agents/${pascal}.agent.ts`,
@@ -301,9 +335,9 @@ function generateAgentTs(agent: AiosAgent, squads: AiosSquad[], project: Partial
  * @persona   ${agent.role}
  * @version   1.0.0
  * @squad     ${squadSlug}
- * @commands  ${commands.join(', ') || '(nenhum)'}
- * @deps      ${depsAgents.join(', ') || '(nenhum)'}
- * @context   Agente do projeto ${project.name || 'AIOS'}. ${agent.role}
+ * @commands  ${commandNames || '(nenhum)'}
+ * @deps      ${depsStr}
+ * @context   ${agentContext}
  */
 
 export const ${pascal}Agent = {
@@ -317,8 +351,8 @@ export const ${pascal}Agent = {
   commands: {
 ${commandsObj || '    // (nenhum comando configurado)'}
   },
-
-  context: 'Agente do projeto ${project.name || 'AIOS'}. ${agent.role}',
+${depsBlock}
+  context: '${agentContext.replace(/'/g, "\\'")}',
 } as const;
 
 export type ${pascal}Commands = keyof typeof ${pascal}Agent.commands;
