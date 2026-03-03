@@ -1,47 +1,67 @@
 
 
-# Corrigir AppMaster.agent.ts e README.md no Gerador de Pacotes
+# Implementar Execucao de Workflows no Pacote Gerado
 
-## Arquivo: `src/lib/generate-aios-package.ts`
+## Problema
 
-### Correção 1 — AppMaster.agent.ts: adicionar campo `agents`
+O pacote gerado define workflows no `aios.config.yaml` e gera arquivos YAML em `workflows/`, mas o runtime nunca os carrega nem executa. Tres lacunas no codigo gerado pelo builder.
 
-Na função `generateAppMasterAgent` (linha ~385-428), o template já mapeia `squads` corretamente, mas falta um campo `agents` listando todos os agentes do projeto com seus metadados básicos.
+## Alteracoes em `src/lib/generate-aios-package.ts`
 
-**Adicionar** entre `squads` e `context` (após linha 421):
+### 1. `loadConfig()` em `generateMainEntryPoint` (linhas 682-696)
+
+Adicionar carregamento de workflows ao objeto retornado por `loadConfig()`:
 
 ```typescript
-  agents: {
-${agents.map(a => `    '${a.slug}': { name: '${a.name}', role: '${a.role}', model: '${a.llmModel}' },`).join('\n')}
-  },
+workflows: (yaml.workflows || []).map((w: any) => ({
+  slug: w.slug,
+  name: w.name,
+  trigger: w.trigger,
+  configPath: w.config,
+})),
 ```
 
-Isso garante que o AppMaster tenha visibilidade completa de todos os agentes, não apenas via squads.
+Tambem no fallback hardcoded, incluir array de workflows gerado a partir do parametro `workflows` da funcao (requer adicionar `workflows: ProjectWorkflow[]` ao parametro da funcao — ja existe no `generateAiosPackage` mas nao e passado).
 
-### Correção 2 — README.md: listar todos os agentes e squads
+### 2. `runWorkflow()` em `generateOrchestratorEngine` (linhas 805-922)
 
-Na função `generateReadme` (linha ~2091-2120), expandir o conteúdo para incluir:
+Adicionar metodo `runWorkflow` ao orchestrator retornado:
 
-- Tabela de agentes com colunas: Agente, Role, Model, Tools, Skills
-- Lista de squads com agentes membros
+- Recebe `slug` e `task`
+- Carrega o YAML do workflow via `configPath` (usando `readFileSync` + `parse`)
+- Valida que todos os agentes referenciados nos steps existem no `agentMap`
+- Executa steps sequencialmente, passando output do step anterior como `context`
+- Log formatado: `[Workflow: <name>] Step N/N: <step-name> → agent: <slug>`
+- Retorna `TaskResult` agregado
+- Erro se slug nao encontrado: `Workflow '<slug>' nao encontrado`
 
-```markdown
-## Agentes
+Atualizar o return object para expor `runWorkflow` junto com `run`.
 
-| Agente | Role | Modelo | Tools | Skills |
-|--------|------|--------|-------|--------|
-${agents.map(a => `| ${a.name} | ${a.role} | ${a.llmModel} | ${a.tools.length} | ${a.skills.length} |`).join('\n')}
+### 3. CLI `/workflow` em `generateMainEntryPoint` (linhas 749-773)
 
-## Squads
+Adicionar handler no readline loop, antes do bloco `try`:
 
-${squads.map(s => {
-  const members = s.agentIds.map(id => agents.find(a => a.slug === id)?.name || id).join(', ');
-  return `### ${s.name}\n${s.description}\n**Agentes:** ${members}`;
-}).join('\n\n')}
+```
+if (trimmed.startsWith('/workflow ')) {
+  const parts = trimmed.slice(10).match(/^(\S+)\s+(.+)$/);
+  // parse slug e task
+  // call orchestrator.runWorkflow(slug, task)
+}
 ```
 
-### Resultado
+Tambem no comando `status`, listar workflows configurados.
 
-- `AppMaster.agent.ts` passa a ter `agents` + `squads` mapeando 100% do projeto
-- `README.md` lista todos os agentes individualmente com role, modelo e contagens
+### 4. Parametro `workflows` na funcao `generateMainEntryPoint` (linha 649)
+
+Adicionar `workflows: ProjectWorkflow[]` como parametro e atualiza-lo na chamada (linha 68).
+
+### 5. Tipos ja estao corretos
+
+`src/types.ts` gerado ja define `WorkflowConfig`, `WorkflowStepConfig` e `AiosConfig.workflows` — nenhuma alteracao necessaria.
+
+## Resumo de impacto
+
+- **Arquivo editado:** `src/lib/generate-aios-package.ts`
+- **Funcoes alteradas:** `generateMainEntryPoint`, `generateOrchestratorEngine`, chamada na linha 68
+- **Sem novas dependencias**
 
