@@ -35,7 +35,7 @@ export class EvolutionEngine {
     // 3. Criar propostas de melhoria no banco
     for (const suggestion of highConfidenceSuggestions) {
       // Verificar se ja existe proposta similar ativa
-      const { data: existing } = await supabase
+      const { data: existing } = await (supabase as any)
         .from('improvements')
         .select('id')
         .eq('target', suggestion.target)
@@ -43,7 +43,7 @@ export class EvolutionEngine {
         .limit(1);
 
       if (!existing || existing.length === 0) {
-        await supabase.from('improvements').insert({
+        await (supabase as any).from('improvements').insert({
           target: suggestion.target,
           target_id: suggestion.targetId || null,
           description: suggestion.description,
@@ -68,7 +68,7 @@ export class EvolutionEngine {
    * Aplica uma melhoria aprovada (chamado pelo admin/sistema).
    */
   static async applyImprovement(improvementId: string): Promise<void> {
-    const { data: improvement } = await supabase
+    const { data: improvement } = await (supabase as any)
       .from('improvements')
       .select('*')
       .eq('id', improvementId)
@@ -79,7 +79,7 @@ export class EvolutionEngine {
     }
 
     // Marcar como aplicada
-    await supabase.from('improvements').update({
+    await (supabase as any).from('improvements').update({
       status: 'APPLIED' as ImprovementStatus,
       applied_at: new Date().toISOString(),
     }).eq('id', improvementId);
@@ -89,7 +89,7 @@ export class EvolutionEngine {
    * Reverte uma melhoria aplicada.
    */
   static async revertImprovement(improvementId: string): Promise<void> {
-    const { data: improvement } = await supabase
+    const { data: improvement } = await (supabase as any)
       .from('improvements')
       .select('*')
       .eq('id', improvementId)
@@ -99,7 +99,7 @@ export class EvolutionEngine {
       throw new Error('Melhoria nao encontrada ou nao aplicada');
     }
 
-    await supabase.from('improvements').update({
+    await (supabase as any).from('improvements').update({
       status: 'REVERTED' as ImprovementStatus,
       reverted_at: new Date().toISOString(),
     }).eq('id', improvementId);
@@ -113,7 +113,7 @@ export class EvolutionEngine {
     daysBefore: number = 14,
     daysAfter: number = 14,
   ): Promise<ImpactMeasurement | null> {
-    const { data: improvement } = await supabase
+    const { data: improvement } = await (supabase as any)
       .from('improvements')
       .select('*')
       .eq('id', improvementId)
@@ -124,14 +124,14 @@ export class EvolutionEngine {
     const appliedAt = new Date(improvement.applied_at);
 
     // Buscar metricas do periodo antes
-    const { data: metricsBefore } = await supabase
+    const { data: metricsBefore } = await (supabase as any)
       .from('quality_metrics')
       .select('*')
       .lte('period_end', appliedAt.toISOString())
       .gte('period_start', new Date(appliedAt.getTime() - daysBefore * 86400000).toISOString());
 
     // Buscar metricas do periodo depois
-    const { data: metricsAfter } = await supabase
+    const { data: metricsAfter } = await (supabase as any)
       .from('quality_metrics')
       .select('*')
       .gte('period_start', appliedAt.toISOString())
@@ -157,7 +157,7 @@ export class EvolutionEngine {
       ? deltas.reduce((s, v) => s + v, 0) / deltas.length
       : 0;
 
-    await supabase.from('improvements').update({
+    await (supabase as any).from('improvements').update({
       impact_score: avgDelta,
     }).eq('id', improvementId);
 
@@ -168,7 +168,7 @@ export class EvolutionEngine {
    * Aprova uma melhoria proposta.
    */
   static async approveImprovement(improvementId: string): Promise<void> {
-    await supabase.from('improvements').update({
+    await (supabase as any).from('improvements').update({
       status: 'APPROVED' as ImprovementStatus,
     }).eq('id', improvementId);
   }
@@ -177,7 +177,7 @@ export class EvolutionEngine {
    * Rejeita uma melhoria proposta.
    */
   static async rejectImprovement(improvementId: string): Promise<void> {
-    await supabase.from('improvements').update({
+    await (supabase as any).from('improvements').update({
       status: 'REJECTED' as ImprovementStatus,
     }).eq('id', improvementId);
   }
@@ -186,7 +186,7 @@ export class EvolutionEngine {
    * Lista melhorias por status.
    */
   static async listImprovements(status?: ImprovementStatus): Promise<Improvement[]> {
-    let query = supabase
+    let query = (supabase as any)
       .from('improvements')
       .select('*')
       .order('confidence', { ascending: false });
