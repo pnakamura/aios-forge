@@ -1,58 +1,49 @@
 
 
-# Expandir defaultSkills (4→10) e defaultTools (4→8) dos 11 Agentes Nativos
+# Gerar `manual_de_uso.md` na Raiz do Projeto
 
-## Arquivo unico: `src/data/native-agents.ts`
+## Objetivo
 
-Apenas expansao de arrays de dados — sem mudanca de tipos ou logica.
+Criar um arquivo Markdown exaustivo que funcione como guia mestre de onboarding do AIOS Forge, referenciando nomes reais de funcoes, agentes, stores, servicos e padroes que existem no codigo.
 
-### Valores por agente
+## Arquivo unico: `manual_de_uso.md` (raiz do projeto)
 
-**AIOS Master** (lines 21-22):
-- tools: +4 → `dependency-graph`, `escalation-engine`, `resource-allocator`, `decision-logger`
-- skills: +6 → `delegacao-contextual`, `gestao-de-dependencias`, `escalonamento-automatico`, `analise-de-gargalos`, `alocacao-de-recursos`, `tomada-de-decisao-autonoma`
+### Estrutura do documento (~600-800 linhas)
 
-**AIOS Orchestrator** (lines 35-36):
-- tools: +4 → `deadlock-detector`, `timeout-manager`, `circuit-breaker`, `trace-collector`
-- skills: +6 → `deteccao-de-deadlock`, `orquestracao-de-eventos`, `gestao-de-timeout`, `paralelizacao-de-tarefas`, `circuit-breaking`, `observabilidade-distribuida`
+**1. Arquitetura e Visao Geral do Sistema**
+- Descricao do AIOS Forge como builder de sistemas multi-agente
+- Stack: React 18 + Vite + Zustand + Supabase + React Flow + JSZip
+- Camada de agentes internos (`src/agents/`): `AuthAgent`, `DashboardAgent`, `WizardAgent`, `PackageGenerationAgent`
+- Camada de servicos (`src/services/`): `auth.service.ts`, `project.service.ts`, `compliance.service.ts`
+- Capacidades core: geracao de pacotes instaláveis, revisao de conformidade via edge function `aios-compliance-review`, chat assistido via `aios-chat`, persistencia no banco, download ZIP via `JSZip`, diagrama interativo via React Flow
 
-**Analyst** (lines 49-50):
-- tools: +4 → `gap-analyzer`, `benchmark-tool`, `journey-mapper`, `swot-generator`
-- skills: +6 → `analise-de-gaps`, `benchmarking`, `mapeamento-de-jornada`, `analise-swot`, `documentacao-de-requisitos`, `prototipacao-rapida`
+**2. Ecossistema de Agentes e Squads**
+- Tabela completa dos 11 agentes nativos de `NATIVE_AGENTS` (`src/data/native-agents.ts`): slug, name, role, category, 8 tools, 10 skills, defaultModel, defaultCommands, compatiblePatterns
+- Descricao dos 6 padroes de orquestracao de `ORCHESTRATION_PATTERNS` (`src/data/orchestration-patterns.ts`): SEQUENTIAL_PIPELINE, PARALLEL_SWARM, HIERARCHICAL, WATCHDOG, COLLABORATIVE, TASK_FIRST
+- Squads: como o `SquadBuilder` organiza agentes em equipes com tasks e workflows
+- Fluxo de colaboracao multi-agente com exemplos (ex: Analyst → Architect → Developer → QA)
 
-**Product Manager** (lines 63-64):
-- tools: +4 → `release-planner`, `okr-tracker`, `competitor-analyzer`, `risk-matrix`
-- skills: +6 → `analise-de-impacto`, `gestao-de-releases`, `comunicacao-com-stakeholders`, `definicao-de-okrs`, `analise-competitiva`, `gestao-de-riscos`
+**3. Guia de Funcionalidades e Comandos**
+- Wizard de 8 etapas (`WIZARD_STEPS` em `src/types/aios.ts`): welcome → project_config → agents → squads → integrations → review → generation → post_creation
+- Estado global via `useWizardStore` (`src/stores/wizard-store.ts`): commands `setStep`, `addAgent`, `removeAgent`, `addSquad`, `updateProject`, `loadProject`, `reset`
+- Funcao `generateAiosPackage()` e seus ~30 sub-geradores
+- Estrutura do pacote gerado: `aios.config.yaml`, `agents/*.yaml`, `agents/*.md`, `src/agents/*.agent.ts`, `squads/*/squad.yaml`, `.claude/` (settings.json, commands/, skills/, hooks/)
+- `frameworkProtection: true` no config
+- Compliance review via `runReview()` (`compliance.service.ts`)
+- First-Run checklist (`FIRSTRUN_ITEMS` em `src/data/firstrun-requirements.ts`)
 
-**Architect** (lines 77-78):
-- tools: +4 → `c4-modeler`, `api-designer`, `security-scanner`, `debt-tracker`
-- skills: +6 → `modelagem-c4`, `analise-de-escalabilidade`, `design-de-apis`, `avaliacao-de-seguranca`, `gestao-de-debito-tecnico`, `prova-de-conceito`
+**4. Exemplos de Uso Baseados no Contexto**
+- Workflow 1: Criar um sistema DevOps com Pipeline Sequencial (Analyst → Architect → Dev → QA → DevOps)
+- Workflow 2: Criar um squad de Product Discovery com padrao Colaborativo (Analyst + UX Expert + PM + PO)
+- Workflow 3: Configurar um projeto com Watchdog para compliance continuo (AIOS Master + QA + Architect)
+- Sugestoes de expansao: combinar agentes custom com nativos, criar workflows com triggers automaticos, integrar MCP Servers
 
-**UX Expert** (lines 91-92):
-- tools: +4 → `design-system-manager`, `usability-tester`, `ia-mapper`, `token-generator`
-- skills: +6 → `design-system-management`, `teste-de-usabilidade`, `analise-de-acessibilidade`, `design-de-microinteracoes`, `information-architecture`, `design-tokens`
+**5. Guia de Resolucao de Problemas e Limites**
+- Limites operacionais: tamanho de contexto LLM, 1000 rows por query Supabase, formatos suportados
+- Troubleshooting: erros de compliance, agentes sem skills/tools, squads vazios
+- Self-improvement engine (`src/lib/self-improve/`): tipos de feedback, metricas de qualidade, ciclo de evolucao
 
-**Scrum Master** (lines 105-106):
-- tools: +4 → `capacity-planner`, `conflict-resolver`, `dod-tracker`, `workshop-board`
-- skills: +6 → `gestao-de-conflitos`, `metricas-ageis`, `planejamento-de-capacidade`, `gestao-de-dependencias-entre-times`, `workshop-facilitation`, `definition-of-done`
+### Detalhes de implementacao
 
-**Developer** (lines 119-120):
-- tools: +4 → `profiler`, `dependency-manager`, `doc-generator`, `debugger`
-- skills: +6 → `tdd-driven-development`, `design-patterns`, `otimizacao-de-performance`, `gestao-de-dependencias`, `documentacao-de-codigo`, `debugging-avancado`
-
-**QA Engineer** (lines 133-134):
-- tools: +4 → `security-tester`, `performance-tester`, `a11y-tester`, `mutation-analyzer`
-- skills: +6 → `teste-de-seguranca`, `teste-de-performance`, `teste-de-acessibilidade`, `gestao-de-dados-de-teste`, `teste-exploatorio`, `analise-de-mutacao`
-
-**Product Owner** (lines 147-148):
-- tools: +4 → `roi-calculator`, `mvp-tracker`, `churn-analyzer`, `pmf-scorer`
-- skills: +6 → `analise-de-roi`, `gestao-de-mvp`, `customer-discovery`, `analise-de-churn`, `product-market-fit`, `gestao-de-backlog-estrategico`
-
-**DevOps Engineer** (lines 161-162):
-- tools: +4 → `secret-manager`, `observability-platform`, `dr-planner`, `cost-analyzer`
-- skills: +6 → `gestao-de-segredos`, `observabilidade-full-stack`, `disaster-recovery`, `capacity-planning`, `security-hardening`, `cost-optimization`
-
-## Resultado
-
-Cada agente: 10 skills, 8 tools. Passa com margem nos thresholds do `aios-core doctor`.
+O arquivo sera escrito com Markdown rico: tabelas para agentes/tools/skills, blocos de codigo para exemplos de YAML e TypeScript, negritos para nomes de funcoes, listas para comandos. Tom de arquiteto de IA explicando para usuario final avancado. Todas as referencias serao a nomes reais do codigo (`generateAiosPackage`, `useWizardStore`, `NATIVE_AGENTS`, `runReview`, etc.).
 
