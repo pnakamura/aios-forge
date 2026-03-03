@@ -8,6 +8,7 @@
 
 import { create } from 'zustand';
 import { WizardStep, AiosAgent, AiosSquad, AiosProject, ChatMessage, WIZARD_STEPS, OrchestrationPatternType } from '@/types/aios';
+import { FeedbackCollector } from '@/lib/self-improve/feedback-collector';
 
 interface WizardState {
   currentStep: WizardStep;
@@ -72,7 +73,15 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   ...initialState,
 
   setStep: (step) => {
+    const prevStep = get().currentStep;
+    const prevIdx = WIZARD_STEPS.findIndex(s => s.key === prevStep);
     const stepIdx = WIZARD_STEPS.findIndex(s => s.key === step);
+    // Track step completion when moving forward
+    if (stepIdx > prevIdx) {
+      FeedbackCollector.trackWizardStep(prevIdx + 1, true, 0, {
+        session_id: get().sessionId || undefined,
+      });
+    }
     set((s) => ({
       currentStep: step,
       highestStepIndex: Math.max(s.highestStepIndex, stepIdx),
@@ -103,17 +112,27 @@ export const useWizardStore = create<WizardState>((set, get) => ({
 
   updateProject: (data) => set((s) => ({ project: { ...s.project, ...data } })),
 
-  addAgent: (agent) => set((s) => ({
-    agents: [...s.agents.filter(a => a.slug !== agent.slug), agent],
-  })),
+  addAgent: (agent) => {
+    FeedbackCollector.trackAgentSelection(agent.slug, 'added', undefined, {
+      session_id: get().sessionId || undefined,
+    });
+    set((s) => ({
+      agents: [...s.agents.filter(a => a.slug !== agent.slug), agent],
+    }));
+  },
 
-  removeAgent: (slug) => set((s) => ({
-    agents: s.agents.filter(a => a.slug !== slug),
-    squads: s.squads.map(sq => ({
-      ...sq,
-      agentIds: sq.agentIds.filter(id => id !== slug),
-    })),
-  })),
+  removeAgent: (slug) => {
+    FeedbackCollector.trackAgentSelection(slug, 'removed', undefined, {
+      session_id: get().sessionId || undefined,
+    });
+    set((s) => ({
+      agents: s.agents.filter(a => a.slug !== slug),
+      squads: s.squads.map(sq => ({
+        ...sq,
+        agentIds: sq.agentIds.filter(id => id !== slug),
+      })),
+    }));
+  },
 
   updateAgent: (slug, data) => set((s) => ({
     agents: s.agents.map(a => a.slug === slug ? { ...a, ...data } : a),
@@ -125,9 +144,14 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     return { agents: [...s.agents, ...newAgents] };
   }),
 
-  addSquad: (squad) => set((s) => ({
-    squads: [...s.squads.filter(sq => sq.slug !== squad.slug), squad],
-  })),
+  addSquad: (squad) => {
+    FeedbackCollector.trackSquadCreation(squad.slug, (squad.agentIds || []).length, {
+      session_id: get().sessionId || undefined,
+    });
+    set((s) => ({
+      squads: [...s.squads.filter(sq => sq.slug !== squad.slug), squad],
+    }));
+  },
 
   removeSquad: (slug) => set((s) => ({
     squads: s.squads.filter(sq => sq.slug !== slug),

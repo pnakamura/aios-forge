@@ -37,6 +37,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/lib/theme';
 import { generateAiosPackage } from '@/lib/generate-aios-package';
+import { FeedbackCollector } from '@/lib/self-improve/feedback-collector';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function WizardPage() {
@@ -170,10 +171,29 @@ export default function WizardPage() {
   };
 
   const handleDownloadZip = useCallback(async () => {
-    const files = generateAiosPackage({ project: store.project, agents: store.agents, squads: store.squads, workflows: workflowStore.workflows, complianceResults: store.complianceResults });
-    await downloadProjectZip(files, store.project.name || 'aios');
-    toast.success('ZIP baixado!');
-  }, [store.project, store.agents, store.squads, store.complianceResults, workflowStore.workflows]);
+    const startTime = Date.now();
+    try {
+      const files = generateAiosPackage({ project: store.project, agents: store.agents, squads: store.squads, workflows: workflowStore.workflows, complianceResults: store.complianceResults });
+      await downloadProjectZip(files, store.project.name || 'aios');
+      toast.success('ZIP baixado!');
+      // Track successful generation & export
+      FeedbackCollector.trackGeneration(store.editingProjectId || undefined, true, {
+        fileCount: files.length,
+        totalSizeBytes: files.reduce((s, f) => s + f.content.length, 0),
+        generationTimeMs: Date.now() - startTime,
+        errors: [],
+        warnings: [],
+      });
+      FeedbackCollector.trackExport(true, files.length, {
+        project_id: store.editingProjectId || undefined,
+      });
+    } catch (err) {
+      FeedbackCollector.trackExport(false, 0, {
+        project_id: store.editingProjectId || undefined,
+      });
+      toast.error('Erro ao gerar ZIP');
+    }
+  }, [store.project, store.agents, store.squads, store.complianceResults, workflowStore.workflows, store.editingProjectId]);
 
   const canProceed = store.canProceed();
   const stepIdx = store.getStepIndex();
