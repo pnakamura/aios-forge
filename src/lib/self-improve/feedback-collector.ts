@@ -21,7 +21,7 @@ export class FeedbackCollector {
     options: FeedbackOptions = {},
   ): Promise<void> {
     try {
-      await supabase.from('feedback_entries').insert({
+      await (supabase as any).from('feedback_entries').insert({
         type: 'WIZARD_STEP_COMPLETION' as FeedbackType,
         data: { step, completed, timeSpentMs },
         score: completed ? 1.0 : 0.0,
@@ -48,7 +48,7 @@ export class FeedbackCollector {
         ? 'AGENT_CUSTOMIZATION'
         : 'AGENT_SELECTION';
 
-      await supabase.from('feedback_entries').insert({
+      await (supabase as any).from('feedback_entries').insert({
         type,
         data: { agentSlug, action, customizations: customizations || null },
         score: action === 'removed' ? 0.3 : 1.0,
@@ -81,7 +81,7 @@ export class FeedbackCollector {
         ? 'GENERATION_SUCCESS'
         : 'GENERATION_FAILURE';
 
-      await supabase.from('feedback_entries').insert({
+      await (supabase as any).from('feedback_entries').insert({
         type,
         project_id: projectId || null,
         data: details,
@@ -91,7 +91,7 @@ export class FeedbackCollector {
 
       // Also register in the detailed audit table
       if (projectId) {
-        await supabase.from('generation_audits').insert({
+        await (supabase as any).from('generation_audits').insert({
           project_id: projectId,
           generated_files: [],
           validation_result: { errors: details.errors, warnings: details.warnings },
@@ -120,7 +120,7 @@ export class FeedbackCollector {
     },
   ): Promise<void> {
     try {
-      await supabase.from('feedback_entries').insert({
+      await (supabase as any).from('feedback_entries').insert({
         type: 'VALIDATION_RESULT' as FeedbackType,
         project_id: projectId || null,
         data: result,
@@ -146,7 +146,7 @@ export class FeedbackCollector {
     options: FeedbackOptions = {},
   ): Promise<void> {
     try {
-      await supabase.from('feedback_entries').insert({
+      await (supabase as any).from('feedback_entries').insert({
         type: 'USER_RATING' as FeedbackType,
         data: { rating, category, comment: comment || null },
         score: rating / 5,
@@ -180,7 +180,7 @@ export class FeedbackCollector {
         (metrics.stepCompletedAfter ? 0.15 : 0)
       );
 
-      await supabase.from('feedback_entries').insert({
+      await (supabase as any).from('feedback_entries').insert({
         type: 'PROMPT_EFFECTIVENESS' as FeedbackType,
         data: { promptId, metrics },
         score,
@@ -202,7 +202,7 @@ export class FeedbackCollector {
     options: FeedbackOptions = {},
   ): Promise<void> {
     try {
-      await supabase.from('feedback_entries').insert({
+      await (supabase as any).from('feedback_entries').insert({
         type: 'SQUAD_CREATION' as FeedbackType,
         data: { squadSlug, agentCount },
         score: 1.0,
@@ -226,7 +226,7 @@ export class FeedbackCollector {
     try {
       const type: FeedbackType = success ? 'EXPORT_SUCCESS' : 'EXPORT_FAILURE';
 
-      await supabase.from('feedback_entries').insert({
+      await (supabase as any).from('feedback_entries').insert({
         type,
         data: { fileCount },
         score: success ? 1.0 : 0.0,

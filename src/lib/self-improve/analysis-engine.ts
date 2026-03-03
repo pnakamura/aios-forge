@@ -37,7 +37,7 @@ export class AnalysisEngine {
    * Analisa taxa de completude do wizard por step.
    */
   private static async analyzeWizardCompletion(since: string): Promise<AnalysisResult> {
-    const { data: entries } = await supabase
+    const { data: entries } = await (supabase as any)
       .from('feedback_entries')
       .select('*')
       .eq('type', 'WIZARD_STEP_COMPLETION')
@@ -91,7 +91,7 @@ export class AnalysisEngine {
    * Analisa quais agentes sao mais selecionados vs removidos.
    */
   private static async analyzeAgentPopularity(since: string): Promise<AnalysisResult> {
-    const { data: entries } = await supabase
+    const { data: entries } = await (supabase as any)
       .from('feedback_entries')
       .select('*')
       .eq('type', 'AGENT_SELECTION')
@@ -141,7 +141,7 @@ export class AnalysisEngine {
    * Analisa qualidade das geracoes (taxa de sucesso, erros comuns).
    */
   private static async analyzeGenerationQuality(since: string): Promise<AnalysisResult> {
-    const { data: audits } = await supabase
+    const { data: audits } = await (supabase as any)
       .from('generation_audits')
       .select('*')
       .gte('created_at', since);
@@ -193,7 +193,7 @@ export class AnalysisEngine {
    * Analisa efetividade dos system prompts.
    */
   private static async analyzePromptEffectiveness(since: string): Promise<AnalysisResult> {
-    const { data: entries } = await supabase
+    const { data: entries } = await (supabase as any)
       .from('feedback_entries')
       .select('*')
       .eq('type', 'PROMPT_EFFECTIVENESS')
@@ -246,7 +246,7 @@ export class AnalysisEngine {
    * Analisa padroes de falha na validacao.
    */
   private static async analyzeValidationPatterns(since: string): Promise<AnalysisResult> {
-    const { data: entries } = await supabase
+    const { data: entries } = await (supabase as any)
       .from('feedback_entries')
       .select('*')
       .eq('type', 'VALIDATION_RESULT')

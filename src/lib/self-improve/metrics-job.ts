@@ -23,7 +23,7 @@ export async function calculatePeriodicMetrics(): Promise<MetricsJobResult> {
   const dayAgoISO = dayAgo.toISOString();
 
   // Metrica: Taxa de completude do wizard (ultimas 24h)
-  const { data: wizardEntries } = await supabase
+  const { data: wizardEntries } = await (supabase as any)
     .from('feedback_entries')
     .select('*')
     .eq('type', 'WIZARD_STEP_COMPLETION')
@@ -34,7 +34,7 @@ export async function calculatePeriodicMetrics(): Promise<MetricsJobResult> {
     const completionRate = wizardData
       .filter(e => (e.data as any).completed).length / wizardData.length;
 
-    await supabase.from('quality_metrics').insert({
+    await (supabase as any).from('quality_metrics').insert({
       metric_name: 'wizard_completion_rate',
       metric_value: completionRate,
       sample_size: wizardData.length,
@@ -44,7 +44,7 @@ export async function calculatePeriodicMetrics(): Promise<MetricsJobResult> {
   }
 
   // Metrica: Taxa de sucesso de geracao (ultimas 24h)
-  const { data: genEntries } = await supabase
+  const { data: genEntries } = await (supabase as any)
     .from('generation_audits')
     .select('*')
     .gte('created_at', dayAgoISO);
@@ -54,7 +54,7 @@ export async function calculatePeriodicMetrics(): Promise<MetricsJobResult> {
     const successRate = genData
       .filter(e => e.is_valid).length / genData.length;
 
-    await supabase.from('quality_metrics').insert({
+    await (supabase as any).from('quality_metrics').insert({
       metric_name: 'generation_success_rate',
       metric_value: successRate,
       sample_size: genData.length,
@@ -66,7 +66,7 @@ export async function calculatePeriodicMetrics(): Promise<MetricsJobResult> {
     const avgTime = genData
       .reduce((sum, e) => sum + (e.generation_time_ms || 0), 0) / genData.length;
 
-    await supabase.from('quality_metrics').insert({
+    await (supabase as any).from('quality_metrics').insert({
       metric_name: 'avg_generation_time_ms',
       metric_value: avgTime,
       sample_size: genData.length,
@@ -76,7 +76,7 @@ export async function calculatePeriodicMetrics(): Promise<MetricsJobResult> {
   }
 
   // Metrica: Score medio de satisfacao do usuario (ultimas 24h)
-  const { data: ratingEntries } = await supabase
+  const { data: ratingEntries } = await (supabase as any)
     .from('feedback_entries')
     .select('*')
     .eq('type', 'USER_RATING')
@@ -87,7 +87,7 @@ export async function calculatePeriodicMetrics(): Promise<MetricsJobResult> {
     const avgRating = ratingData
       .reduce((sum, e) => sum + (e.score || 0), 0) / ratingData.length;
 
-    await supabase.from('quality_metrics').insert({
+    await (supabase as any).from('quality_metrics').insert({
       metric_name: 'user_satisfaction_score',
       metric_value: avgRating,
       sample_size: ratingData.length,
