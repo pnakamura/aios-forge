@@ -10,11 +10,19 @@
 import { AiosAgent, AiosSquad, AiosProject, GeneratedFile, OrchestrationPatternType, ProjectWorkflow } from '@/types/aios';
 import { ORCHESTRATION_PATTERNS } from '@/data/orchestration-patterns';
 
+type IntegrationType = 'N8N' | 'CLAUDE_API' | 'MCP_SERVER' | 'NOTION' | 'MIRO' | 'OPENAI_API';
+
+interface ConfiguredIntegration {
+  type: IntegrationType;
+  config?: Record<string, unknown>;
+}
+
 interface GenerationInput {
   project: Partial<AiosProject>;
   agents: AiosAgent[];
   squads: AiosSquad[];
   workflows?: ProjectWorkflow[];
+  integrations?: ConfiguredIntegration[];
   complianceResults?: Record<string, { status: string; notes: string }>;
 }
 
@@ -23,7 +31,7 @@ interface GenerationInput {
  * configuration, runtime scaffolding, and documentation files.
  */
 export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
-  const { project, agents, squads, workflows = [], complianceResults } = input;
+  const { project, agents, squads, workflows = [], integrations = [], complianceResults } = input;
   const files: GeneratedFile[] = [];
   const name = project.name || 'meu-aios';
   const slug = name.toLowerCase().replace(/\s+/g, '-');
@@ -64,7 +72,7 @@ export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
   files.push(generateTypes(agents, squads));
 
   // ── Integration & environment ────────────────────────────────
-  files.push(generateEnvExample(project));
+  files.push(generateEnvExample(project, integrations));
   files.push(generateEnvValidator());
   files.push(generateDockerfile(slug));
   files.push(generateDockerCompose(slug));
@@ -90,7 +98,7 @@ export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
   files.push(generateSetupScript(slug));
 
   // ── First-Run checklist ──────────────────────────────────────
-  files.push(generateFirstRunMd(name, slug, project, agents, squads));
+  files.push(generateFirstRunMd(name, slug, project, agents, squads, integrations));
 
   // ── Apply compliance results ─────────────────────────────────
   if (complianceResults) {
@@ -1165,7 +1173,36 @@ export interface ValidatedEnv {
   };
 }
 
-function generateEnvExample(project: Partial<AiosProject>): GeneratedFile {
+function generateEnvExample(project: Partial<AiosProject>, integrations: ConfiguredIntegration[] = []): GeneratedFile {
+  const hasN8N = integrations.some(i => i.type === 'N8N');
+  const hasNotion = integrations.some(i => i.type === 'NOTION');
+  const hasMiro = integrations.some(i => i.type === 'MIRO');
+  const hasMCP = integrations.some(i => i.type === 'MCP_SERVER');
+
+  const n8nVars = hasN8N ? `
+# N8N Integration
+N8N_BASE_URL=http://localhost:5678
+N8N_API_KEY=
+` : '';
+
+  const notionVars = hasNotion ? `
+# Notion Integration
+NOTION_API_KEY=
+NOTION_ROOT_PAGE_ID=
+` : '';
+
+  const miroVars = hasMiro ? `
+# Miro Integration
+MIRO_ACCESS_TOKEN=
+MIRO_BOARD_ID=
+` : '';
+
+  const mcpVars = hasMCP ? `
+# MCP Server
+MCP_SERVER_URL=
+MCP_SERVER_TOKEN=
+` : '';
+
   return {
     path: '.env.example',
     type: 'env',
@@ -1189,7 +1226,7 @@ LOG_LEVEL=info
 # Runtime
 NODE_ENV=production
 PORT=3000
-`,
+${n8nVars}${notionVars}${miroVars}${mcpVars}`,
   };
 }
 
@@ -2444,15 +2481,23 @@ function generateFirstRunMd(
   project: Partial<AiosProject>,
   agents: AiosAgent[],
   squads: AiosSquad[],
+  integrations: ConfiguredIntegration[] = [],
 ): GeneratedFile {
-  const hasN8N = false;
-  const hasNotion = false;
-  const hasMiro = false;
+  const hasN8N = integrations.some(i => i.type === 'N8N');
+  const hasNotion = integrations.some(i => i.type === 'NOTION');
+  const hasMiro = integrations.some(i => i.type === 'MIRO');
+  const hasMCP = integrations.some(i => i.type === 'MCP_SERVER');
 
-  const integrationSection = (hasN8N || hasNotion || hasMiro) ? `
-## 🔌 Integrações
+  const integrationChecklist: string[] = [];
+  if (hasN8N) integrationChecklist.push('- [ ] Testar conectividade N8N — verificar que a instância responde em `N8N_BASE_URL`');
+  if (hasNotion) integrationChecklist.push('- [ ] Testar conectividade Notion — verificar `NOTION_API_KEY` e acesso a páginas (`NOTION_ROOT_PAGE_ID`)');
+  if (hasMiro) integrationChecklist.push('- [ ] Testar conectividade Miro — verificar `MIRO_ACCESS_TOKEN` e acesso ao board (`MIRO_BOARD_ID`)');
+  if (hasMCP) integrationChecklist.push('- [ ] Testar conectividade MCP Server — verificar `MCP_SERVER_URL` e autenticação');
 
-${hasN8N ? '- [ ] Testar conectividade N8N — verificar que a instância responde\n' : ''}${hasNotion ? '- [ ] Testar conectividade Notion — verificar token e acesso a páginas\n' : ''}${hasMiro ? '- [ ] Testar conectividade Miro — verificar token e acesso a boards\n' : ''}
+  const integrationSection = integrationChecklist.length > 0 ? `
+## 🔌 Integrações Configuradas
+
+${integrationChecklist.join('\n')}
 ` : '';
 
   return {
@@ -2484,7 +2529,7 @@ ${hasN8N ? '- [ ] Testar conectividade N8N — verificar que a instância respon
 - [ ] **npm 9+** disponível → verifique com \`npm --version\`
 - [ ] **IDE compatível** instalada (Claude Code, Cursor, Codex CLI ou Gemini CLI)
 - [ ] **API Key Anthropic** válida em mãos
-
+${hasN8N ? '- [ ] **N8N** — instância acessível com API key\n' : ''}${hasNotion ? '- [ ] **Notion** — API key e ID da página raiz\n' : ''}${hasMiro ? '- [ ] **Miro** — Access token e ID do board\n' : ''}${hasMCP ? '- [ ] **MCP Server** — URL e token de autenticação\n' : ''}
 ## 📦 Setup Inicial
 
 - [ ] Extraia o pacote ZIP em um diretório de sua escolha
@@ -2492,7 +2537,7 @@ ${hasN8N ? '- [ ] Testar conectividade N8N — verificar que a instância respon
 - [ ] Copie \`.env.example\` para \`.env\` e preencha suas API keys:
   \`\`\`bash
   cp .env.example .env
-  # Edite .env e configure ANTHROPIC_API_KEY e outras variáveis
+  # Edite .env e configure ANTHROPIC_API_KEY${hasN8N ? ', N8N_API_KEY' : ''}${hasNotion ? ', NOTION_API_KEY' : ''}${hasMiro ? ', MIRO_ACCESS_TOKEN' : ''}
   \`\`\`
 - [ ] Execute \`npm run validate\` (ou \`npx aios-core doctor\`) para verificar integridade
 
