@@ -1,35 +1,36 @@
 /**
  * @agent     ChatPanel
- * @persona   Painel de chat conversacional com IA assistente
+ * @persona   Painel de chat conversacional com IA assistente (SSE streaming)
  * @commands  sendMessage
- * @deps      wizard-store.ts, supabase/client
- * @context   Usado na etapa de Descoberta (welcome) do wizard para conversa com IA.
+ * @deps      wizard-store.ts
+ * @context   Usado em todas as etapas do wizard para conversa com IA. Renderiza tokens incrementalmente via SSE.
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useWizardStore } from '@/stores/wizard-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send, Bot, User, Loader2, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
 
 export function ChatPanel() {
   const { messages, addMessage, isLoading, setLoading, currentStep, project, agents, squads } = useWizardStore();
   const [input, setInput] = useState('');
+  const [streamingContent, setStreamingContent] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, streamingContent]);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, [currentStep]);
 
-  const sendMessage = async (content?: string) => {
+  const sendMessage = useCallback(async (content?: string) => {
     const messageContent = content || input.trim();
     if (!messageContent || isLoading) return;
 
@@ -37,25 +38,90 @@ export function ChatPanel() {
     addMessage(userMsg);
     setInput('');
     setLoading(true);
+    setStreamingContent('');
+
+    abortRef.current = new AbortController();
 
     try {
       const allMessages = [...messages, userMsg];
-      const { data, error } = await supabase.functions.invoke('aios-chat', {
-        body: {
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/aios-chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+        },
+        body: JSON.stringify({
           messages: allMessages,
           wizardState: { currentStep, project, agents, squads },
-        },
+        }),
+        signal: abortRef.current.signal,
       });
 
-      if (error) throw error;
-      addMessage({ role: 'assistant', content: data.content || data.message || 'Sem resposta' });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP ${response.status}`);
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+
+      if (contentType.includes('text/event-stream')) {
+        // SSE streaming path
+        const reader = response.body!.getReader();
+        const decoder = new TextDecoder();
+        let accumulated = '';
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith('data: ')) continue;
+            const data = trimmed.slice(6);
+            if (data === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.content) {
+                accumulated += parsed.content;
+                setStreamingContent(accumulated);
+              }
+            } catch {
+              // skip malformed
+            }
+          }
+        }
+
+        if (accumulated) {
+          addMessage({ role: 'assistant', content: accumulated });
+        } else {
+          addMessage({ role: 'assistant', content: 'Sem resposta' });
+        }
+      } else {
+        // Fallback: JSON response (non-streaming)
+        const data = await response.json();
+        addMessage({ role: 'assistant', content: data.content || data.message || 'Sem resposta' });
+      }
     } catch (err: any) {
-      addMessage({ role: 'assistant', content: 'Desculpe, ocorreu um erro. Tente novamente.' });
-      console.error('Chat error:', err);
+      if (err.name !== 'AbortError') {
+        addMessage({ role: 'assistant', content: 'Desculpe, ocorreu um erro. Tente novamente.' });
+        console.error('Chat error:', err);
+      }
     } finally {
+      setStreamingContent('');
       setLoading(false);
+      abortRef.current = null;
     }
-  };
+  }, [input, isLoading, messages, addMessage, setLoading, currentStep, project, agents, squads]);
 
   const suggestions = [
     'Quero criar um sistema de agentes para desenvolvimento de software',
@@ -69,11 +135,30 @@ export function ChatPanel() {
     { label: 'Integracoes', msg: 'Quais integracoes devo configurar?' },
   ];
 
+  const renderMarkdown = (text: string) => (
+    <ReactMarkdown
+      components={{
+        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+        code: ({ children }) => (
+          <code className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">{children}</code>
+        ),
+        pre: ({ children }) => (
+          <pre className="bg-muted rounded-lg p-3 overflow-x-auto my-2 text-xs">{children}</pre>
+        ),
+        ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+        ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
+        strong: ({ children }) => <strong className="font-semibold text-primary">{children}</strong>,
+      }}
+    >
+      {text}
+    </ReactMarkdown>
+  );
+
   return (
     <div className="flex flex-col h-full">
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 && (
+        {messages.length === 0 && !streamingContent && (
           <div className="flex flex-col items-center justify-center h-full text-center py-8">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-5 shadow-[0_0_30px_-10px_hsl(var(--glow-primary)/0.3)]">
               <Bot className="w-8 h-8 text-primary" />
@@ -124,27 +209,26 @@ export function ChatPanel() {
                 ? 'bg-primary/10 border border-primary/20'
                 : 'bg-secondary/80 border border-border/50'
             )}>
-              <ReactMarkdown
-                components={{
-                  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                  code: ({ children }) => (
-                    <code className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">{children}</code>
-                  ),
-                  pre: ({ children }) => (
-                    <pre className="bg-muted rounded-lg p-3 overflow-x-auto my-2 text-xs">{children}</pre>
-                  ),
-                  ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
-                  ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
-                  strong: ({ children }) => <strong className="font-semibold text-primary">{children}</strong>,
-                }}
-              >
-                {msg.content}
-              </ReactMarkdown>
+              {renderMarkdown(msg.content)}
             </div>
           </div>
         ))}
 
-        {isLoading && (
+        {/* Streaming message */}
+        {streamingContent && (
+          <div className="flex gap-3 mr-auto max-w-[85%]">
+            <div className="w-7 h-7 rounded-lg bg-accent/20 flex items-center justify-center shrink-0 mt-1">
+              <Bot className="w-3.5 h-3.5 text-accent" />
+            </div>
+            <div className="rounded-xl px-4 py-3 text-sm leading-relaxed bg-secondary/80 border border-border/50">
+              {renderMarkdown(streamingContent)}
+              <span className="inline-block w-1.5 h-4 bg-primary/60 animate-pulse ml-0.5 align-text-bottom rounded-sm" />
+            </div>
+          </div>
+        )}
+
+        {/* Loading indicator (before stream starts) */}
+        {isLoading && !streamingContent && (
           <div className="flex gap-3 mr-auto">
             <div className="w-7 h-7 rounded-lg bg-accent/20 flex items-center justify-center">
               <Bot className="w-3.5 h-3.5 text-accent" />
@@ -157,7 +241,7 @@ export function ChatPanel() {
         )}
       </div>
 
-      {/* Quick chips - visible when conversation exists */}
+      {/* Quick chips */}
       {messages.length > 0 && (
         <div className="px-4 py-2 border-t border-border/30 bg-card/50 flex items-center gap-2 flex-wrap shrink-0">
           {quickChips.map(chip => (
