@@ -416,6 +416,10 @@ export const AppMasterAgent = {
     'validateContext': { visibility: 'quick' as const, description: 'Validar contexto atual' },
   },
 
+  agents: {
+${agents.map(a => `    '${a.slug}': { name: '${a.name}', role: '${a.role}', model: '${a.llmModel}' },`).join('\n')}
+  },
+
   squads: {
 ${squadsObj || '    // (nenhum squad configurado)'}
   },
@@ -2098,6 +2102,19 @@ ${project.description || 'Sistema AIOS de orquestracao de agentes IA.'}
 | Orquestracao | ${patternInfo?.name || project.orchestrationPattern || 'Task-First'} |
 | Agentes | ${agents.length} |
 | Squads | ${squads.length} |
+
+## Agentes
+
+| Agente | Role | Modelo | Tools | Skills |
+|--------|------|--------|-------|--------|
+${agents.map(a => `| ${a.name} | ${a.role} | ${a.llmModel} | ${a.tools.length} | ${a.skills.length} |`).join('\n')}
+
+## Squads
+
+${squads.length > 0 ? squads.map(s => {
+  const members = (s.agentIds || []).map(id => { const found = agents.find(a => a.slug === id); return found ? found.name : id; }).join(', ');
+  return '### ' + s.name + '\n' + (s.description || '_Sem descricao_') + '\n\n**Agentes:** ' + (members || '_Nenhum agente atribuido_');
+}).join('\n\n') : '_Nenhum squad configurado._'}
 
 ## Quick Start
 
