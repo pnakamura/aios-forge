@@ -65,7 +65,7 @@ export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
   // ── Runtime scaffolding ──────────────────────────────────────
   files.push(generatePackageJson(slug, name, agents));
   files.push(generateTsConfig());
-  files.push(generateMainEntryPoint(name, pattern, agents, squads));
+  files.push(generateMainEntryPoint(name, pattern, agents, squads, workflows));
   files.push(generateOrchestratorEngine(pattern, agents, squads));
   files.push(generateAgentRunner());
   files.push(generateLogger());
@@ -651,6 +651,7 @@ function generateMainEntryPoint(
   pattern: OrchestrationPatternType,
   agents: AiosAgent[],
   squads: AiosSquad[],
+  workflows: ProjectWorkflow[] = [],
 ): GeneratedFile {
   return {
     path: 'src/main.ts',
@@ -693,6 +694,12 @@ function loadConfig(): AiosConfig {
         name: s.name,
         agentSlugs: s.agents || [],
       })),
+      workflows: (yaml.workflows || []).map((w: any) => ({
+        slug: w.slug,
+        name: w.name,
+        trigger: w.trigger,
+        configPath: w.config,
+      })),
     };
   } catch (err) {
     logger.warn('Falha ao ler aios.config.yaml, usando config padrao');
@@ -704,6 +711,9 @@ ${agents.map(a => `        { slug: "${a.slug}", name: "${a.name}", role: "${a.ro
       ],
       squads: [
 ${squads.map(s => `        { slug: "${s.slug}", name: "${s.name}", agentSlugs: [${(s.agentIds || []).map(id => `"${id}"`).join(', ')}] },`).join('\n')}
+      ],
+      workflows: [
+${workflows.map(w => `        { slug: "${w.slug}", name: "${w.name}", trigger: "${w.trigger}", configPath: "workflows/${w.slug}.yaml" },`).join('\n')}
       ],
     };
   }
@@ -726,6 +736,7 @@ async function main() {
 
   logger.info(\`\${aiosConfig.agents.length} agente(s) registrado(s)\`);
   logger.info(\`\${aiosConfig.squads.length} squad(s) configurado(s)\`);
+  logger.info(\`\${(aiosConfig.workflows || []).length} workflow(s) disponivel(is)\`);
   logger.info('Sistema AIOS pronto.');
 
   // Handle graceful shutdown
@@ -758,7 +769,25 @@ async function main() {
       console.log(\`\\nSistema: \${aiosConfig.name}\`);
       console.log(\`Padrao: \${aiosConfig.pattern}\`);
       console.log(\`Agentes: \${aiosConfig.agents.map(a => a.name).join(', ')}\`);
-      console.log(\`Squads: \${aiosConfig.squads.map(s => s.name).join(', ') || '(nenhum)'}\\n\`);
+      console.log(\`Squads: \${aiosConfig.squads.map(s => s.name).join(', ') || '(nenhum)'}\`);
+      const wfs = aiosConfig.workflows || [];
+      console.log(\`Workflows: \${wfs.length > 0 ? wfs.map(w => \`\${w.slug} (\${w.trigger})\`).join(', ') : '(nenhum)'}\\n\`);
+      return prompt();
+    }
+
+    if (trimmed.startsWith('/workflow ')) {
+      const parts = trimmed.slice(10).match(/^(\\S+)\\s+(.+)$/);
+      if (!parts) {
+        console.log('Uso: /workflow <slug> <descricao da tarefa>');
+        return prompt();
+      }
+      const [, wfSlug, wfTask] = parts;
+      try {
+        const result = await orchestrator.runWorkflow(wfSlug, wfTask);
+        console.log(\`\\n--- Resultado do Workflow ---\\n\${result.output}\\n\`);
+      } catch (err) {
+        logger.error(\`Erro no workflow: \${err}\`);
+      }
       return prompt();
     }
 
@@ -918,7 +947,75 @@ export function createOrchestrator(config: AiosConfig, runner: AgentRunner) {
     return { success: true, output: plan.output, agentResults: [plan.output] };
   }
 
-  return { run: runTask, agents: agentMap, squads: squadMap };
+  async function runWorkflow(slug: string, task: string): Promise<TaskResult> {
+    const wf = (config.workflows || []).find(w => w.slug === slug);
+    if (!wf) {
+      throw new Error(\`Workflow '\${slug}' nao encontrado\`);
+    }
+
+    logger.info(\`[Workflow: \${wf.name}] Iniciando com \${wf.steps?.length || 0} step(s)\`);
+
+    // Load workflow YAML if configPath exists
+    let steps: { name: string; agent: string }[] = [];
+    if (wf.configPath) {
+      try {
+        const { readFileSync } = await import('fs');
+        const { parse } = await import('yaml');
+        const raw = readFileSync(wf.configPath, 'utf-8');
+        const wfYaml = parse(raw) as any;
+        steps = (wfYaml.steps || []).map((s: any) => ({
+          name: s.name || s.step || 'unnamed',
+          agent: s.agent || s.agentSlug,
+        }));
+      } catch (err) {
+        logger.warn(\`Falha ao ler \${wf.configPath}, usando steps inline\`);
+      }
+    }
+
+    // Fallback to inline steps from config
+    if (steps.length === 0 && wf.steps) {
+      steps = wf.steps.map((s: any) => ({ name: s.name, agent: s.agentSlug || s.agent }));
+    }
+
+    if (steps.length === 0) {
+      return { success: false, output: \`Workflow '\${slug}' nao possui steps definidos\`, agentResults: [] };
+    }
+
+    // Validate all agents exist
+    for (const step of steps) {
+      if (!agentMap.has(step.agent)) {
+        logger.warn(\`[Workflow: \${wf.name}] Agente '\${step.agent}' nao encontrado no registro\`);
+      }
+    }
+
+    // Execute steps sequentially
+    let lastOutput = '';
+    const allResults: string[] = [];
+
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      logger.info(\`[Workflow: \${wf.name}] Step \${i + 1}/\${steps.length}: \${step.name} → agent: \${step.agent}\`);
+
+      try {
+        const result = await runner.invoke(step.agent, {
+          task,
+          context: { previousOutput: lastOutput, stepIndex: i, totalSteps: steps.length },
+        });
+        lastOutput = result.output;
+        allResults.push(result.output);
+      } catch (err) {
+        const errMsg = \`Erro no step \${i + 1} (\${step.name}): \${err}\`;
+        logger.error(errMsg);
+        allResults.push(errMsg);
+        lastOutput = errMsg;
+      }
+    }
+
+    logger.info(\`[Workflow: \${wf.name}] Concluido — \${steps.length} step(s) executado(s)\`);
+    return { success: true, output: lastOutput, agentResults: allResults };
+  }
+
+  return { run: runTask, runWorkflow, agents: agentMap, squads: squadMap };
 }
 `,
   };
