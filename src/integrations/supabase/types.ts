@@ -76,6 +76,54 @@ export type Database = {
           },
         ]
       }
+      feedback_entries: {
+        Row: {
+          context: Json | null
+          created_at: string
+          data: Json
+          id: string
+          project_id: string | null
+          score: number | null
+          session_id: string | null
+          type: Database["public"]["Enums"]["feedback_type"]
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string
+          data?: Json
+          id?: string
+          project_id?: string | null
+          score?: number | null
+          session_id?: string | null
+          type: Database["public"]["Enums"]["feedback_type"]
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string
+          data?: Json
+          id?: string
+          project_id?: string | null
+          score?: number | null
+          session_id?: string | null
+          type?: Database["public"]["Enums"]["feedback_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_entries_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "wizard_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generated_files: {
         Row: {
           compliance_notes: string | null
@@ -119,6 +167,110 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      generation_audits: {
+        Row: {
+          created_at: string
+          errors: Json
+          file_count: number
+          generated_files: Json
+          generation_time_ms: number
+          id: string
+          install_test: Json | null
+          is_valid: boolean
+          project_id: string
+          total_size_bytes: number
+          validation_result: Json
+          warnings: Json
+        }
+        Insert: {
+          created_at?: string
+          errors?: Json
+          file_count?: number
+          generated_files?: Json
+          generation_time_ms?: number
+          id?: string
+          install_test?: Json | null
+          is_valid?: boolean
+          project_id: string
+          total_size_bytes?: number
+          validation_result?: Json
+          warnings?: Json
+        }
+        Update: {
+          created_at?: string
+          errors?: Json
+          file_count?: number
+          generated_files?: Json
+          generation_time_ms?: number
+          id?: string
+          install_test?: Json | null
+          is_valid?: boolean
+          project_id?: string
+          total_size_bytes?: number
+          validation_result?: Json
+          warnings?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generation_audits_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      improvements: {
+        Row: {
+          after_value: string
+          applied_at: string | null
+          before_value: string
+          confidence: number
+          created_at: string
+          description: string
+          id: string
+          impact_score: number | null
+          reason: string
+          reverted_at: string | null
+          status: Database["public"]["Enums"]["improvement_status"]
+          target: Database["public"]["Enums"]["improvement_target"]
+          target_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          after_value?: string
+          applied_at?: string | null
+          before_value?: string
+          confidence?: number
+          created_at?: string
+          description: string
+          id?: string
+          impact_score?: number | null
+          reason?: string
+          reverted_at?: string | null
+          status?: Database["public"]["Enums"]["improvement_status"]
+          target: Database["public"]["Enums"]["improvement_target"]
+          target_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          after_value?: string
+          applied_at?: string | null
+          before_value?: string
+          confidence?: number
+          created_at?: string
+          description?: string
+          id?: string
+          impact_score?: number | null
+          reason?: string
+          reverted_at?: string | null
+          status?: Database["public"]["Enums"]["improvement_status"]
+          target?: Database["public"]["Enums"]["improvement_target"]
+          target_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       integrations: {
         Row: {
@@ -194,6 +346,39 @@ export type Database = {
           updated_at?: string
           user_id?: string
           workflows?: Json
+        }
+        Relationships: []
+      }
+      quality_metrics: {
+        Row: {
+          created_at: string
+          dimensions: Json | null
+          id: string
+          metric_name: string
+          metric_value: number
+          period_end: string
+          period_start: string
+          sample_size: number
+        }
+        Insert: {
+          created_at?: string
+          dimensions?: Json | null
+          id?: string
+          metric_name: string
+          metric_value: number
+          period_end: string
+          period_start: string
+          sample_size?: number
+        }
+        Update: {
+          created_at?: string
+          dimensions?: Json | null
+          id?: string
+          metric_name?: string
+          metric_value?: number
+          period_end?: string
+          period_start?: string
+          sample_size?: number
         }
         Relationships: []
       }
@@ -302,6 +487,33 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      feedback_type:
+        | "WIZARD_STEP_COMPLETION"
+        | "AGENT_SELECTION"
+        | "AGENT_CUSTOMIZATION"
+        | "SQUAD_CREATION"
+        | "GENERATION_SUCCESS"
+        | "GENERATION_FAILURE"
+        | "EXPORT_SUCCESS"
+        | "EXPORT_FAILURE"
+        | "VALIDATION_RESULT"
+        | "USER_RATING"
+        | "INSTALLATION_TEST"
+        | "PROMPT_EFFECTIVENESS"
+      improvement_status:
+        | "PROPOSED"
+        | "APPROVED"
+        | "APPLIED"
+        | "REVERTED"
+        | "REJECTED"
+      improvement_target:
+        | "SYSTEM_PROMPT"
+        | "AGENT_TEMPLATE"
+        | "SQUAD_TEMPLATE"
+        | "GENERATION_TEMPLATE"
+        | "VALIDATION_RULE"
+        | "ORCHESTRATION_PATTERN"
+        | "UI_DEFAULT"
       integration_status: "CONFIGURED" | "TESTED" | "FAILED"
       integration_type:
         | "N8N"
@@ -444,6 +656,36 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      feedback_type: [
+        "WIZARD_STEP_COMPLETION",
+        "AGENT_SELECTION",
+        "AGENT_CUSTOMIZATION",
+        "SQUAD_CREATION",
+        "GENERATION_SUCCESS",
+        "GENERATION_FAILURE",
+        "EXPORT_SUCCESS",
+        "EXPORT_FAILURE",
+        "VALIDATION_RESULT",
+        "USER_RATING",
+        "INSTALLATION_TEST",
+        "PROMPT_EFFECTIVENESS",
+      ],
+      improvement_status: [
+        "PROPOSED",
+        "APPROVED",
+        "APPLIED",
+        "REVERTED",
+        "REJECTED",
+      ],
+      improvement_target: [
+        "SYSTEM_PROMPT",
+        "AGENT_TEMPLATE",
+        "SQUAD_TEMPLATE",
+        "GENERATION_TEMPLATE",
+        "VALIDATION_RULE",
+        "ORCHESTRATION_PATTERN",
+        "UI_DEFAULT",
+      ],
       integration_status: ["CONFIGURED", "TESTED", "FAILED"],
       integration_type: [
         "N8N",
