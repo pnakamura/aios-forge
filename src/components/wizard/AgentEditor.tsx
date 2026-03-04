@@ -25,6 +25,7 @@ const MODEL_OPTIONS = [
   'gemini-3-pro-preview',
   'gpt-5',
   'gpt-5-mini',
+  'gpt-5.2',
   'claude-sonnet-4-20250514',
   'claude-haiku-4-20250414',
 ];
