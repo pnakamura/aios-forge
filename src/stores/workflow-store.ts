@@ -20,6 +20,7 @@ interface WorkflowState {
   updateWorkflowStep: (workflowId: string, stepId: string, data: Partial<WorkflowStep>) => void;
   setWorkflows: (workflows: ProjectWorkflow[]) => void;
   autoGenerateWorkflows: (pattern: OrchestrationPatternType, agents: AiosAgent[], squads: AiosSquad[]) => void;
+  validateWorkflows: () => Record<string, string[]>;
   reset: () => void;
 }
 
@@ -66,7 +67,73 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
   },
 
   reset: () => set({ workflows: [] }),
+
+  validateWorkflows: () => {
+    const errors: Record<string, string[]> = {};
+    const { workflows } = useWorkflowStore.getState();
+    for (const wf of workflows) {
+      const cycle = detectCycle(wf.steps);
+      if (cycle) {
+        errors[wf.id] = cycle;
+      }
+    }
+    return errors;
+  },
 }));
+
+// ── Cycle detection via DFS ──
+
+/**
+ * Detects circular dependencies in workflow steps using DFS.
+ * Returns an array of step names forming the cycle, or null if no cycle exists.
+ */
+export function detectCycle(steps: WorkflowStep[]): string[] | null {
+  const WHITE = 0, GRAY = 1, BLACK = 2;
+  const color = new Map<string, number>();
+  const parent = new Map<string, string | null>();
+  const idToStep = new Map<string, WorkflowStep>();
+
+  for (const s of steps) {
+    color.set(s.id, WHITE);
+    idToStep.set(s.id, s);
+  }
+
+  function dfs(id: string): string[] | null {
+    color.set(id, GRAY);
+    const step = idToStep.get(id);
+    for (const dep of step?.dependsOn || []) {
+      if (!idToStep.has(dep)) continue; // skip missing refs
+      const c = color.get(dep);
+      if (c === GRAY) {
+        // Back edge found — reconstruct cycle
+        const cycle: string[] = [idToStep.get(dep)!.name];
+        let cur = id;
+        while (cur !== dep) {
+          cycle.push(idToStep.get(cur)!.name);
+          cur = parent.get(cur) || dep;
+        }
+        cycle.push(idToStep.get(dep)!.name);
+        return cycle.reverse();
+      }
+      if (c === WHITE) {
+        parent.set(dep, id);
+        const result = dfs(dep);
+        if (result) return result;
+      }
+    }
+    color.set(id, BLACK);
+    return null;
+  }
+
+  for (const s of steps) {
+    if (color.get(s.id) === WHITE) {
+      parent.set(s.id, null);
+      const result = dfs(s.id);
+      if (result) return result;
+    }
+  }
+  return null;
+}
 
 // ── Auto-generation logic per orchestration pattern ──
 
