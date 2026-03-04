@@ -69,12 +69,13 @@ const RELATION_OPTIONS = [
 ];
 
 const MODEL_OPTIONS = [
+  'gemini-3-flash-preview',
+  'gemini-3-pro-preview',
+  'gpt-5',
+  'gpt-5-mini',
+  'gpt-5.2',
   'claude-sonnet-4-20250514',
   'claude-haiku-4-20250414',
-  'gpt-4o',
-  'gpt-4o-mini',
-  'gemini-2.0-flash',
-  'gemini-2.5-pro-preview-05-06',
 ];
 
 const VISIBILITY_OPTIONS: { value: 'full' | 'quick' | 'key'; label: string }[] = [

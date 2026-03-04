@@ -330,9 +330,9 @@ export default function WizardPage() {
               </div>
             </div>
             {[
-              { name: 'Claude API', desc: 'Modelos Anthropic (Claude Opus, Sonnet, Haiku)', configured: store.agents.some(a => a.llmModel.includes('claude')) },
-              { name: 'OpenAI API', desc: 'Modelos GPT (GPT-4o, GPT-4o-mini)', configured: store.agents.some(a => a.llmModel.includes('gpt')) },
-              { name: 'Google Gemini', desc: 'Modelos Google (Gemini Flash, Pro)', configured: store.agents.some(a => a.llmModel.includes('gemini')) },
+              { name: 'Claude API', desc: 'Modelos Anthropic (Claude Sonnet 4, Haiku 4)', configured: store.agents.some(a => a.llmModel.includes('claude')) },
+              { name: 'OpenAI API', desc: 'Modelos GPT (GPT-5, GPT-5-mini, GPT-5.2)', configured: store.agents.some(a => a.llmModel.includes('gpt')) },
+              { name: 'Google Gemini', desc: 'Modelos Google (Gemini 3 Flash, Gemini 3 Pro)', configured: store.agents.some(a => a.llmModel.includes('gemini')) },
               { name: 'N8N', desc: 'Automacao de workflows', configured: false },
               { name: 'Notion', desc: 'Documentacao e knowledge base', configured: false },
               { name: 'MCP Server', desc: 'Model Context Protocol', configured: false },

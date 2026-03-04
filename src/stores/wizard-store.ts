@@ -174,7 +174,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       name: a.name,
       role: a.role,
       systemPrompt: a.system_prompt || '',
-      llmModel: a.llm_model || 'gemini-2.0-flash',
+      llmModel: a.llm_model || 'gemini-3-flash-preview',
       commands: a.commands || [],
       tools: a.tools || [],
       skills: a.skills || [],
