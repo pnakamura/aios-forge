@@ -1,57 +1,111 @@
 
 
-# Auditoria Completa — Modelos de IA Desatualizados
+# Analise da Logica de Execucao do Sistema Gerado
 
-A auditoria identificou **referências a modelos descontinuados** em 5 locais adicionais que não foram atualizados na rodada anterior. São referências hardcoded em strings de UI, fallbacks de store, e conteúdo gerado pelo motor de pacotes.
+## Diagnostico
 
-## Achados
+Apos auditoria completa do motor de geracao (`generate-aios-package.ts`, 2666 linhas), identifiquei **14 problemas** que comprometem o funcionamento do sistema gerado apos instalacao. Estao organizados por severidade.
 
-### 1. `src/components/wizard/ArchitectureDiagram.tsx` — `MODEL_OPTIONS` (linha 71-78)
-Array duplicado do `AgentEditor` mas **nunca foi atualizado**. Ainda usa `gpt-4o`, `gpt-4o-mini`, `gemini-2.0-flash`, `gemini-2.5-pro-preview-05-06`.
+---
 
-### 2. `src/stores/wizard-store.ts` — fallback `llmModel` (linha 177)
-Ao carregar projeto do banco: `llmModel: a.llm_model || 'gemini-2.0-flash'` — fallback desatualizado.
+## Problemas Criticos (sistema nao funciona corretamente)
 
-### 3. `src/components/wizard/AgentCatalog.tsx` — hardcoded model (linha 115)
-Ao criar agente customizado: `llmModel: 'gemini-2.0-flash'` — deveria ser `gemini-3-flash-preview`.
+### 1. Orchestrator ignora retry_policy e timeout_ms
+O `aios.config.yaml` gera `retry_policy` e `timeout_ms`, mas o `orchestrator.ts` gerado nao os utiliza. Agentes que falham nao sao re-tentados.
 
-### 4. `src/pages/WizardPage.tsx` — textos de integração (linhas 333-335)
-Descritivos de UI mencionam modelos antigos:
-- `'Modelos Anthropic (Claude Opus, Sonnet, Haiku)'` — Claude Opus não existe mais; correto seria `Claude Sonnet 4, Haiku 4`
-- `'Modelos GPT (GPT-4o, GPT-4o-mini)'` → `GPT-5, GPT-5-mini, GPT-5.2`
-- `'Modelos Google (Gemini Flash, Pro)'` → `Gemini 3 Flash, Gemini 3 Pro`
+**Correcao**: Atualizar `generateOrchestratorEngine()` para ler retry/timeout do config e aplicar logica de retry com backoff + timeout em cada invocacao de agente.
 
-### 5. `src/lib/generate-aios-package.ts` — conteúdo gerado (múltiplas linhas)
-O motor de geração escreve modelos antigos nos arquivos do pacote exportado:
-- Linha 418: `model: 'gemini-2.0-flash'` no CLAUDE.md gerado
-- Linha 1061: fallback `'gpt-4o-mini'` no agent-runner
-- Linha 1125: comentário referenciando `gemini-2.0-flash`
-- Linhas 1842, 1966, 1982: exemplos YAML com `gemini-2.0-flash`
-- Linhas 2127-2129: lista de modelos suportados desatualizada
-- Linha 2166: exemplo de log com modelo antigo
+### 2. Agent Runner ignora temperature e max_tokens do YAML
+O YAML de cada agente define `temperature: 0.7` e `max_tokens: 4096`, mas `callOpenAI()`, `callAnthropic()` e `callGoogle()` usam valores hardcoded ou nenhum.
 
-## Plano de Correção
+**Correcao**: Propagar `temperature` e `max_tokens` do `AgentDefinition` para as chamadas de cada provider.
 
-### Arquivo 1: `src/components/wizard/ArchitectureDiagram.tsx`
-Atualizar `MODEL_OPTIONS` (linhas 71-78) para:
-```
-gemini-3-flash-preview, gemini-3-pro-preview, gpt-5, gpt-5-mini, gpt-5.2, claude-sonnet-4-20250514, claude-haiku-4-20250414
-```
+### 3. Squads nao sao usados no roteamento
+`TaskRequest` tem campo `targetSquad`, e o orchestrator carrega squads em `squadMap`, mas nenhum padrao de orquestracao faz roteamento por squad. Squads existem apenas como documentacao.
 
-### Arquivo 2: `src/stores/wizard-store.ts`
-Linha 177: trocar fallback de `gemini-2.0-flash` para `gemini-3-flash-preview`.
+**Correcao**: Implementar logica no orchestrator que, quando `targetSquad` e informado, filtra os agentes daquele squad. Adicionar comando `/squad <slug> <tarefa>` no main.ts.
 
-### Arquivo 3: `src/components/wizard/AgentCatalog.tsx`
-Linha 115: trocar `gemini-2.0-flash` para `gemini-3-flash-preview`.
+### 4. Workflows ignoram depends_on, timeout_ms e retry_policy
+O YAML de workflow gera campos `depends_on`, `timeout_ms` e `retry_policy` por step, mas o runtime executa tudo sequencialmente sem respeitar dependencias ou timeouts.
 
-### Arquivo 4: `src/pages/WizardPage.tsx`
-Linhas 333-335: atualizar descrições dos modelos nas integrações.
+**Correcao**: Implementar execucao baseada em DAG (dependencias), timeout por step e retry com backoff.
 
-### Arquivo 5: `src/lib/generate-aios-package.ts`
-Atualizar todas as ~10 ocorrências de modelos antigos em strings template (CLAUDE.md gerado, agent-runner, exemplos YAML, documentação).
+### 5. Script `npm run validate` nao existe
+FIRST-RUN.md referencia `npm run validate` mas o `package.json` gerado nao tem esse script.
 
-## Resumo
-- **5 arquivos** a editar
-- **~20 ocorrências** de modelos desatualizados
-- Sem mudanças estruturais — apenas substituição de strings
+**Correcao**: Adicionar script `validate` que verifica: (a) .env existe, (b) pelo menos 1 API key configurada, (c) aios.config.yaml valido, (d) todos os agents YAML existem.
+
+---
+
+## Problemas de Consistencia (sistema funciona parcialmente)
+
+### 6. Docker nao inclui diretorio `workflows/`
+O Dockerfile copia `agents/`, `squads/`, `.aios/`, `docs/` mas nao `workflows/`. Docker Compose tambem nao monta `./workflows`.
+
+**Correcao**: Adicionar `COPY --from=builder /app/workflows ./workflows` no Dockerfile e volume `./workflows:/app/workflows:ro` no docker-compose.
+
+### 7. WorkflowConfig tipo incompleto
+No `types.ts` gerado, `WorkflowConfig` tem `steps` mas `loadConfig()` mapeia para `configPath` (que nao existe no tipo).
+
+**Correcao**: Adicionar `configPath?: string` ao `WorkflowConfig` e corrigir `loadConfig()` para tambem carregar steps inline.
+
+### 8. FIRST-RUN.md diz Node.js 18+ mas package.json exige >=20
+Inconsistencia na versao minima de Node.js.
+
+**Correcao**: Uniformizar para Node.js 20+ em todo o FIRST-RUN.md.
+
+### 9. FIRST-RUN.md hardcoda "API Key Anthropic"
+Independente dos modelos usados, sempre pede Anthropic API Key. Deveria ser dinamico.
+
+**Correcao**: Gerar a tabela "Voce Precisa Prover" e checklist de pre-requisitos baseado nos providers reais dos agentes.
+
+### 10. `frameworkProtection` ausente no aios.config.yaml
+A memoria do projeto indica que `npx aios-core doctor` requer `frameworkProtection: true`. Nao e gerado.
+
+**Correcao**: Adicionar secao `framework` no aios.config.yaml com `frameworkProtection: true`.
+
+### 11. Codebase map incompleto
+Nao inclui `workflows/`, `src/agents/*.agent.ts`, nem `FIRST-RUN.md`.
+
+**Correcao**: Adicionar essas entradas ao mapa gerado.
+
+### 12. AppMaster nao mapeia workflows
+O `AppMaster.agent.ts` gerado lista agentes e squads mas nao workflows.
+
+**Correcao**: Adicionar secao `workflows` ao AppMaster com slug, nome e trigger de cada workflow.
+
+### 13. `.gitignore` exclui arquivos scaffold uteis
+Exclui `.aios/memory/*.json` incluindo `decisions.json` e `codebase-map.json` que sao scaffolds iniciais uteis para commit.
+
+**Correcao**: Mudar para ignorar apenas arquivos de runtime (ex: `*.log`), preservar JSON scaffold.
+
+### 14. Orchestrator nao expoe `targetAgent`
+`TaskRequest` tem `targetAgent` mas nenhum padrao o utiliza para enviar tarefa diretamente a um agente especifico.
+
+**Correcao**: Adicionar rota direta quando `targetAgent` e especificado, bypass do padrao de orquestracao. Adicionar comando `@<slug> <tarefa>` no main.ts.
+
+---
+
+## Plano de Implementacao
+
+### Arquivos editados: 1
+- `src/lib/generate-aios-package.ts` — todas as 14 correcoes sao neste arquivo (templates de geracao)
+
+### Funcoes afetadas:
+- `generateOrchestratorEngine()` — retry, timeout, squad routing, targetAgent (items 1, 3, 14)
+- `generateAgentRunner()` — temperature, max_tokens (item 2)
+- `generateMainEntryPoint()` — comandos `/squad`, `@agent`, `/workflow` melhorados (items 3, 14)
+- `generatePackageJson()` — script `validate` (item 5)
+- `generateDockerfile()` — workflows dir (item 6)
+- `generateDockerCompose()` — workflows volume (item 6)
+- `generateTypes()` — WorkflowConfig.configPath (item 7)
+- `generateFirstRunMd()` — Node 20+, providers dinamicos (items 8, 9)
+- `generateAiosConfig()` — frameworkProtection (item 10)
+- `generateCodebaseMap()` — entradas faltantes (item 11)
+- `generateAppMasterAgent()` — workflows (item 12)
+- `generateGitignore()` — preservar scaffolds (item 13)
+- `runWorkflow` dentro de `generateOrchestratorEngine()` — DAG, timeout, retry (item 4)
+
+### Estimativa
+Alteracoes concentradas em ~15 funcoes de um unico arquivo. Sem mudancas estruturais — apenas enriquecimento dos templates de geracao.
 
