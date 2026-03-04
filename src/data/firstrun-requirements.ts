@@ -31,10 +31,10 @@ export const FIRSTRUN_SECTIONS: { id: FirstRunSection; title: string; emoji: str
 
 export const FIRSTRUN_ITEMS: FirstRunItem[] = [
   // Prerequisites
-  { id: 'prereq-node', section: 'prerequisites', title: 'Node.js 18+ instalado', description: 'Necessário para executar o runtime AIOS.', verifyCommand: 'node --version', isConditional: false },
-  { id: 'prereq-npm', section: 'prerequisites', title: 'npm 9+ disponível', description: 'Gerenciador de pacotes para instalar dependências.', verifyCommand: 'npm --version', isConditional: false },
+  { id: 'prereq-node', section: 'prerequisites', title: 'Node.js 20+ instalado', description: 'Necessário para executar o runtime AIOS.', verifyCommand: 'node --version', isConditional: false },
+  { id: 'prereq-npm', section: 'prerequisites', title: 'npm 10+ disponível', description: 'Gerenciador de pacotes para instalar dependências.', verifyCommand: 'npm --version', isConditional: false },
   { id: 'prereq-ide', section: 'prerequisites', title: 'IDE compatível instalada', description: 'Claude Code, Cursor, Codex CLI ou Gemini CLI.', isConditional: false },
-  { id: 'prereq-apikey', section: 'prerequisites', title: 'API Key Anthropic válida', description: 'Necessária para os agentes Claude funcionarem.', isConditional: false },
+  { id: 'prereq-apikey', section: 'prerequisites', title: 'API Key de LLM válida', description: 'Necessária para os agentes funcionarem (OpenAI, Anthropic ou Google conforme os modelos configurados).', isConditional: false },
 
   // Setup
   { id: 'setup-extract', section: 'setup', title: 'Extrair o pacote ZIP', description: 'Extraia o conteúdo em um diretório de sua escolha.', isConditional: false },
