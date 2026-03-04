@@ -1,44 +1,24 @@
 
 
-# Validacao de Dependencias Circulares em Workflows
+# ✅ IMPLEMENTADO — Correções na Lógica de Execução do Sistema Gerado
 
-## Analise do Estado Atual
+Todas as 14 correções foram implementadas em `src/lib/generate-aios-package.ts`.
 
-O orchestrator gerado **ja detecta ciclos em runtime** (linhas 1155-1158 de `generate-aios-package.ts`): quando nenhum step tem dependencias satisfeitas mas ainda ha steps pendentes, retorna erro com mensagem `"Dependencias circulares ou ausentes detectadas"`. Isso previne loops infinitos.
+## Resumo das Correções
 
-**Porem**, a detecao ocorre apenas em runtime — o usuario so descobre o problema ao executar o sistema gerado. Nao ha validacao no wizard durante a criacao/edicao de workflows.
-
-## Correcoes Propostas
-
-### 1. Validacao upfront no WorkflowStore (design-time)
-
-**Arquivo:** `src/stores/workflow-store.ts`
-
-Adicionar funcao `detectCycle(steps)` que faz deteccao de ciclos via DFS antes de aceitar mudancas. Expor metodo `validateWorkflows()` que retorna erros por workflow.
-
-### 2. Feedback visual no WorkflowEditor (design-time)
-
-**Arquivo:** `src/components/wizard/WorkflowEditor.tsx`
-
-Chamar `validateWorkflows()` e exibir alerta quando um workflow tem dependencias circulares, impedindo o usuario de avancar com workflows invalidos.
-
-### 3. Validacao mais robusta no orchestrator gerado (runtime)
-
-**Arquivo:** `src/lib/generate-aios-package.ts`
-
-Adicionar validacao pre-execucao explicita com `detectCycle()` no template do `runWorkflow`, com mensagem de erro detalhada listando os steps que formam o ciclo. O codigo atual ja funciona, mas a mensagem pode ser mais descritiva.
-
-### 4. Validacao no script validate.ts gerado
-
-**Arquivo:** `src/lib/generate-aios-package.ts` (dentro de `generateValidateScript`)
-
-Adicionar check de ciclos nos workflows como parte do `npm run validate`.
-
-## Arquivos Editados
-
-| Arquivo | Mudanca |
-|---------|---------|
-| `src/stores/workflow-store.ts` | Adicionar `detectCycle()` e `validateWorkflows()` |
-| `src/components/wizard/WorkflowEditor.tsx` | Exibir alerta de ciclos detectados |
-| `src/lib/generate-aios-package.ts` | Melhorar mensagem de erro + adicionar check no validate.ts |
-
+| # | Problema | Status |
+|---|----------|--------|
+| 1 | Orchestrator ignora retry_policy e timeout_ms | ✅ Implementado com helpers `withRetry` e `withTimeout` |
+| 2 | Agent Runner ignora temperature e max_tokens | ✅ Propagados do YAML para todos os providers |
+| 3 | Squads não usados no roteamento | ✅ Squad filtering + comando `/squad <slug> <tarefa>` |
+| 4 | Workflows ignoram depends_on, timeout, retry | ✅ Execução DAG com parallelismo + retry/timeout por step |
+| 5 | Script `npm run validate` não existe | ✅ Gerado `src/validate.ts` + script no package.json |
+| 6 | Docker não inclui `workflows/` | ✅ Adicionado COPY e volume |
+| 7 | WorkflowConfig tipo incompleto | ✅ Adicionado `configPath?`, `timeout_ms?`, `retry_policy?` |
+| 8 | FIRST-RUN.md diz Node.js 18+ | ✅ Corrigido para 20+ |
+| 9 | FIRST-RUN.md hardcoda Anthropic | ✅ Detecção dinâmica de providers |
+| 10 | frameworkProtection ausente | ✅ Adicionado ao aios.config.yaml |
+| 11 | Codebase map incompleto | ✅ Adicionados workflows, agent.ts, FIRST-RUN.md, validate.ts |
+| 12 | AppMaster não mapeia workflows | ✅ Seção workflows adicionada |
+| 13 | .gitignore exclui scaffolds úteis | ✅ Preserva JSON scaffold, ignora apenas runtime |
+| 14 | Orchestrator não expõe targetAgent | ✅ Rota direta + comando `@<slug> <tarefa>` |

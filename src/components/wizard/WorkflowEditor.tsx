@@ -6,7 +6,7 @@
  * @context   Usado na aba Workflows do wizard. Permite criar, editar e auto-gerar workflows.
  */
 
-import { useWorkflowStore } from '@/stores/workflow-store';
+import { useWorkflowStore, detectCycle } from '@/stores/workflow-store';
 import { useWizardStore } from '@/stores/wizard-store';
 import { ProjectWorkflow, WorkflowStep, WorkflowTrigger } from '@/types/aios';
 import { Button } from '@/components/ui/button';
@@ -18,11 +18,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Plus, Trash2, GitBranch, Bot, ChevronDown, ChevronRight,
-  Sparkles, ArrowRight, Zap, Clock, Play,
+  Sparkles, ArrowRight, Zap, Clock, Play, AlertTriangle,
 } from 'lucide-react';
 
 const TRIGGER_OPTIONS: { value: WorkflowTrigger; label: string; icon: React.ReactNode }[] = [
@@ -40,6 +41,16 @@ export function WorkflowEditor() {
   const [form, setForm] = useState({ name: '', description: '', trigger: 'manual' as WorkflowTrigger });
 
   const allTasks = squads.flatMap(s => s.tasks.map(t => ({ ...t, squadName: s.name })));
+
+  // Cycle detection per workflow
+  const cycleErrors = useMemo(() => {
+    const errors: Record<string, string[]> = {};
+    for (const wf of workflows) {
+      const cycle = detectCycle(wf.steps);
+      if (cycle) errors[wf.id] = cycle;
+    }
+    return errors;
+  }, [workflows]);
 
   const handleCreate = () => {
     if (!form.name) return;
@@ -127,11 +138,23 @@ export function WorkflowEditor() {
         </div>
       ) : (
         <div className="space-y-3">
+          {Object.keys(cycleErrors).length > 0 && (
+            <Alert variant="destructive" className="py-2">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                <strong>Dependencias circulares detectadas!</strong> Corrija antes de gerar o pacote.
+              </AlertDescription>
+            </Alert>
+          )}
           {workflows.map(wf => {
             const isExpanded = expandedWf === wf.id;
             const triggerOpt = TRIGGER_OPTIONS.find(t => t.value === wf.trigger);
+            const hasCycle = !!cycleErrors[wf.id];
             return (
-              <div key={wf.id} className="border border-border/50 rounded-lg bg-card/50 overflow-hidden">
+              <div key={wf.id} className={cn(
+                "border rounded-lg bg-card/50 overflow-hidden",
+                hasCycle ? "border-destructive/50" : "border-border/50"
+              )}>
                 {/* Workflow header */}
                 <div
                   className="flex items-center gap-3 p-3 cursor-pointer hover:bg-secondary/20 transition-colors"
@@ -148,6 +171,11 @@ export function WorkflowEditor() {
                       {wf.steps.length} steps · {triggerOpt?.label || wf.trigger}
                     </span>
                   </div>
+                  {hasCycle && (
+                    <Badge variant="destructive" className="text-[9px] shrink-0 gap-1">
+                      <AlertTriangle className="w-3 h-3" /> Ciclo
+                    </Badge>
+                  )}
                   {wf.squadSlug && (
                     <Badge variant="outline" className="text-[9px] shrink-0">
                       {squads.find(s => s.slug === wf.squadSlug)?.name || wf.squadSlug}
@@ -165,6 +193,16 @@ export function WorkflowEditor() {
 
                 {isExpanded && (
                   <div className="px-3 pb-3 space-y-3 border-t border-border/30 pt-3">
+                    {hasCycle && (
+                      <div className="p-2 rounded-md bg-destructive/10 border border-destructive/30">
+                        <p className="text-[10px] font-semibold text-destructive flex items-center gap-1 mb-1">
+                          <AlertTriangle className="w-3 h-3" /> Dependencia circular detectada
+                        </p>
+                        <p className="text-[10px] text-destructive/80">
+                          Ciclo: {cycleErrors[wf.id]?.join(' → ')}
+                        </p>
+                      </div>
+                    )}
                     {/* Workflow metadata */}
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">

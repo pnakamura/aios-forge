@@ -1153,8 +1153,11 @@ export function createOrchestrator(config: AiosConfig, runner: AgentRunner) {
       );
 
       if (ready.length === 0 && pending.size > 0) {
-        const unresolvedIds = [...pending].join(', ');
-        return { success: false, output: \`Dependencias circulares ou ausentes detectadas nos steps: \${unresolvedIds}\`, agentResults: allResults };
+        const unresolvedNames = [...pending].map(id => {
+          const s = steps.find(st => st.id === id);
+          return s ? s.name : id;
+        });
+        return { success: false, output: \`Dependencias circulares ou ausentes detectadas nos steps: \${unresolvedNames.join(' → ')}\`, agentResults: allResults };
       }
 
       // Execute ready steps in parallel
@@ -1638,6 +1641,42 @@ if (config?.workflows?.length > 0) {
   for (const wf of config.workflows) {
     const wfPath = wf.config || \`workflows/\${wf.slug}.yaml\`;
     check(\`Workflow \${wf.slug} (\${wfPath})\`, existsSync(wfPath));
+
+    // Check for circular dependencies
+    if (existsSync(wfPath)) {
+      try {
+        const wfYaml = parse(readFileSync(wfPath, 'utf-8'));
+        const steps: { id: string; name: string; depends_on?: string[] }[] = wfYaml?.steps || [];
+        const visited = new Set<string>();
+        const inStack = new Set<string>();
+        const stepMap = new Map(steps.map(s => [s.id, s]));
+        let cycleFound: string[] | null = null;
+
+        function dfsCycle(id: string, path: string[]): boolean {
+          if (inStack.has(id)) {
+            const idx = path.indexOf(id);
+            cycleFound = path.slice(idx).map(sid => stepMap.get(sid)?.name || sid);
+            cycleFound.push(stepMap.get(id)?.name || id);
+            return true;
+          }
+          if (visited.has(id)) return false;
+          visited.add(id);
+          inStack.add(id);
+          for (const dep of stepMap.get(id)?.depends_on || []) {
+            if (dfsCycle(dep, [...path, id])) return true;
+          }
+          inStack.delete(id);
+          return false;
+        }
+
+        for (const s of steps) {
+          if (!visited.has(s.id) && dfsCycle(s.id, [])) break;
+        }
+
+        check(\`Workflow \${wf.slug}: sem dependencias circulares\`, !cycleFound,
+          cycleFound ? \`Ciclo: \${cycleFound.join(' → ')}\` : undefined);
+      } catch {}
+    }
   }
 }
 
