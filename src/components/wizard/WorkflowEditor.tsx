@@ -171,6 +171,11 @@ export function WorkflowEditor() {
                       {wf.steps.length} steps · {triggerOpt?.label || wf.trigger}
                     </span>
                   </div>
+                  {hasCycle && (
+                    <Badge variant="destructive" className="text-[9px] shrink-0 gap-1">
+                      <AlertTriangle className="w-3 h-3" /> Ciclo
+                    </Badge>
+                  )}
                   {wf.squadSlug && (
                     <Badge variant="outline" className="text-[9px] shrink-0">
                       {squads.find(s => s.slug === wf.squadSlug)?.name || wf.squadSlug}
