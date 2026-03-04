@@ -111,7 +111,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Valide estes ${files.length} arquivos AIOS contra o padrao v4.2.13. Faca cross-validation entre todos os arquivos:\n\n${filesDescription}` },
