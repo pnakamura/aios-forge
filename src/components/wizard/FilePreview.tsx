@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { generateAiosPackage } from '@/lib/generate-aios-package';
+import { useWorkflowStore } from '@/stores/workflow-store';
 
 // ── Tree types & builder ─────────────────────────────────
 
@@ -194,13 +195,14 @@ function SyntaxLine({ line, path }: { line: string; path: string }) {
 
 export function FilePreview() {
   const { project, agents, squads, complianceResults, complianceReviewed, setComplianceResults } = useWizardStore();
+  const { workflows } = useWorkflowStore();
   const [selectedPath, setSelectedPath] = useState('');
   const [copied, setCopied] = useState(false);
   const [reviewing, setReviewing] = useState(false);
 
   const files = useMemo(
-    () => generateAiosPackage({ project, agents, squads, complianceResults }),
-    [project, agents, squads, complianceResults]
+    () => generateAiosPackage({ project, agents, squads, workflows, complianceResults }),
+    [project, agents, squads, workflows, complianceResults]
   );
   const tree = useMemo(() => buildTree(files), [files]);
   const selectedFile = files.find(f => f.path === selectedPath);

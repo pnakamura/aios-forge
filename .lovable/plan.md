@@ -1,47 +1,24 @@
 
 
-# Correcao: Workflows ausentes no FilePreview
+# ✅ IMPLEMENTADO — Correções na Lógica de Execução do Sistema Gerado
 
-## Problema Identificado
+Todas as 14 correções foram implementadas em `src/lib/generate-aios-package.ts`.
 
-O componente `FilePreview.tsx` (linha 202) chama `generateAiosPackage()` **sem passar o parametro `workflows`**, fazendo com que:
-- Os arquivos YAML de workflows nao aparecam na arvore de arquivos
-- O `codebase-map.json` nao liste os workflows
-- O `AppMaster.agent.ts` nao mapeie workflows
-- O `aios.config.yaml` nao inclua a secao de workflows
+## Resumo das Correções
 
-Enquanto `WizardPage.tsx` passa corretamente `workflows: workflowStore.workflows` em todas as chamadas (linhas 141, 151, 176, 374), o `FilePreview` nao o faz.
-
-## Correcao
-
-### Arquivo: `src/components/wizard/FilePreview.tsx`
-
-1. Importar `useWorkflowStore` do workflow store
-2. Na funcao `FilePreview()`, extrair `workflows` do store
-3. Passar `workflows` na chamada de `generateAiosPackage` (linha 202)
-4. Adicionar `workflowStore.workflows` ao array de dependencias do `useMemo`
-
-### Alteracao especifica:
-
-**Linha 196** — adicionar:
-```typescript
-const { workflows } = useWorkflowStore();
-```
-
-**Linha 202** — alterar de:
-```typescript
-() => generateAiosPackage({ project, agents, squads, complianceResults }),
-[project, agents, squads, complianceResults]
-```
-para:
-```typescript
-() => generateAiosPackage({ project, agents, squads, workflows, complianceResults }),
-[project, agents, squads, workflows, complianceResults]
-```
-
-### Resultado esperado
-- Os 3 workflows (incluindo "Pipeline de Teste QA") aparecerao na arvore como `workflows/pipeline-de-teste-qa.yaml`, etc.
-- O `codebase-map.json` listara os workflows na secao `structure.workflows`
-- O `AppMaster.agent.ts` mapeara os workflows
-- O contador de arquivos (atualmente 44 no FilePreview vs 47 no WizardPage) ficara consistente
-
+| # | Problema | Status |
+|---|----------|--------|
+| 1 | Orchestrator ignora retry_policy e timeout_ms | ✅ Implementado com helpers `withRetry` e `withTimeout` |
+| 2 | Agent Runner ignora temperature e max_tokens | ✅ Propagados do YAML para todos os providers |
+| 3 | Squads não usados no roteamento | ✅ Squad filtering + comando `/squad <slug> <tarefa>` |
+| 4 | Workflows ignoram depends_on, timeout, retry | ✅ Execução DAG com parallelismo + retry/timeout por step |
+| 5 | Script `npm run validate` não existe | ✅ Gerado `src/validate.ts` + script no package.json |
+| 6 | Docker não inclui `workflows/` | ✅ Adicionado COPY e volume |
+| 7 | WorkflowConfig tipo incompleto | ✅ Adicionado `configPath?`, `timeout_ms?`, `retry_policy?` |
+| 8 | FIRST-RUN.md diz Node.js 18+ | ✅ Corrigido para 20+ |
+| 9 | FIRST-RUN.md hardcoda Anthropic | ✅ Detecção dinâmica de providers |
+| 10 | frameworkProtection ausente | ✅ Adicionado ao aios.config.yaml |
+| 11 | Codebase map incompleto | ✅ Adicionados workflows, agent.ts, FIRST-RUN.md, validate.ts |
+| 12 | AppMaster não mapeia workflows | ✅ Seção workflows adicionada |
+| 13 | .gitignore exclui scaffolds úteis | ✅ Preserva JSON scaffold, ignora apenas runtime |
+| 14 | Orchestrator não expõe targetAgent | ✅ Rota direta + comando `@<slug> <tarefa>` |
