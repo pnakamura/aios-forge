@@ -112,7 +112,7 @@ export function AgentCatalog() {
     const slug = draft.slug || autoSlug(draft.name);
     const agent: AiosAgent = {
       slug, name: draft.name, role: draft.role,
-      systemPrompt: draft.systemPrompt, llmModel: 'gemini-2.0-flash',
+      systemPrompt: draft.systemPrompt, llmModel: 'gemini-3-flash-preview',
       commands: draft.structuredCommands.map(c => c.name).filter(Boolean),
       tools: draft.tools, skills: draft.skills, memory: [],
       visibility: 'full', isCustom: true,

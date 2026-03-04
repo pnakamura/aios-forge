@@ -415,7 +415,7 @@ export const AppMasterAgent = {
   persona: 'Orquestrador principal do ${name}',
   version: '1.0.0',
   squad: 'core',
-  model: 'gemini-2.0-flash',
+  model: 'gemini-3-flash-preview',
 
   commands: {
     'navigate': { visibility: 'full' as const, description: 'Navegar entre modulos' },
@@ -1058,7 +1058,7 @@ export function createAgentRunner(env: ValidatedEnv): AgentRunner {
   async function invoke(agentSlug: string, invocation: AgentInvocation): Promise<AgentResult> {
     const definition = loadAgentDefinition(agentSlug);
     const systemPrompt = definition?.system_prompt || \`Voce e o agente \${agentSlug}.\`;
-    const model = definition?.llm?.model || 'gpt-4o-mini';
+    const model = definition?.llm?.model || 'gpt-5-mini';
 
     logger.debug(\`[Agent:\${agentSlug}] Invocando modelo \${model}\`);
 
@@ -1122,7 +1122,7 @@ export function createAgentRunner(env: ValidatedEnv): AgentRunner {
     }
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(env.GOOGLE_API_KEY);
-    // Remove provider prefix if present (e.g. 'google/gemini-2.0-flash' -> 'gemini-2.0-flash')
+    // Remove provider prefix if present (e.g. 'google/gemini-3-flash-preview' -> 'gemini-3-flash-preview')
     const modelName = model.replace(/^google\\//, '');
     const genModel = genAI.getGenerativeModel({
       model: modelName,
@@ -1839,7 +1839,7 @@ Cada agente possui dois arquivos em \`agents/\`:
 Para modificar o comportamento de um agente, edite seu arquivo YAML:
 \`\`\`yaml
 llm:
-  model: "gemini-2.0-flash"  # Modelo LLM
+  model: "gemini-3-flash-preview"  # Modelo LLM
   temperature: 0.7                         # Criatividade (0.0 a 1.0)
   max_tokens: 4096                         # Tamanho maximo da resposta
 
@@ -1963,7 +1963,7 @@ name: "Novo Agente"
 role: "Descricao do role"
 version: "1.0.0"
 llm:
-  model: "gemini-2.0-flash"
+  model: "gemini-3-flash-preview"
   temperature: 0.7
   max_tokens: 4096
 system_prompt: |
@@ -1979,7 +1979,7 @@ agents:
   - slug: "novo-agente"
     name: "Novo Agente"
     role: "Descricao do role"
-    model: "gemini-2.0-flash"
+    model: "gemini-3-flash-preview"
     config: "agents/novo-agente.yaml"
 \`\`\`
 
@@ -2124,9 +2124,9 @@ llm:
 \`\`\`
 
 Modelos suportados:
-- OpenAI: \`gpt-4o\`, \`gpt-4o-mini\`
-- Anthropic: \`claude-opus-4-20250514\`, \`claude-sonnet-4-20250514\`, \`claude-haiku-4-5-20251001\`
-- Google: \`gemini-2.0-flash\`, \`gemini-1.5-flash\`, \`gemini-2.5-pro-preview-06-05\`
+- OpenAI: \`gpt-5\`, \`gpt-5-mini\`, \`gpt-5.2\`
+- Anthropic: \`claude-sonnet-4-20250514\`, \`claude-haiku-4-20250414\`
+- Google: \`gemini-3-flash-preview\`, \`gemini-3-pro-preview\`
 
 ### 10.3 Ajustar politica de retry
 
@@ -2163,7 +2163,7 @@ LOG_LEVEL=info   # Para operacao normal
 \`\`\`
 [2024-01-15T10:30:00.000Z] [INFO] Iniciando ${name} (padrao: ${pattern})
 [2024-01-15T10:30:00.050Z] [INFO] Variaveis de ambiente validadas
-[2024-01-15T10:30:00.100Z] [DEBUG] [Agent:dev] Invocando modelo gemini-2.0-flash
+[2024-01-15T10:30:00.100Z] [DEBUG] [Agent:dev] Invocando modelo gemini-3-flash-preview
 \`\`\`
 
 ---
