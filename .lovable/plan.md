@@ -1,24 +1,41 @@
 
 
-# ✅ IMPLEMENTADO — Correções na Lógica de Execução do Sistema Gerado
+# Resultados da Revisao de Conformidade
 
-Todas as 14 correções foram implementadas em `src/lib/generate-aios-package.ts`.
+## Problema Original: RESOLVIDO
 
-## Resumo das Correções
+O erro "squad 'core' inexistente" foi **completamente corrigido**. O `aios.config.yaml` agora declara explicitamente o squad `core` com diretorio `squads/core/` contendo `squad.yaml` e `README.md`. Todos os 5 agentes + `app-master` estao atribuidos ao squad.
 
-| # | Problema | Status |
-|---|----------|--------|
-| 1 | Orchestrator ignora retry_policy e timeout_ms | ✅ Implementado com helpers `withRetry` e `withTimeout` |
-| 2 | Agent Runner ignora temperature e max_tokens | ✅ Propagados do YAML para todos os providers |
-| 3 | Squads não usados no roteamento | ✅ Squad filtering + comando `/squad <slug> <tarefa>` |
-| 4 | Workflows ignoram depends_on, timeout, retry | ✅ Execução DAG com parallelismo + retry/timeout por step |
-| 5 | Script `npm run validate` não existe | ✅ Gerado `src/validate.ts` + script no package.json |
-| 6 | Docker não inclui `workflows/` | ✅ Adicionado COPY e volume |
-| 7 | WorkflowConfig tipo incompleto | ✅ Adicionado `configPath?`, `timeout_ms?`, `retry_policy?` |
-| 8 | FIRST-RUN.md diz Node.js 18+ | ✅ Corrigido para 20+ |
-| 9 | FIRST-RUN.md hardcoda Anthropic | ✅ Detecção dinâmica de providers |
-| 10 | frameworkProtection ausente | ✅ Adicionado ao aios.config.yaml |
-| 11 | Codebase map incompleto | ✅ Adicionados workflows, agent.ts, FIRST-RUN.md, validate.ts |
-| 12 | AppMaster não mapeia workflows | ✅ Seção workflows adicionada |
-| 13 | .gitignore exclui scaffolds úteis | ✅ Preserva JSON scaffold, ignora apenas runtime |
-| 14 | Orchestrator não expõe targetAgent | ✅ Rota direta + comando `@<slug> <tarefa>` |
+## Violacoes Remanescentes (6 encontradas em 3 arquivos)
+
+| Arquivo | Violacao | Severidade | Causa |
+|---------|----------|------------|-------|
+| `aios.config.yaml` | `app-master` listado no squad mas ausente da lista global de agents | Erro | O AppMaster e meta-agente gerado internamente, nao adicionado na secao `agents:` |
+| `aios.config.yaml` | Descricao vazia | Warning | Usuario nao preencheu o campo descricao no wizard |
+| `squads/core/squad.yaml` | `app-master` com campo `role` vazio | Erro | O template do squad nao preenche o role do AppMaster |
+| `squads/core/squad.yaml` | Tasks e workflows vazios | Warning | Squad auto-gerado nao tem tasks/workflows |
+| `AppMaster.agent.ts` | Falta `@squads` no header JSDoc | Erro | Template do JSDoc nao inclui o campo |
+| `AppMaster.agent.ts` | Formato do mapeamento de squads inconsistente com v4.2.13 | Warning | Estrutura simplificada vs esperada |
+
+## Correcoes Necessarias
+
+### Arquivo: `src/lib/generate-aios-package.ts`
+
+**1. Adicionar `app-master` na lista global de agents do `aios.config.yaml`**
+
+Na funcao `generateAiosConfig`, adicionar uma entrada para o AppMaster na secao `agents:` do YAML, garantindo cross-reference valida.
+
+**2. Preencher o `role` do `app-master` no `squad.yaml`**
+
+Na funcao que gera o squad core, definir `role: "Orquestrador raiz do sistema AIOS"` para o app-master em vez de string vazia.
+
+**3. Adicionar `@squads` ao JSDoc do `AppMaster.agent.ts`**
+
+Na funcao `generateAppMasterAgent`, incluir o campo `@squads` no header JSDoc listando os squads mapeados.
+
+### Resultado Esperado
+
+- 0 falhas na revisao de conformidade (exceto warnings esperados como descricao vazia)
+- Cross-references validas entre todos os arquivos
+- AppMaster completamente integrado ao squad core
+
