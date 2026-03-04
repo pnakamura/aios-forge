@@ -220,6 +220,12 @@ ${agents.map(a => `  - slug: "${a.slug}"
     model: "${a.llmModel}"
     visibility: "${a.visibility}"
     config: "agents/${a.slug}.yaml"`).join('\n')}
+  - slug: "app-master"
+    name: "AppMaster"
+    role: "Orquestrador raiz do sistema AIOS"
+    model: "gemini-3-flash-preview"
+    visibility: "full"
+    config: "src/agents/AppMaster.agent.ts"
 
 # Squads
 squads:
@@ -444,12 +450,13 @@ function generateAppMasterAgent(
  *            Coordena todos os modulos, define o roteamento de
  *            responsabilidades e mantem a coerencia arquitetural.
  * @version   1.0.0
-  * @squad     ${appMasterSquadSlug}
-  * @commands  navigate, orchestrate, loadModule, validateContext
-  * @deps      ${allAgentSlugs || '(nenhum)'}
-  * @context   Ativado na inicializacao do app. Define a arquitetura
-  *            de squads e roteia requisicoes para o modulo correto.
-  */
+ * @squad     ${appMasterSquadSlug}
+ * @squads    ${squads.map(s => s.slug).join(', ') || 'core'}
+ * @commands  navigate, orchestrate, loadModule, validateContext
+ * @deps      ${allAgentSlugs || '(nenhum)'}
+ * @context   Ativado na inicializacao do app. Define a arquitetura
+ *            de squads e roteia requisicoes para o modulo correto.
+ */
 
 export const AppMasterAgent = {
   name: 'AppMaster',
@@ -575,9 +582,10 @@ version: "1.0.0"
 agents:
 ${squadAgentIds.map(id => {
   const agent = agents.find(a => a.slug === id);
+  const role = agent?.role || (id === 'app-master' ? 'Orquestrador raiz do sistema AIOS' : '');
   return `  - slug: "${id}"
-    name: "${agent?.name || id}"
-    role: "${agent?.role || ''}"`;
+    name: "${agent?.name || (id === 'app-master' ? 'AppMaster' : id)}"
+    role: "${role}"`;
 }).join('\n') || '  []'}
 
 tasks:
