@@ -1,36 +1,57 @@
 
 
-# Atualizar Modelos de IA para Versões Atuais
+# Auditoria Completa — Modelos de IA Desatualizados
 
-## Locais que precisam de alteração
+A auditoria identificou **referências a modelos descontinuados** em 5 locais adicionais que não foram atualizados na rodada anterior. São referências hardcoded em strings de UI, fallbacks de store, e conteúdo gerado pelo motor de pacotes.
 
-### 1. Edge Functions (modelos do builder interno)
-- `supabase/functions/aios-chat/index.ts` — linha 84: `google/gemini-2.5-flash` → `google/gemini-3-flash-preview`
-- `supabase/functions/aios-compliance-review/index.ts` — linha 114: `google/gemini-2.5-flash` → `google/gemini-3-flash-preview`
+## Achados
 
-### 2. Catálogo de agentes nativos
-- `src/data/native-agents.ts` — todos os 11 agentes usam `gemini-2.0-flash` como `defaultModel`
-- Atualizar todos para `gemini-3-flash-preview`
+### 1. `src/components/wizard/ArchitectureDiagram.tsx` — `MODEL_OPTIONS` (linha 71-78)
+Array duplicado do `AgentEditor` mas **nunca foi atualizado**. Ainda usa `gpt-4o`, `gpt-4o-mini`, `gemini-2.0-flash`, `gemini-2.5-pro-preview-05-06`.
 
-### 3. Seletor de modelos no AgentEditor
-- `src/components/wizard/AgentEditor.tsx` — linhas 23-30: `MODEL_OPTIONS` com modelos desatualizados
+### 2. `src/stores/wizard-store.ts` — fallback `llmModel` (linha 177)
+Ao carregar projeto do banco: `llmModel: a.llm_model || 'gemini-2.0-flash'` — fallback desatualizado.
 
-Modelos atuais disponíveis (março 2026):
+### 3. `src/components/wizard/AgentCatalog.tsx` — hardcoded model (linha 115)
+Ao criar agente customizado: `llmModel: 'gemini-2.0-flash'` — deveria ser `gemini-3-flash-preview`.
 
-| Provider | Antigo | Novo |
-|----------|--------|------|
-| Google | `gemini-2.0-flash` | `gemini-3-flash-preview` |
-| Google | `gemini-2.5-pro-preview-05-06` | `gemini-3-pro-preview` |
-| OpenAI | `gpt-4o` | `gpt-5` |
-| OpenAI | `gpt-4o-mini` | `gpt-5-mini` |
-| Anthropic | `claude-sonnet-4-20250514` | `claude-sonnet-4-20250514` (manter — ainda é o mais recente) |
-| Anthropic | `claude-haiku-4-20250414` | `claude-haiku-4-20250414` (manter — ainda é o mais recente) |
+### 4. `src/pages/WizardPage.tsx` — textos de integração (linhas 333-335)
+Descritivos de UI mencionam modelos antigos:
+- `'Modelos Anthropic (Claude Opus, Sonnet, Haiku)'` — Claude Opus não existe mais; correto seria `Claude Sonnet 4, Haiku 4`
+- `'Modelos GPT (GPT-4o, GPT-4o-mini)'` → `GPT-5, GPT-5-mini, GPT-5.2`
+- `'Modelos Google (Gemini Flash, Pro)'` → `Gemini 3 Flash, Gemini 3 Pro`
 
-**Nota:** Os modelos Claude Sonnet 4 e Haiku 4 são os mais recentes disponíveis da Anthropic — não há versão mais nova, portanto serão mantidos.
+### 5. `src/lib/generate-aios-package.ts` — conteúdo gerado (múltiplas linhas)
+O motor de geração escreve modelos antigos nos arquivos do pacote exportado:
+- Linha 418: `model: 'gemini-2.0-flash'` no CLAUDE.md gerado
+- Linha 1061: fallback `'gpt-4o-mini'` no agent-runner
+- Linha 1125: comentário referenciando `gemini-2.0-flash`
+- Linhas 1842, 1966, 1982: exemplos YAML com `gemini-2.0-flash`
+- Linhas 2127-2129: lista de modelos suportados desatualizada
+- Linha 2166: exemplo de log com modelo antigo
 
-### Resumo de arquivos editados
-- `supabase/functions/aios-chat/index.ts` — 1 linha
-- `supabase/functions/aios-compliance-review/index.ts` — 1 linha
-- `src/data/native-agents.ts` — 11 ocorrências de `defaultModel`
-- `src/components/wizard/AgentEditor.tsx` — array `MODEL_OPTIONS`
+## Plano de Correção
+
+### Arquivo 1: `src/components/wizard/ArchitectureDiagram.tsx`
+Atualizar `MODEL_OPTIONS` (linhas 71-78) para:
+```
+gemini-3-flash-preview, gemini-3-pro-preview, gpt-5, gpt-5-mini, gpt-5.2, claude-sonnet-4-20250514, claude-haiku-4-20250414
+```
+
+### Arquivo 2: `src/stores/wizard-store.ts`
+Linha 177: trocar fallback de `gemini-2.0-flash` para `gemini-3-flash-preview`.
+
+### Arquivo 3: `src/components/wizard/AgentCatalog.tsx`
+Linha 115: trocar `gemini-2.0-flash` para `gemini-3-flash-preview`.
+
+### Arquivo 4: `src/pages/WizardPage.tsx`
+Linhas 333-335: atualizar descrições dos modelos nas integrações.
+
+### Arquivo 5: `src/lib/generate-aios-package.ts`
+Atualizar todas as ~10 ocorrências de modelos antigos em strings template (CLAUDE.md gerado, agent-runner, exemplos YAML, documentação).
+
+## Resumo
+- **5 arquivos** a editar
+- **~20 ocorrências** de modelos desatualizados
+- Sem mudanças estruturais — apenas substituição de strings
 
