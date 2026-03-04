@@ -49,7 +49,7 @@ export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
   });
 
   // ── App Master agent (root orchestrator) ────────────────────
-  files.push(generateAppMasterAgent(name, project, agents, squads));
+  files.push(generateAppMasterAgent(name, project, agents, squads, workflows));
 
   // ── Squad manifests ──────────────────────────────────────────
   squads.forEach(squad => {
@@ -74,6 +74,7 @@ export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
   // ── Integration & environment ────────────────────────────────
   files.push(generateEnvExample(project, integrations));
   files.push(generateEnvValidator());
+  files.push(generateValidateScript(agents));
   files.push(generateDockerfile(slug));
   files.push(generateDockerCompose(slug));
   files.push(generateDockerIgnore());
@@ -88,7 +89,7 @@ export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
   // ── Institutional Memory (.aios/) ───────────────────────────
   files.push(generateProjectStatus(name, pattern));
   files.push(generateDecisionsJson());
-  files.push(generateCodebaseMap(agents, squads));
+  files.push(generateCodebaseMap(agents, squads, workflows));
 
   // ── Story-Driven structure ─────────────────────────────────
   files.push(generateStoryTemplate());
@@ -176,6 +177,10 @@ orchestration:
     max_retries: 3
     backoff_ms: 1000
   timeout_ms: 300000
+
+# Framework Protection (required by npx aios-core doctor)
+framework:
+  frameworkProtection: true
 
 # Agents
 agents:
@@ -382,12 +387,17 @@ function generateAppMasterAgent(
   project: Partial<AiosProject>,
   agents: AiosAgent[],
   squads: AiosSquad[],
+  workflows: ProjectWorkflow[] = [],
 ): GeneratedFile {
   const squadsObj = squads
     .map(s => {
       const agentSlugs = (s.agentIds || []).map(id => `'${id}'`).join(', ');
       return `    '${s.slug}': { name: '${s.name}', agents: [${agentSlugs}] },`;
     })
+    .join('\n');
+
+  const workflowsObj = workflows
+    .map(w => `    '${w.slug}': { name: '${w.name}', trigger: '${w.trigger}' },`)
     .join('\n');
 
   const allAgentSlugs = agents.map(a => a.slug).join(', ');
@@ -432,7 +442,11 @@ ${agents.map(a => `    '${a.slug}': { name: '${a.name}', role: '${a.role}', mode
 ${squadsObj || '    // (nenhum squad configurado)'}
   },
 
-  context: 'Ativado na inicializacao do app ${name}. Orquestra ${agents.length} agente(s) em ${squads.length} squad(s).',
+  workflows: {
+${workflowsObj || '    // (nenhum workflow configurado)'}
+  },
+
+  context: 'Ativado na inicializacao do app ${name}. Orquestra ${agents.length} agente(s) em ${squads.length} squad(s) com ${workflows.length} workflow(s).',
 } as const;
 
 export type AppMasterCommands = keyof typeof AppMasterAgent.commands;
@@ -598,6 +612,7 @@ function generatePackageJson(slug: string, name: string, agents: AiosAgent[]): G
         'dev': 'tsx src/main.ts',
         'lint': 'tsc --noEmit',
         'setup': 'bash scripts/setup.sh',
+        'validate': 'tsx src/validate.ts',
       },
       dependencies: deps,
       devDependencies: {
@@ -700,6 +715,8 @@ function loadConfig(): AiosConfig {
         trigger: w.trigger,
         configPath: w.config,
       })),
+      retryPolicy: yaml.orchestration?.retry_policy || undefined,
+      timeoutMs: yaml.orchestration?.timeout_ms || undefined,
     };
   } catch (err) {
     logger.warn('Falha ao ler aios.config.yaml, usando config padrao');
@@ -775,6 +792,40 @@ async function main() {
       return prompt();
     }
 
+    // /squad <slug> <tarefa> — route task to a specific squad (item 3)
+    if (trimmed.startsWith('/squad ')) {
+      const parts = trimmed.slice(7).match(/^(\\S+)\\s+(.+)$/);
+      if (!parts) {
+        console.log('Uso: /squad <slug> <descricao da tarefa>');
+        return prompt();
+      }
+      const [, squadSlug, squadTask] = parts;
+      try {
+        const result = await orchestrator.run({ task: squadTask, context: {}, targetSquad: squadSlug });
+        console.log(\`\\n--- Resultado (Squad: \${squadSlug}) ---\\n\${result.output}\\n\`);
+      } catch (err) {
+        logger.error(\`Erro no squad: \${err}\`);
+      }
+      return prompt();
+    }
+
+    // @<slug> <tarefa> — route task directly to a specific agent (item 14)
+    if (trimmed.startsWith('@')) {
+      const parts = trimmed.match(/^@(\\S+)\\s+(.+)$/);
+      if (!parts) {
+        console.log('Uso: @<slug-do-agente> <descricao da tarefa>');
+        return prompt();
+      }
+      const [, agentSlug, agentTask] = parts;
+      try {
+        const result = await orchestrator.run({ task: agentTask, context: {}, targetAgent: agentSlug });
+        console.log(\`\\n--- Resultado (@\${agentSlug}) ---\\n\${result.output}\\n\`);
+      } catch (err) {
+        logger.error(\`Erro no agente: \${err}\`);
+      }
+      return prompt();
+    }
+
     if (trimmed.startsWith('/workflow ')) {
       const parts = trimmed.slice(10).match(/^(\\S+)\\s+(.+)$/);
       if (!parts) {
@@ -828,41 +879,125 @@ function generateOrchestratorEngine(
  * Pattern: ${pattern}
  */
 
+import { readFileSync } from 'fs';
+import { parse } from 'yaml';
 import { logger } from './logger.js';
 import type { AiosConfig, AgentRunner, TaskRequest, TaskResult } from './types.js';
+
+interface RetryPolicy {
+  max_retries: number;
+  backoff_ms: number;
+}
+
+// ── Retry helper with exponential backoff ────────────────────────
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  policy: RetryPolicy,
+  label: string,
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= policy.max_retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (attempt < policy.max_retries) {
+        const delay = policy.backoff_ms * Math.pow(2, attempt);
+        logger.warn(\`[Retry] \${label} — tentativa \${attempt + 1}/\${policy.max_retries} falhou, retry em \${delay}ms\`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+  }
+  throw lastError;
+}
+
+// ── Timeout helper ───────────────────────────────────────────────
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  if (!ms || ms <= 0) return promise;
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(\`Timeout de \${ms}ms excedido para \${label}\`)), ms)
+    ),
+  ]);
+}
 
 export function createOrchestrator(config: AiosConfig, runner: AgentRunner) {
   const agentMap = new Map(config.agents.map(a => [a.slug, a]));
   const squadMap = new Map(config.squads.map(s => [s.slug, s]));
 
+  // Read orchestration-level retry/timeout from config (loaded from YAML)
+  const globalRetry: RetryPolicy = (config as any).retryPolicy || { max_retries: 3, backoff_ms: 1000 };
+  const globalTimeout: number = (config as any).timeoutMs || 300000;
+
+  // ── Invoke agent with retry + timeout ───────────────────────
+  async function invokeAgent(
+    agentSlug: string,
+    invocation: { task: string; context: Record<string, unknown>; previousResults?: string[] },
+    retryOverride?: RetryPolicy,
+    timeoutOverride?: number,
+  ) {
+    const retry = retryOverride || globalRetry;
+    const timeout = timeoutOverride || globalTimeout;
+    return withTimeout(
+      withRetry(() => runner.invoke(agentSlug, invocation), retry, agentSlug),
+      timeout,
+      agentSlug,
+    );
+  }
+
+  // ── Filter agents by squad ──────────────────────────────────
+  function getAgentsForSquad(squadSlug: string) {
+    const squad = squadMap.get(squadSlug);
+    if (!squad) return config.agents;
+    return config.agents.filter(a => squad.agentSlugs.includes(a.slug));
+  }
+
   async function runTask(request: TaskRequest): Promise<TaskResult> {
     logger.info(\`[Orchestrator] Nova tarefa: \${request.task}\`);
-    const startTime = Date.now();
+
+    // Direct agent routing (item 14) — bypass orchestration pattern
+    if (request.targetAgent) {
+      const agent = agentMap.get(request.targetAgent);
+      if (!agent) return { success: false, output: \`Agente '\${request.targetAgent}' nao encontrado\`, agentResults: [] };
+      logger.info(\`[Direct] Roteamento direto para agente: \${agent.name}\`);
+      const result = await invokeAgent(agent.slug, { task: request.task, context: request.context || {} });
+      return { success: true, output: result.output, agentResults: [result.output] };
+    }
+
+    // Squad-scoped routing (item 3)
+    const activeAgents = request.targetSquad
+      ? getAgentsForSquad(request.targetSquad)
+      : config.agents;
+
+    if (request.targetSquad) {
+      logger.info(\`[Squad] Filtrando para squad '\${request.targetSquad}': \${activeAgents.map(a => a.name).join(', ')}\`);
+    }
 
     switch (config.pattern) {
       case 'SEQUENTIAL_PIPELINE':
-        return runSequential(request);
+        return runSequential(request, activeAgents);
       case 'PARALLEL_SWARM':
-        return runParallel(request);
+        return runParallel(request, activeAgents);
       case 'HIERARCHICAL':
-        return runHierarchical(request);
+        return runHierarchical(request, activeAgents);
       case 'WATCHDOG':
-        return runWatchdog(request);
+        return runWatchdog(request, activeAgents);
       case 'COLLABORATIVE':
-        return runCollaborative(request);
+        return runCollaborative(request, activeAgents);
       case 'TASK_FIRST':
       default:
-        return runTaskFirst(request);
+        return runTaskFirst(request, activeAgents);
     }
   }
 
-  async function runSequential(request: TaskRequest): Promise<TaskResult> {
+  async function runSequential(request: TaskRequest, agents = config.agents): Promise<TaskResult> {
     let context = request.context || {};
     const results: string[] = [];
 
-    for (const agent of config.agents) {
+    for (const agent of agents) {
       logger.info(\`[Pipeline] Executando agente: \${agent.name}\`);
-      const result = await runner.invoke(agent.slug, {
+      const result = await invokeAgent(agent.slug, {
         task: request.task,
         context,
         previousResults: results,
@@ -874,41 +1009,41 @@ export function createOrchestrator(config: AiosConfig, runner: AgentRunner) {
     return { success: true, output: results[results.length - 1] || '', agentResults: results };
   }
 
-  async function runParallel(request: TaskRequest): Promise<TaskResult> {
-    logger.info(\`[Swarm] Executando \${config.agents.length} agentes em paralelo\`);
-    const promises = config.agents.map(agent =>
-      runner.invoke(agent.slug, { task: request.task, context: request.context || {} })
+  async function runParallel(request: TaskRequest, agents = config.agents): Promise<TaskResult> {
+    logger.info(\`[Swarm] Executando \${agents.length} agentes em paralelo\`);
+    const promises = agents.map(agent =>
+      invokeAgent(agent.slug, { task: request.task, context: request.context || {} })
     );
     const results = await Promise.allSettled(promises);
     const outputs = results.map((r, i) =>
-      r.status === 'fulfilled' ? r.value.output : \`Erro em \${config.agents[i].name}: \${r.reason}\`
+      r.status === 'fulfilled' ? r.value.output : \`Erro em \${agents[i].name}: \${r.reason}\`
     );
     return { success: true, output: outputs.join('\\n---\\n'), agentResults: outputs };
   }
 
-  async function runHierarchical(request: TaskRequest): Promise<TaskResult> {
-    const master = config.agents.find(a => a.slug === 'aios-master') || config.agents[0];
+  async function runHierarchical(request: TaskRequest, agents = config.agents): Promise<TaskResult> {
+    const master = agents.find(a => a.slug === 'aios-master') || agents[0];
     if (!master) return { success: false, output: 'Nenhum agente master encontrado', agentResults: [] };
 
     logger.info(\`[Hierarquico] Master: \${master.name}\`);
-    const plan = await runner.invoke(master.slug, {
-      task: \`Planeje a execucao da tarefa: \${request.task}. Agentes disponiveis: \${config.agents.map(a => a.name).join(', ')}\`,
+    const plan = await invokeAgent(master.slug, {
+      task: \`Planeje a execucao da tarefa: \${request.task}. Agentes disponiveis: \${agents.map(a => a.name).join(', ')}\`,
       context: request.context || {},
     });
 
     return { success: true, output: plan.output, agentResults: [plan.output] };
   }
 
-  async function runWatchdog(request: TaskRequest): Promise<TaskResult> {
-    const workers = config.agents.filter(a => a.slug !== 'aios-master');
-    const supervisor = config.agents.find(a => a.slug === 'aios-master') || config.agents[0];
+  async function runWatchdog(request: TaskRequest, agents = config.agents): Promise<TaskResult> {
+    const workers = agents.filter(a => a.slug !== 'aios-master');
+    const supervisor = agents.find(a => a.slug === 'aios-master') || agents[0];
 
     const workerResults = await Promise.all(
-      workers.map(w => runner.invoke(w.slug, { task: request.task, context: request.context || {} }))
+      workers.map(w => invokeAgent(w.slug, { task: request.task, context: request.context || {} }))
     );
 
     if (supervisor) {
-      const review = await runner.invoke(supervisor.slug, {
+      const review = await invokeAgent(supervisor.slug, {
         task: \`Revise os seguintes resultados da tarefa "\${request.task}": \${workerResults.map((r, i) => \`\${workers[i].name}: \${r.output}\`).join('\\n')}\`,
         context: request.context || {},
       });
@@ -918,13 +1053,13 @@ export function createOrchestrator(config: AiosConfig, runner: AgentRunner) {
     return { success: true, output: workerResults.map(r => r.output).join('\\n'), agentResults: workerResults.map(r => r.output) };
   }
 
-  async function runCollaborative(request: TaskRequest): Promise<TaskResult> {
+  async function runCollaborative(request: TaskRequest, agents = config.agents): Promise<TaskResult> {
     const sharedContext: Record<string, string> = {};
     const rounds = 2;
 
     for (let round = 0; round < rounds; round++) {
-      for (const agent of config.agents) {
-        const result = await runner.invoke(agent.slug, {
+      for (const agent of agents) {
+        const result = await invokeAgent(agent.slug, {
           task: \`\${request.task}\\n\\nContexto compartilhado:\\n\${JSON.stringify(sharedContext, null, 2)}\`,
           context: request.context || {},
         });
@@ -935,37 +1070,48 @@ export function createOrchestrator(config: AiosConfig, runner: AgentRunner) {
     return { success: true, output: JSON.stringify(sharedContext, null, 2), agentResults: Object.values(sharedContext) };
   }
 
-  async function runTaskFirst(request: TaskRequest): Promise<TaskResult> {
-    const orchestrator = config.agents.find(a => a.slug === 'aios-orchestrator') || config.agents[0];
+  async function runTaskFirst(request: TaskRequest, agents = config.agents): Promise<TaskResult> {
+    const orchestrator = agents.find(a => a.slug === 'aios-orchestrator') || agents[0];
     if (!orchestrator) return { success: false, output: 'Nenhum orchestrator encontrado', agentResults: [] };
 
-    const plan = await runner.invoke(orchestrator.slug, {
-      task: \`Analise a tarefa e atribua ao agente mais adequado: "\${request.task}". Agentes: \${config.agents.map(a => \`\${a.name} (\${a.role})\`).join(', ')}\`,
+    const plan = await invokeAgent(orchestrator.slug, {
+      task: \`Analise a tarefa e atribua ao agente mais adequado: "\${request.task}". Agentes: \${agents.map(a => \`\${a.name} (\${a.role})\`).join(', ')}\`,
       context: request.context || {},
     });
 
     return { success: true, output: plan.output, agentResults: [plan.output] };
   }
 
+  // ── Workflow execution with DAG, timeout, retry (item 4) ────
   async function runWorkflow(slug: string, task: string): Promise<TaskResult> {
     const wf = (config.workflows || []).find(w => w.slug === slug);
     if (!wf) {
       throw new Error(\`Workflow '\${slug}' nao encontrado\`);
     }
 
-    logger.info(\`[Workflow: \${wf.name}] Iniciando com \${wf.steps?.length || 0} step(s)\`);
+    logger.info(\`[Workflow: \${wf.name}] Iniciando\`);
 
     // Load workflow YAML if configPath exists
-    let steps: { name: string; agent: string }[] = [];
+    interface WfStep {
+      id: string;
+      name: string;
+      agent: string;
+      depends_on?: string[];
+      timeout_ms?: number;
+      retry_policy?: { max_retries: number; backoff_ms: number };
+    }
+    let steps: WfStep[] = [];
     if (wf.configPath) {
       try {
-        const { readFileSync } = await import('fs');
-        const { parse } = await import('yaml');
         const raw = readFileSync(wf.configPath, 'utf-8');
         const wfYaml = parse(raw) as any;
         steps = (wfYaml.steps || []).map((s: any) => ({
+          id: s.id || s.name || 'unnamed',
           name: s.name || s.step || 'unnamed',
           agent: s.agent || s.agentSlug,
+          depends_on: s.depends_on || [],
+          timeout_ms: s.timeout_ms,
+          retry_policy: s.retry_policy,
         }));
       } catch (err) {
         logger.warn(\`Falha ao ler \${wf.configPath}, usando steps inline\`);
@@ -974,7 +1120,14 @@ export function createOrchestrator(config: AiosConfig, runner: AgentRunner) {
 
     // Fallback to inline steps from config
     if (steps.length === 0 && wf.steps) {
-      steps = wf.steps.map((s: any) => ({ name: s.name, agent: s.agentSlug || s.agent }));
+      steps = wf.steps.map((s: any) => ({
+        id: s.id || s.name,
+        name: s.name,
+        agent: s.agentSlug || s.agent,
+        depends_on: s.dependsOn || [],
+        timeout_ms: s.timeout_ms,
+        retry_policy: s.retry_policy,
+      }));
     }
 
     if (steps.length === 0) {
@@ -988,29 +1141,60 @@ export function createOrchestrator(config: AiosConfig, runner: AgentRunner) {
       }
     }
 
-    // Execute steps sequentially
-    let lastOutput = '';
+    // DAG-based execution: resolve dependencies
+    const completed = new Map<string, string>(); // stepId → output
     const allResults: string[] = [];
+    const pending = new Set(steps.map(s => s.id));
 
-    for (let i = 0; i < steps.length; i++) {
-      const step = steps[i];
-      logger.info(\`[Workflow: \${wf.name}] Step \${i + 1}/\${steps.length}: \${step.name} → agent: \${step.agent}\`);
+    while (pending.size > 0) {
+      // Find steps whose dependencies are all completed
+      const ready = steps.filter(s =>
+        pending.has(s.id) && (s.depends_on || []).every(dep => completed.has(dep))
+      );
 
-      try {
-        const result = await runner.invoke(step.agent, {
-          task,
-          context: { previousOutput: lastOutput, stepIndex: i, totalSteps: steps.length },
-        });
-        lastOutput = result.output;
-        allResults.push(result.output);
-      } catch (err) {
-        const errMsg = \`Erro no step \${i + 1} (\${step.name}): \${err}\`;
-        logger.error(errMsg);
-        allResults.push(errMsg);
-        lastOutput = errMsg;
+      if (ready.length === 0 && pending.size > 0) {
+        const unresolvedIds = [...pending].join(', ');
+        return { success: false, output: \`Dependencias circulares ou ausentes detectadas nos steps: \${unresolvedIds}\`, agentResults: allResults };
+      }
+
+      // Execute ready steps in parallel
+      const batchResults = await Promise.allSettled(
+        ready.map(async (step) => {
+          const depContext = Object.fromEntries(
+            (step.depends_on || []).map(dep => [\`\${dep}_output\`, completed.get(dep) || ''])
+          );
+          logger.info(\`[Workflow: \${wf.name}] Step '\${step.name}' → agent: \${step.agent}\`);
+
+          const stepRetry = step.retry_policy || globalRetry;
+          const stepTimeout = step.timeout_ms || globalTimeout;
+
+          const result = await invokeAgent(
+            step.agent,
+            { task, context: { ...depContext, stepId: step.id, totalSteps: steps.length } },
+            stepRetry,
+            stepTimeout,
+          );
+          return { id: step.id, output: result.output };
+        })
+      );
+
+      for (let i = 0; i < ready.length; i++) {
+        const step = ready[i];
+        const result = batchResults[i];
+        if (result.status === 'fulfilled') {
+          completed.set(result.value.id, result.value.output);
+          allResults.push(result.value.output);
+        } else {
+          const errMsg = \`Erro no step '\${step.name}': \${result.reason}\`;
+          logger.error(errMsg);
+          completed.set(step.id, errMsg);
+          allResults.push(errMsg);
+        }
+        pending.delete(step.id);
       }
     }
 
+    const lastOutput = allResults[allResults.length - 1] || '';
     logger.info(\`[Workflow: \${wf.name}] Concluido — \${steps.length} step(s) executado(s)\`);
     return { success: true, output: lastOutput, agentResults: allResults };
   }
@@ -1059,8 +1243,10 @@ export function createAgentRunner(env: ValidatedEnv): AgentRunner {
     const definition = loadAgentDefinition(agentSlug);
     const systemPrompt = definition?.system_prompt || \`Voce e o agente \${agentSlug}.\`;
     const model = definition?.llm?.model || 'gpt-5-mini';
+    const temperature = definition?.llm?.temperature ?? 0.7;
+    const maxTokens = definition?.llm?.max_tokens ?? 4096;
 
-    logger.debug(\`[Agent:\${agentSlug}] Invocando modelo \${model}\`);
+    logger.debug(\`[Agent:\${agentSlug}] Invocando modelo \${model} (temp=\${temperature}, max_tokens=\${maxTokens})\`);
 
     const userMessage = [
       invocation.task,
@@ -1075,11 +1261,11 @@ export function createAgentRunner(env: ValidatedEnv): AgentRunner {
     try {
       // Route to appropriate LLM provider based on model name
       if (model.includes('claude') || model.includes('anthropic')) {
-        return await callAnthropic(systemPrompt, userMessage, model, env);
+        return await callAnthropic(systemPrompt, userMessage, model, temperature, maxTokens, env);
       } else if (model.includes('gemini') || model.includes('google')) {
-        return await callGoogle(systemPrompt, userMessage, model, env);
+        return await callGoogle(systemPrompt, userMessage, model, temperature, maxTokens, env);
       } else {
-        return await callOpenAI(systemPrompt, userMessage, model, env);
+        return await callOpenAI(systemPrompt, userMessage, model, temperature, maxTokens, env);
       }
     } catch (error) {
       logger.error(\`[Agent:\${agentSlug}] Erro: \${error}\`);
@@ -1087,7 +1273,7 @@ export function createAgentRunner(env: ValidatedEnv): AgentRunner {
     }
   }
 
-  async function callOpenAI(system: string, user: string, model: string, env: ValidatedEnv): Promise<AgentResult> {
+  async function callOpenAI(system: string, user: string, model: string, temperature: number, maxTokens: number, env: ValidatedEnv): Promise<AgentResult> {
     if (!env.OPENAI_API_KEY) {
       return { output: '[OpenAI] API key nao configurada. Configure OPENAI_API_KEY no .env', success: false };
     }
@@ -1095,12 +1281,14 @@ export function createAgentRunner(env: ValidatedEnv): AgentRunner {
     const client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
     const response = await client.chat.completions.create({
       model,
+      temperature,
+      max_tokens: maxTokens,
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     });
     return { output: response.choices[0]?.message?.content || '', success: true };
   }
 
-  async function callAnthropic(system: string, user: string, model: string, env: ValidatedEnv): Promise<AgentResult> {
+  async function callAnthropic(system: string, user: string, model: string, temperature: number, maxTokens: number, env: ValidatedEnv): Promise<AgentResult> {
     if (!env.ANTHROPIC_API_KEY) {
       return { output: '[Anthropic] API key nao configurada. Configure ANTHROPIC_API_KEY no .env', success: false };
     }
@@ -1108,7 +1296,8 @@ export function createAgentRunner(env: ValidatedEnv): AgentRunner {
     const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
     const response = await client.messages.create({
       model: model.replace('anthropic/', ''),
-      max_tokens: 4096,
+      max_tokens: maxTokens,
+      temperature,
       system,
       messages: [{ role: 'user', content: user }],
     });
@@ -1116,17 +1305,21 @@ export function createAgentRunner(env: ValidatedEnv): AgentRunner {
     return { output: text, success: true };
   }
 
-  async function callGoogle(system: string, user: string, model: string, env: ValidatedEnv): Promise<AgentResult> {
+  async function callGoogle(system: string, user: string, model: string, temperature: number, maxTokens: number, env: ValidatedEnv): Promise<AgentResult> {
     if (!env.GOOGLE_API_KEY) {
       return { output: '[Google] API key nao configurada. Configure GOOGLE_API_KEY no .env', success: false };
     }
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(env.GOOGLE_API_KEY);
     // Remove provider prefix if present (e.g. 'google/gemini-3-flash-preview' -> 'gemini-3-flash-preview')
-    const modelName = model.replace(/^google\\//, '');
+    const modelName = model.replace(/^google\\\\//, '');
     const genModel = genAI.getGenerativeModel({
       model: modelName,
       systemInstruction: system,
+      generationConfig: {
+        temperature,
+        maxOutputTokens: maxTokens,
+      },
     });
     const result = await genModel.generateContent(user);
     const text = result.response.text();
@@ -1199,6 +1392,8 @@ export interface AiosConfig {
   agents: AgentConfig[];
   squads: SquadConfig[];
   workflows: WorkflowConfig[];
+  retryPolicy?: { max_retries: number; backoff_ms: number };
+  timeoutMs?: number;
 }
 
 export interface AgentConfig {
@@ -1218,7 +1413,8 @@ export interface WorkflowConfig {
   slug: string;
   name: string;
   trigger: string;
-  steps: WorkflowStepConfig[];
+  configPath?: string;
+  steps?: WorkflowStepConfig[];
 }
 
 export interface WorkflowStepConfig {
@@ -1228,6 +1424,8 @@ export interface WorkflowStepConfig {
   taskId?: string;
   condition?: string;
   dependsOn?: string[];
+  timeout_ms?: number;
+  retry_policy?: { max_retries: number; backoff_ms: number };
 }
 
 export interface TaskRequest {
@@ -1359,6 +1557,102 @@ export function validateEnv(): ValidatedEnv {
   };
 }
 
+function generateValidateScript(agents: AiosAgent[]): GeneratedFile {
+  return {
+    path: 'src/validate.ts',
+    type: 'ts',
+    complianceStatus: 'pending',
+    content: `/**
+ * AIOS Validate Script
+ * Verifies project integrity before first run.
+ * Run with: npm run validate
+ */
+
+import { existsSync, readFileSync } from 'fs';
+import { parse } from 'yaml';
+
+let hasErrors = false;
+
+function check(label: string, ok: boolean, hint?: string) {
+  if (ok) {
+    console.log(\`  ✅ \${label}\`);
+  } else {
+    console.log(\`  ❌ \${label}\${hint ? ' — ' + hint : ''}\`);
+    hasErrors = true;
+  }
+}
+
+console.log('\\n🔍 AIOS Validate\\n');
+
+// 1. Check .env exists
+console.log('📁 Arquivos:');
+check('.env existe', existsSync('.env'), 'Copie .env.example para .env e preencha as keys');
+check('aios.config.yaml existe', existsSync('aios.config.yaml'));
+
+// 2. Validate aios.config.yaml
+let config: any = null;
+if (existsSync('aios.config.yaml')) {
+  try {
+    const raw = readFileSync('aios.config.yaml', 'utf-8');
+    config = parse(raw);
+    check('aios.config.yaml é YAML válido', !!config);
+    check('config tem campo "name"', !!config?.name);
+    check('config tem campo "orchestration.pattern"', !!config?.orchestration?.pattern);
+  } catch (err) {
+    check('aios.config.yaml é YAML válido', false, String(err));
+  }
+}
+
+// 3. Check API keys
+console.log('\\n🔑 API Keys:');
+if (existsSync('.env')) {
+  const envContent = readFileSync('.env', 'utf-8');
+  const hasOpenAI = /OPENAI_API_KEY=.+/.test(envContent);
+  const hasAnthropic = /ANTHROPIC_API_KEY=.+/.test(envContent);
+  const hasGoogle = /GOOGLE_API_KEY=.+/.test(envContent);
+  check('Pelo menos 1 API key configurada', hasOpenAI || hasAnthropic || hasGoogle, 'Configure OPENAI_API_KEY, ANTHROPIC_API_KEY ou GOOGLE_API_KEY');
+} else {
+  check('Pelo menos 1 API key configurada', false, '.env não encontrado');
+}
+
+// 4. Check agent YAML files exist
+console.log('\\n🤖 Agentes:');
+const agentSlugs = config?.agents?.map((a: any) => a.slug) || [];
+for (const slug of agentSlugs) {
+  const yamlPath = \`agents/\${slug}.yaml\`;
+  check(\`Agente \${slug} (\${yamlPath})\`, existsSync(yamlPath));
+}
+
+// 5. Check squads
+if (config?.squads?.length > 0) {
+  console.log('\\n👥 Squads:');
+  for (const squad of config.squads) {
+    const squadPath = squad.config || \`squads/\${squad.slug}/squad.yaml\`;
+    check(\`Squad \${squad.slug} (\${squadPath})\`, existsSync(squadPath));
+  }
+}
+
+// 6. Check workflows
+if (config?.workflows?.length > 0) {
+  console.log('\\n🔄 Workflows:');
+  for (const wf of config.workflows) {
+    const wfPath = wf.config || \`workflows/\${wf.slug}.yaml\`;
+    check(\`Workflow \${wf.slug} (\${wfPath})\`, existsSync(wfPath));
+  }
+}
+
+console.log('');
+if (hasErrors) {
+  console.log('⚠️  Validação concluída com erros. Corrija os itens acima antes de executar.');
+  process.exit(1);
+} else {
+  console.log('✅ Validação concluída com sucesso! Execute: npm run dev');
+  process.exit(0);
+}
+`,
+  };
+}
+
 function generateDockerfile(slug: string): GeneratedFile {
   return {
     path: 'Dockerfile',
@@ -1378,6 +1672,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/agents ./agents
 COPY --from=builder /app/squads ./squads
+COPY --from=builder /app/workflows ./workflows
 COPY --from=builder /app/aios.config.yaml ./
 COPY --from=builder /app/.aios ./.aios
 COPY --from=builder /app/docs ./docs
@@ -1405,6 +1700,7 @@ services:
     volumes:
       - ./agents:/app/agents:ro
       - ./squads:/app/squads:ro
+      - ./workflows:/app/workflows:ro
       - ./aios.config.yaml:/app/aios.config.yaml:ro
       - ./.aios:/app/.aios
 `,
@@ -2453,15 +2749,16 @@ function generateDecisionsJson(): GeneratedFile {
   };
 }
 
-function generateCodebaseMap(agents: AiosAgent[], squads: AiosSquad[]): GeneratedFile {
+function generateCodebaseMap(agents: AiosAgent[], squads: AiosSquad[], workflows: ProjectWorkflow[] = []): GeneratedFile {
   const map = {
     generated_at: new Date().toISOString(),
     structure: {
       config: ['aios.config.yaml', '.env.example'],
-      runtime: ['src/main.ts', 'src/orchestrator.ts', 'src/agent-runner.ts', 'src/logger.ts', 'src/env.ts', 'src/types.ts'],
-      agents: agents.map(a => ({ slug: a.slug, files: [`agents/${a.slug}.yaml`, `agents/${a.slug}.md`] })),
+      runtime: ['src/main.ts', 'src/orchestrator.ts', 'src/agent-runner.ts', 'src/logger.ts', 'src/env.ts', 'src/types.ts', 'src/validate.ts'],
+      agents: agents.map(a => ({ slug: a.slug, files: [`agents/${a.slug}.yaml`, `agents/${a.slug}.md`, `src/agents/${slugToPascal(a.slug)}.agent.ts`] })),
       squads: squads.map(s => ({ slug: s.slug, files: [`squads/${s.slug}/squad.yaml`, `squads/${s.slug}/README.md`] })),
-      docs: ['docs/manual.md', 'docs/setup.md', 'docs/architecture.md', 'docs/stories/'],
+      workflows: workflows.map(w => ({ slug: w.slug, files: [`workflows/${w.slug}.yaml`] })),
+      docs: ['README.md', 'FIRST-RUN.md', 'CLAUDE.md', 'docs/manual.md', 'docs/setup.md', 'docs/architecture.md', 'docs/stories/'],
       infra: ['Dockerfile', 'docker-compose.yaml', 'scripts/setup.sh'],
     },
     patterns: [],
@@ -2519,7 +2816,8 @@ dist/
 .env
 *.log
 .DS_Store
-.aios/memory/*.json
+.aios/memory/*.log
+.aios/memory/runtime-*.json
 `,
   };
 }
@@ -2585,6 +2883,29 @@ function generateFirstRunMd(
   const hasMiro = integrations.some(i => i.type === 'MIRO');
   const hasMCP = integrations.some(i => i.type === 'MCP_SERVER');
 
+  // Dynamic provider detection based on actual agent models (item 9)
+  const usesOpenAI = agents.some(a => a.llmModel.includes('gpt') || a.llmModel.includes('openai'));
+  const usesClaude = agents.some(a => a.llmModel.includes('claude') || a.llmModel.includes('anthropic'));
+  const usesGemini = agents.some(a => a.llmModel.includes('gemini') || a.llmModel.includes('google'));
+
+  const providerRows: string[] = [];
+  if (usesOpenAI) providerRows.push(`| API Key OpenAI | \`OPENAI_API_KEY\` | ${agents.filter(a => a.llmModel.includes('gpt') || a.llmModel.includes('openai')).map(a => a.name).join(', ')} |`);
+  if (usesClaude) providerRows.push(`| API Key Anthropic | \`ANTHROPIC_API_KEY\` | ${agents.filter(a => a.llmModel.includes('claude') || a.llmModel.includes('anthropic')).map(a => a.name).join(', ')} |`);
+  if (usesGemini) providerRows.push(`| API Key Google | \`GOOGLE_API_KEY\` | ${agents.filter(a => a.llmModel.includes('gemini') || a.llmModel.includes('google')).map(a => a.name).join(', ')} |`);
+  if (providerRows.length === 0) providerRows.push('| API Key (qualquer provider) | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` | Todos |');
+
+  const providerPrereqs: string[] = [];
+  if (usesOpenAI) providerPrereqs.push('- [ ] **API Key OpenAI** válida em mãos');
+  if (usesClaude) providerPrereqs.push('- [ ] **API Key Anthropic** válida em mãos');
+  if (usesGemini) providerPrereqs.push('- [ ] **API Key Google** válida em mãos');
+  if (providerPrereqs.length === 0) providerPrereqs.push('- [ ] **API Key de LLM** (OpenAI, Anthropic ou Google) válida em mãos');
+
+  const envKeys: string[] = [];
+  if (usesOpenAI) envKeys.push('OPENAI_API_KEY');
+  if (usesClaude) envKeys.push('ANTHROPIC_API_KEY');
+  if (usesGemini) envKeys.push('GOOGLE_API_KEY');
+  if (envKeys.length === 0) envKeys.push('sua API key de LLM');
+
   const integrationChecklist: string[] = [];
   if (hasN8N) integrationChecklist.push('- [ ] Testar conectividade N8N — verificar que a instância responde em `N8N_BASE_URL`');
   if (hasNotion) integrationChecklist.push('- [ ] Testar conectividade Notion — verificar `NOTION_API_KEY` e acesso a páginas (`NOTION_ROOT_PAGE_ID`)');
@@ -2610,22 +2931,28 @@ ${integrationChecklist.join('\n')}
 
 | Incluído no Pacote | Você Precisa Prover |
 |---|---|
-| aios.config.yaml configurado | Node.js 18+ e npm 9+ |
-| Definições de ${agents.length} agente(s) | API Key da Anthropic (Claude) |
+| aios.config.yaml configurado | Node.js 20+ e npm 10+ |
+| Definições de ${agents.length} agente(s) | ${providerRows.length > 0 ? 'API Key(s) conforme tabela abaixo' : 'API Key de LLM'} |
 | ${squads.length} squad(s) com manifests | IDE compatível (Claude Code, Cursor, etc.) |
 | .env.example com variáveis | .env preenchido com suas keys |
 | package.json com dependências | \`npm install\` executado |
 | Configurações de IDE | Autenticação na IDE |
 | README.md e documentação | — |
 
+### API Keys necessárias por provider
+
+| Provider | Variável | Agentes que utilizam |
+|----------|----------|---------------------|
+${providerRows.join('\n')}
+
 ---
 
 ## 🔧 Pré-requisitos
 
-- [ ] **Node.js 18+** instalado → verifique com \`node --version\`
-- [ ] **npm 9+** disponível → verifique com \`npm --version\`
+- [ ] **Node.js 20+** instalado → verifique com \`node --version\`
+- [ ] **npm 10+** disponível → verifique com \`npm --version\`
 - [ ] **IDE compatível** instalada (Claude Code, Cursor, Codex CLI ou Gemini CLI)
-- [ ] **API Key Anthropic** válida em mãos
+${providerPrereqs.join('\n')}
 ${hasN8N ? '- [ ] **N8N** — instância acessível com API key\n' : ''}${hasNotion ? '- [ ] **Notion** — API key e ID da página raiz\n' : ''}${hasMiro ? '- [ ] **Miro** — Access token e ID do board\n' : ''}${hasMCP ? '- [ ] **MCP Server** — URL e token de autenticação\n' : ''}
 ## 📦 Setup Inicial
 
@@ -2634,7 +2961,7 @@ ${hasN8N ? '- [ ] **N8N** — instância acessível com API key\n' : ''}${hasNot
 - [ ] Copie \`.env.example\` para \`.env\` e preencha suas API keys:
   \`\`\`bash
   cp .env.example .env
-  # Edite .env e configure ANTHROPIC_API_KEY${hasN8N ? ', N8N_API_KEY' : ''}${hasNotion ? ', NOTION_API_KEY' : ''}${hasMiro ? ', MIRO_ACCESS_TOKEN' : ''}
+  # Edite .env e configure ${envKeys.join(', ')}${hasN8N ? ', N8N_API_KEY' : ''}${hasNotion ? ', NOTION_API_KEY' : ''}${hasMiro ? ', MIRO_ACCESS_TOKEN' : ''}
   \`\`\`
 - [ ] Execute \`npm run validate\` (ou \`npx aios-core doctor\`) para verificar integridade
 
