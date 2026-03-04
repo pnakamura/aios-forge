@@ -95,11 +95,11 @@ export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
   // ── Runtime scaffolding ──────────────────────────────────────
   files.push(generatePackageJson(slug, name, agents));
   files.push(generateTsConfig());
-  files.push(generateMainEntryPoint(name, pattern, agents, squads, workflows));
-  files.push(generateOrchestratorEngine(pattern, agents, squads));
+  files.push(generateMainEntryPoint(name, pattern, agents, effectiveSquads, workflows));
+  files.push(generateOrchestratorEngine(pattern, agents, effectiveSquads));
   files.push(generateAgentRunner());
   files.push(generateLogger());
-  files.push(generateTypes(agents, squads));
+  files.push(generateTypes(agents, effectiveSquads));
 
   // ── Integration & environment ────────────────────────────────
   files.push(generateEnvExample(project, integrations));
@@ -110,11 +110,11 @@ export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
   files.push(generateDockerIgnore());
 
   // ── Documentation ────────────────────────────────────────────
-  files.push(generateClaudeMd(name, slug, project, agents, squads, pattern, patternInfo));
-  files.push(generateReadme(name, project, agents, squads, patternInfo));
-  files.push(generateInstallationManual(name, slug, project, agents, squads, pattern, patternInfo));
+  files.push(generateClaudeMd(name, slug, project, agents, effectiveSquads, pattern, patternInfo));
+  files.push(generateReadme(name, project, agents, effectiveSquads, patternInfo));
+  files.push(generateInstallationManual(name, slug, project, agents, effectiveSquads, pattern, patternInfo));
   files.push(generateSetupGuide(name, agents));
-  files.push(generateArchitectureDoc(name, pattern, agents, squads, patternInfo));
+  files.push(generateArchitectureDoc(name, pattern, agents, effectiveSquads, patternInfo));
 
   // ── Institutional Memory (.aios/) ───────────────────────────
   files.push(generateProjectStatus(name, pattern));
