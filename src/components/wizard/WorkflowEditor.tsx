@@ -193,6 +193,16 @@ export function WorkflowEditor() {
 
                 {isExpanded && (
                   <div className="px-3 pb-3 space-y-3 border-t border-border/30 pt-3">
+                    {hasCycle && (
+                      <div className="p-2 rounded-md bg-destructive/10 border border-destructive/30">
+                        <p className="text-[10px] font-semibold text-destructive flex items-center gap-1 mb-1">
+                          <AlertTriangle className="w-3 h-3" /> Dependencia circular detectada
+                        </p>
+                        <p className="text-[10px] text-destructive/80">
+                          Ciclo: {cycleErrors[wf.id]?.join(' → ')}
+                        </p>
+                      </div>
+                    )}
                     {/* Workflow metadata */}
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
