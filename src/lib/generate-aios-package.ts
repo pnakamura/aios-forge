@@ -38,21 +38,51 @@ export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
   const pattern = project.orchestrationPattern || 'TASK_FIRST';
   const patternInfo = ORCHESTRATION_PATTERNS.find(p => p.id === pattern);
 
+  // ── Auto-generate "core" squad for orphan agents ─────────────
+  const orphanAgents = agents.filter(a => !squads.some(s => (s.agentIds || []).includes(a.slug)));
+  const needsCoreSquad = orphanAgents.length > 0;
+  const effectiveSquads: AiosSquad[] = needsCoreSquad
+    ? [
+        ...squads,
+        {
+          name: 'Core',
+          slug: 'core',
+          description: 'Squad auto-gerado para agentes sem squad atribuido e o orquestrador AppMaster.',
+          agentIds: [...orphanAgents.map(a => a.slug), 'app-master'],
+          tasks: [],
+          workflows: [],
+          isValidated: true,
+        },
+      ]
+    : squads.length > 0
+      ? squads
+      : [
+          {
+            name: 'Core',
+            slug: 'core',
+            description: 'Squad padrao contendo o orquestrador AppMaster.',
+            agentIds: ['app-master'],
+            tasks: [],
+            workflows: [],
+            isValidated: true,
+          },
+        ];
+
   // ── Core config ──────────────────────────────────────────────
-  files.push(generateAiosConfig(name, project, agents, squads, workflows, pattern));
+  files.push(generateAiosConfig(name, project, agents, effectiveSquads, workflows, pattern));
 
   // ── Agent definitions ────────────────────────────────────────
   agents.forEach(agent => {
-    files.push(generateAgentMd(agent, squads, project));
+    files.push(generateAgentMd(agent, effectiveSquads, project));
     files.push(generateAgentConfig(agent));
-    files.push(generateAgentTs(agent, squads, project));
+    files.push(generateAgentTs(agent, effectiveSquads, project));
   });
 
   // ── App Master agent (root orchestrator) ────────────────────
-  files.push(generateAppMasterAgent(name, project, agents, squads, workflows));
+  files.push(generateAppMasterAgent(name, project, agents, effectiveSquads, workflows));
 
   // ── Squad manifests ──────────────────────────────────────────
-  squads.forEach(squad => {
+  effectiveSquads.forEach(squad => {
     files.push(generateSquadYaml(squad, agents));
     files.push(generateSquadReadme(squad, agents));
   });
@@ -65,11 +95,11 @@ export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
   // ── Runtime scaffolding ──────────────────────────────────────
   files.push(generatePackageJson(slug, name, agents));
   files.push(generateTsConfig());
-  files.push(generateMainEntryPoint(name, pattern, agents, squads, workflows));
-  files.push(generateOrchestratorEngine(pattern, agents, squads));
+  files.push(generateMainEntryPoint(name, pattern, agents, effectiveSquads, workflows));
+  files.push(generateOrchestratorEngine(pattern, agents, effectiveSquads));
   files.push(generateAgentRunner());
   files.push(generateLogger());
-  files.push(generateTypes(agents, squads));
+  files.push(generateTypes(agents, effectiveSquads));
 
   // ── Integration & environment ────────────────────────────────
   files.push(generateEnvExample(project, integrations));
@@ -80,11 +110,11 @@ export function generateAiosPackage(input: GenerationInput): GeneratedFile[] {
   files.push(generateDockerIgnore());
 
   // ── Documentation ────────────────────────────────────────────
-  files.push(generateClaudeMd(name, slug, project, agents, squads, pattern, patternInfo));
-  files.push(generateReadme(name, project, agents, squads, patternInfo));
-  files.push(generateInstallationManual(name, slug, project, agents, squads, pattern, patternInfo));
+  files.push(generateClaudeMd(name, slug, project, agents, effectiveSquads, pattern, patternInfo));
+  files.push(generateReadme(name, project, agents, effectiveSquads, patternInfo));
+  files.push(generateInstallationManual(name, slug, project, agents, effectiveSquads, pattern, patternInfo));
   files.push(generateSetupGuide(name, agents));
-  files.push(generateArchitectureDoc(name, pattern, agents, squads, patternInfo));
+  files.push(generateArchitectureDoc(name, pattern, agents, effectiveSquads, patternInfo));
 
   // ── Institutional Memory (.aios/) ───────────────────────────
   files.push(generateProjectStatus(name, pattern));
@@ -401,6 +431,8 @@ function generateAppMasterAgent(
     .join('\n');
 
   const allAgentSlugs = agents.map(a => a.slug).join(', ');
+  const appMasterSquad = squads.find(s => (s.agentIds || []).includes('app-master'));
+  const appMasterSquadSlug = appMasterSquad?.slug || squads.find(s => s.slug === 'core')?.slug || squads[0]?.slug || 'core';
 
   return {
     path: 'src/agents/AppMaster.agent.ts',
@@ -412,19 +444,19 @@ function generateAppMasterAgent(
  *            Coordena todos os modulos, define o roteamento de
  *            responsabilidades e mantem a coerencia arquitetural.
  * @version   1.0.0
- * @squad     core
- * @commands  navigate, orchestrate, loadModule, validateContext
- * @deps      ${allAgentSlugs || '(nenhum)'}
- * @context   Ativado na inicializacao do app. Define a arquitetura
- *            de squads e roteia requisicoes para o modulo correto.
- */
+  * @squad     ${appMasterSquadSlug}
+  * @commands  navigate, orchestrate, loadModule, validateContext
+  * @deps      ${allAgentSlugs || '(nenhum)'}
+  * @context   Ativado na inicializacao do app. Define a arquitetura
+  *            de squads e roteia requisicoes para o modulo correto.
+  */
 
 export const AppMasterAgent = {
   name: 'AppMaster',
   slug: 'app-master',
   persona: 'Orquestrador principal do ${name}',
   version: '1.0.0',
-  squad: 'core',
+  squad: '${appMasterSquadSlug}',
   model: 'gemini-3-flash-preview',
 
   commands: {
