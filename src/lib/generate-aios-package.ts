@@ -431,6 +431,8 @@ function generateAppMasterAgent(
     .join('\n');
 
   const allAgentSlugs = agents.map(a => a.slug).join(', ');
+  const appMasterSquad = squads.find(s => (s.agentIds || []).includes('app-master'));
+  const appMasterSquadSlug = appMasterSquad?.slug || squads.find(s => s.slug === 'core')?.slug || squads[0]?.slug || 'core';
 
   return {
     path: 'src/agents/AppMaster.agent.ts',
