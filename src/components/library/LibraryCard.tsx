@@ -5,11 +5,15 @@
  * @context   Usado no LibraryGrid e LibraryList para exibir cada artefato.
  */
 
-import { Bot, Zap, Users, GitBranch, Star, Eye, Import, Pencil } from 'lucide-react';
+import { useState } from 'react';
+import { Bot, Zap, Users, GitBranch, Star, Eye, Import, Pencil, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { motion } from 'framer-motion';
+import { useLibraryStore } from '@/stores/library-store';
+import { toast } from '@/hooks/use-toast';
 import type { LibraryItem, LibraryEntityType } from '@/types/library';
 
 const TYPE_CONFIG: Record<LibraryEntityType, { icon: typeof Bot; label: string; colorVar: string }> = {
@@ -18,6 +22,11 @@ const TYPE_CONFIG: Record<LibraryEntityType, { icon: typeof Bot; label: string; 
   squad: { icon: Users, label: 'Squad', colorVar: 'var(--library-squad)' },
   workflow: { icon: GitBranch, label: 'Workflow', colorVar: 'var(--library-workflow)' },
 };
+
+function isDeletable(item: LibraryItem): boolean {
+  if (item.type === 'agent' && item.meta.type === 'agent') return !item.meta.isNative;
+  return true;
+}
 
 interface LibraryCardProps {
   item: LibraryItem;
@@ -28,6 +37,8 @@ interface LibraryCardProps {
 
 export default function LibraryCard({ item, index = 0, onSelect, onToggleFavorite }: LibraryCardProps) {
   const navigate = useNavigate();
+  const [deleting, setDeleting] = useState(false);
+  const deleteItem = useLibraryStore((s) => s.deleteItem);
   const cfg = TYPE_CONFIG[item.type];
   const Icon = cfg.icon;
   const borderColor = `hsl(${cfg.colorVar})`;
@@ -47,6 +58,18 @@ export default function LibraryCard({ item, index = 0, onSelect, onToggleFavorit
     metaChips.push(item.meta.pattern);
     metaChips.push(`${item.meta.stepCount} steps`);
   }
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteItem(item.type, item.id);
+      toast({ title: 'Elemento excluido', description: `${item.name} foi removido da biblioteca.` });
+    } catch (e) {
+      toast({ title: 'Erro ao excluir', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <motion.div
@@ -138,6 +161,29 @@ export default function LibraryCard({ item, index = 0, onSelect, onToggleFavorit
               <Import className="w-3 h-3" /> Importar
             </Button>
           </>
+        )}
+        {isDeletable(item) && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/10" onClick={(e) => e.stopPropagation()}>
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Excluir "{item.name}"?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esta acao e irreversivel. O elemento sera removido permanentemente da biblioteca.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  {deleting ? 'Excluindo...' : 'Excluir'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
       </div>
     </motion.div>

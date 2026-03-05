@@ -7,13 +7,15 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Star, ExternalLink, Bot, Zap, Users, GitBranch, GitFork } from 'lucide-react';
+import { X, Star, ExternalLink, Bot, Zap, Users, GitBranch, GitFork, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { createFork } from '@/services/library-editor.service';
+import { useLibraryStore } from '@/stores/library-store';
 import { toast } from '@/hooks/use-toast';
 import type { LibraryItem, LibraryEntityType } from '@/types/library';
 import AgentDetail from './detail/AgentDetail';
@@ -25,6 +27,11 @@ const TYPE_ICONS: Record<LibraryEntityType, typeof Bot> = {
   agent: Bot, skill: Zap, squad: Users, workflow: GitBranch,
 };
 
+function isDeletable(item: LibraryItem): boolean {
+  if (item.type === 'agent' && item.meta.type === 'agent') return !item.meta.isNative;
+  return true;
+}
+
 interface LibraryDetailPanelProps {
   item: LibraryItem;
   onClose: () => void;
@@ -34,6 +41,8 @@ interface LibraryDetailPanelProps {
 export default function LibraryDetailPanel({ item, onClose, onToggleFavorite }: LibraryDetailPanelProps) {
   const navigate = useNavigate();
   const [forking, setForking] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const deleteItem = useLibraryStore((s) => s.deleteItem);
   const Icon = TYPE_ICONS[item.type];
   const formatDate = (d: string) => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -52,6 +61,19 @@ export default function LibraryDetailPanel({ item, onClose, onToggleFavorite }: 
       toast({ title: 'Erro ao criar fork', description: (e as Error).message, variant: 'destructive' });
     } finally {
       setForking(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteItem(item.type, item.id);
+      toast({ title: 'Elemento excluido', description: `${item.name} foi removido da biblioteca.` });
+      onClose();
+    } catch (e) {
+      toast({ title: 'Erro ao excluir', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -132,13 +154,38 @@ export default function LibraryDetailPanel({ item, onClose, onToggleFavorite }: 
               </div>
             )}
 
-            {/* Action */}
+            {/* Actions */}
             <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs mt-2" disabled={forking} onClick={handleFork}>
               <GitFork className="w-3 h-3" /> Criar fork e editar
             </Button>
             <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs mt-1">
               <ExternalLink className="w-3 h-3" /> Ver no projeto original
             </Button>
+
+            {/* Delete */}
+            {isDeletable(item) && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs mt-1 text-destructive border-destructive/30 hover:bg-destructive/10">
+                    <Trash2 className="w-3 h-3" /> Excluir
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Excluir "{item.name}"?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta acao e irreversivel. O elemento sera removido permanentemente da biblioteca e dos favoritos.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      {deleting ? 'Excluindo...' : 'Excluir'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </TabsContent>
 
           <TabsContent value="technical" className="mt-4">
