@@ -118,6 +118,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         stream: true,
+        max_tokens: 8192,
         messages: [
           { role: "system", content: systemPrompt },
           ...messages,

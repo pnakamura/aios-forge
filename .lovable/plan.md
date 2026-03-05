@@ -1,59 +1,57 @@
 
 
-# Fix: Truncated AI Output in AIOS Assistant
+# ✅ IMPLEMENTADO — AIOS Library Module (Phase 1)
 
-## Root Causes Identified
+## Resumo
 
-### 1. No `max_tokens` set in the AI gateway request (Edge Function)
-The edge function doesn't specify `max_tokens`, relying on a low default. For complex agent generation (system prompts, commands, etc.), output gets cut off.
+Modulo Library implementado com navegacao, filtragem e visualizacao de artefatos (agents, skills, squads, workflows).
 
-### 2. Duplicate key bug in streaming message updates (EditorAiPanel)
-The `addAiMessage` call on line 127 always fires because `aiMessages` in the closure is stale (captured at callback creation time). The `existing` check on line 125 searches the stale `aiMessages` array, never finds the assistant message, and calls `addAiMessage` again — creating duplicate messages with the same ID (the console error confirms this). Each partial content chunk creates a NEW message instead of updating the existing one, producing the "truncated text" visual effect.
+## Entregues
 
-### 3. Stale closure over `aiMessages`
-The `sendMessage` callback has `aiMessages` in its dependency array but reads a snapshot. During streaming, `aiMessages` updates via `setState` but the closure still holds the old reference, so `aiMessages.find(m => m.id === assistantId)` always returns `undefined`.
-
----
-
-## Fixes
-
-### Fix 1: Edge Function — Add `max_tokens: 8192`
-
-In `supabase/functions/library-editor-ai/index.ts`, add `max_tokens: 8192` to the request body (line 118-126).
-
-### Fix 2: EditorAiPanel — Fix streaming message logic
-
-Replace the streaming content handling to:
-- Track whether the assistant message has been added via a local boolean (`messageAdded`) instead of searching `aiMessages`
-- Always use `useLibraryEditorStore.setState()` for updates after the first `addAiMessage`
-- This eliminates the duplicate key issue and stale closure problem
-
-**Before (broken):**
-```typescript
-const existing = aiMessages.find(m => m.id === assistantId);
-if (!existing) {
-  addAiMessage({...});
-} else {
-  useLibraryEditorStore.setState(s => ({...}));
-}
-```
-
-**After (fixed):**
-```typescript
-if (!messageAdded) {
-  addAiMessage({...});
-  messageAdded = true;
-} else {
-  useLibraryEditorStore.setState(s => ({...}));
-}
-```
-
----
-
-## Files Changed
-
-| File | Change |
+| Item | Status |
 |------|--------|
-| `supabase/functions/library-editor-ai/index.ts` | Add `max_tokens: 8192` to API request |
-| `src/components/library/editor/EditorAiPanel.tsx` | Fix streaming update logic with local `messageAdded` flag |
+| Migration: skills, workflows_library, library_favorites + alter agents/squads | ✅ |
+| Tipos: `src/types/library.ts` | ✅ |
+| Servico: `src/services/library.service.ts` | ✅ |
+| Store: `src/stores/library-store.ts` | ✅ |
+| CSS tokens: --library-agent/skill/squad/workflow | ✅ |
+| LibraryCard com cores por tipo | ✅ |
+| LibraryGrid + LibraryList | ✅ |
+| LibraryFilterPanel (busca, tipo, tags, ordenacao, toggles) | ✅ |
+| LibraryToolbar (contagem, toggle view) | ✅ |
+| LibraryDetailPanel com tabs (Visao Geral + Detalhes Tecnicos) | ✅ |
+| Detail components: AgentDetail, SkillDetail, SquadDetail, WorkflowDetail | ✅ |
+| ImportDialog com selecao de projeto destino | ✅ |
+| LibraryPage com layout 3 colunas redimensinaveis | ✅ |
+| Rota /library no App.tsx | ✅ |
+| Link "Library" no header do DashboardPage | ✅ |
 
+# ✅ IMPLEMENTADO — AIOS Library Module (Phase 2)
+
+## Resumo
+
+Sistema de working copy (draft/fork/published), editor de elementos com formularios por tipo, painel de IA assistida com streaming SSE, e fluxo de publicacao/descarte.
+
+## Entregues
+
+| Item | Status |
+|------|--------|
+| Migration: status, version, parent_id, changelog em 4 tabelas + library_editor_sessions | ✅ |
+| Tipos estendidos: LibraryItemStatus, WorkingCopy, FormData por tipo, EditorAiMessage | ✅ |
+| Servico: `src/services/library-editor.service.ts` (draft/fork/save/publish/discard/validate) | ✅ |
+| Store: `src/stores/library-editor-store.ts` (working copy + IA) | ✅ |
+| Edge Function: `library-editor-ai` com SSE streaming e tool calling (apply_fields) | ✅ |
+| Hook: `useAutoSave` (debounce 30s + beforeunload) | ✅ |
+| AgentForm (identidade, system prompt, LLM, comandos, config) | ✅ |
+| SkillForm (identidade, prompt, inputs/outputs, exemplos) | ✅ |
+| SquadForm (identidade, agentes, tasks, config) | ✅ |
+| WorkflowForm (identidade, steps, triggers, outputs) | ✅ |
+| EditorAiPanel (chat streaming, quick actions, sugestoes) | ✅ |
+| EditorHeader (breadcrumb, status, save/publish/discard/validate) | ✅ |
+| PublishDialog (versao, changelog, validacao) | ✅ |
+| DiscardDialog (confirmacao contextual fork vs draft) | ✅ |
+| LibraryEditorPage (layout 2 colunas redimensionaveis) | ✅ |
+| Rota /library/editor/:type/:id no App.tsx | ✅ |
+| LibraryToolbar com dropdown "Novo elemento" | ✅ |
+| LibraryCard com badges draft/fork e "Continuar editando" | ✅ |
+| LibraryDetailPanel com botao "Criar fork e editar" | ✅ |

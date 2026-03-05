@@ -101,6 +101,7 @@ export default function EditorAiPanel({ onClose }: EditorAiPanelProps) {
       let assistantContent = '';
       let toolCallArgs = '';
       let hasToolCall = false;
+      let messageAdded = false;
       const assistantId = crypto.randomUUID();
 
       while (true) {
@@ -121,17 +122,15 @@ export default function EditorAiPanel({ onClose }: EditorAiPanelProps) {
             const parsed = JSON.parse(jsonStr);
             if (parsed.content) {
               assistantContent += parsed.content;
-              // Update or create assistant message
-              const existing = aiMessages.find(m => m.id === assistantId);
-              if (!existing) {
+              if (!messageAdded) {
                 addAiMessage({
                   id: assistantId,
                   role: 'assistant',
                   content: assistantContent,
                   timestamp: new Date().toISOString(),
                 });
+                messageAdded = true;
               } else {
-                // We need to update in place via store
                 useLibraryEditorStore.setState(s => ({
                   aiMessages: s.aiMessages.map(m =>
                     m.id === assistantId ? { ...m, content: assistantContent } : m
