@@ -416,8 +416,8 @@ export function validateElement(type: LibraryEntityType, data: FormData): Valida
 
 export async function loadEditorSession(type: LibraryEntityType, entityId: string): Promise<EditorAiMessage[]> {
   const userId = await getCurrentUserId();
-  const { data } = await supabase
-    .from('library_editor_sessions')
+  const { data } = await (supabase
+    .from('library_editor_sessions') as any)
     .select('ai_messages')
     .eq('user_id', userId)
     .eq('entity_type', type)
@@ -428,13 +428,13 @@ export async function loadEditorSession(type: LibraryEntityType, entityId: strin
 
 export async function saveEditorSession(type: LibraryEntityType, entityId: string, aiMessages: EditorAiMessage[]): Promise<void> {
   const userId = await getCurrentUserId();
-  const { error } = await supabase
-    .from('library_editor_sessions')
+  const { error } = await (supabase
+    .from('library_editor_sessions') as any)
     .upsert({
       user_id: userId,
       entity_type: type,
       entity_id: entityId,
-      ai_messages: aiMessages as unknown as Record<string, unknown>[],
+      ai_messages: aiMessages,
       last_saved_at: new Date().toISOString(),
     }, { onConflict: 'user_id,entity_type,entity_id' });
   if (error) throw error;
