@@ -16,66 +16,91 @@ export type Database = {
     Tables: {
       agents: {
         Row: {
+          changelog: Json
           commands: Json
           created_at: string
+          created_in_library: boolean
           definition_md: string
           id: string
           is_custom: boolean
           is_public: boolean
           llm_model: string
           name: string
+          parent_id: string | null
           project_id: string
+          published_at: string | null
           role: string
           skills: Json
           slug: string
+          status: string
           system_prompt: string
           tags: Json
           tools: Json
           updated_at: string
           usage_count: number
+          version: string
           visibility: string
         }
         Insert: {
+          changelog?: Json
           commands?: Json
           created_at?: string
+          created_in_library?: boolean
           definition_md?: string
           id?: string
           is_custom?: boolean
           is_public?: boolean
           llm_model?: string
           name: string
+          parent_id?: string | null
           project_id: string
+          published_at?: string | null
           role: string
           skills?: Json
           slug: string
+          status?: string
           system_prompt?: string
           tags?: Json
           tools?: Json
           updated_at?: string
           usage_count?: number
+          version?: string
           visibility?: string
         }
         Update: {
+          changelog?: Json
           commands?: Json
           created_at?: string
+          created_in_library?: boolean
           definition_md?: string
           id?: string
           is_custom?: boolean
           is_public?: boolean
           llm_model?: string
           name?: string
+          parent_id?: string | null
           project_id?: string
+          published_at?: string | null
           role?: string
           skills?: Json
           slug?: string
+          status?: string
           system_prompt?: string
           tags?: Json
           tools?: Json
           updated_at?: string
           usage_count?: number
+          version?: string
           visibility?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "agents_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "agents_project_id_fkey"
             columns: ["project_id"]
@@ -319,6 +344,42 @@ export type Database = {
           },
         ]
       }
+      library_editor_sessions: {
+        Row: {
+          ai_context: Json
+          ai_messages: Json
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          last_saved_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_context?: Json
+          ai_messages?: Json
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          last_saved_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_context?: Json
+          ai_messages?: Json
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          last_saved_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       library_favorites: {
         Row: {
           created_at: string
@@ -419,7 +480,9 @@ export type Database = {
         Row: {
           agent_id: string | null
           category: string
+          changelog: Json
           created_at: string
+          created_in_library: boolean
           description: string
           examples: Json
           id: string
@@ -427,17 +490,23 @@ export type Database = {
           is_public: boolean
           name: string
           outputs: Json
+          parent_id: string | null
           project_id: string
           prompt: string
+          published_at: string | null
           slug: string
+          status: string
           tags: Json
           updated_at: string
           usage_count: number
+          version: string
         }
         Insert: {
           agent_id?: string | null
           category?: string
+          changelog?: Json
           created_at?: string
+          created_in_library?: boolean
           description?: string
           examples?: Json
           id?: string
@@ -445,17 +514,23 @@ export type Database = {
           is_public?: boolean
           name: string
           outputs?: Json
+          parent_id?: string | null
           project_id: string
           prompt?: string
+          published_at?: string | null
           slug: string
+          status?: string
           tags?: Json
           updated_at?: string
           usage_count?: number
+          version?: string
         }
         Update: {
           agent_id?: string | null
           category?: string
+          changelog?: Json
           created_at?: string
+          created_in_library?: boolean
           description?: string
           examples?: Json
           id?: string
@@ -463,12 +538,16 @@ export type Database = {
           is_public?: boolean
           name?: string
           outputs?: Json
+          parent_id?: string | null
           project_id?: string
           prompt?: string
+          published_at?: string | null
           slug?: string
+          status?: string
           tags?: Json
           updated_at?: string
           usage_count?: number
+          version?: string
         }
         Relationships: [
           {
@@ -476,6 +555,13 @@ export type Database = {
             columns: ["agent_id"]
             isOneToOne: false
             referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skills_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "skills"
             referencedColumns: ["id"]
           },
           {
@@ -490,56 +576,81 @@ export type Database = {
       squads: {
         Row: {
           agent_ids: Json
+          changelog: Json
           created_at: string
+          created_in_library: boolean
           description: string | null
           id: string
           is_public: boolean
           is_validated: boolean
           manifest_yaml: string
           name: string
+          parent_id: string | null
           project_id: string
+          published_at: string | null
           slug: string
+          status: string
           tags: Json
           tasks: Json
           updated_at: string
           usage_count: number
+          version: string
           workflows: Json
         }
         Insert: {
           agent_ids?: Json
+          changelog?: Json
           created_at?: string
+          created_in_library?: boolean
           description?: string | null
           id?: string
           is_public?: boolean
           is_validated?: boolean
           manifest_yaml?: string
           name: string
+          parent_id?: string | null
           project_id: string
+          published_at?: string | null
           slug: string
+          status?: string
           tags?: Json
           tasks?: Json
           updated_at?: string
           usage_count?: number
+          version?: string
           workflows?: Json
         }
         Update: {
           agent_ids?: Json
+          changelog?: Json
           created_at?: string
+          created_in_library?: boolean
           description?: string | null
           id?: string
           is_public?: boolean
           is_validated?: boolean
           manifest_yaml?: string
           name?: string
+          parent_id?: string | null
           project_id?: string
+          published_at?: string | null
           slug?: string
+          status?: string
           tags?: Json
           tasks?: Json
           updated_at?: string
           usage_count?: number
+          version?: string
           workflows?: Json
         }
         Relationships: [
+          {
+            foreignKeyName: "squads_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "squads"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "squads_project_id_fkey"
             columns: ["project_id"]
@@ -595,57 +706,82 @@ export type Database = {
       }
       workflows_library: {
         Row: {
+          changelog: Json
           created_at: string
+          created_in_library: boolean
           description: string
           id: string
           is_public: boolean
           name: string
           outputs: Json
+          parent_id: string | null
           pattern: string
           project_id: string
+          published_at: string | null
           slug: string
           squad_id: string | null
+          status: string
           steps: Json
           tags: Json
           triggers: Json
           updated_at: string
           usage_count: number
+          version: string
         }
         Insert: {
+          changelog?: Json
           created_at?: string
+          created_in_library?: boolean
           description?: string
           id?: string
           is_public?: boolean
           name: string
           outputs?: Json
+          parent_id?: string | null
           pattern?: string
           project_id: string
+          published_at?: string | null
           slug: string
           squad_id?: string | null
+          status?: string
           steps?: Json
           tags?: Json
           triggers?: Json
           updated_at?: string
           usage_count?: number
+          version?: string
         }
         Update: {
+          changelog?: Json
           created_at?: string
+          created_in_library?: boolean
           description?: string
           id?: string
           is_public?: boolean
           name?: string
           outputs?: Json
+          parent_id?: string | null
           pattern?: string
           project_id?: string
+          published_at?: string | null
           slug?: string
           squad_id?: string | null
+          status?: string
           steps?: Json
           tags?: Json
           triggers?: Json
           updated_at?: string
           usage_count?: number
+          version?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "workflows_library_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "workflows_library"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workflows_library_project_id_fkey"
             columns: ["project_id"]
