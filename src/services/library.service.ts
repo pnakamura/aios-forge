@@ -74,6 +74,9 @@ export async function fetchLibraryItems(): Promise<LibraryItem[]> {
       isPublic: a.is_public ?? false,
       createdAt: a.created_at,
       updatedAt: a.updated_at,
+      status: (((a as any).status as string) || 'published') as LibraryItem['status'],
+      version: ((a as any).version as string) || '1.0.0',
+      parentId: (a as any).parent_id ?? undefined,
       meta: {
         type: 'agent',
         role: a.role,
@@ -105,6 +108,9 @@ export async function fetchLibraryItems(): Promise<LibraryItem[]> {
       isPublic: s.is_public ?? false,
       createdAt: s.created_at,
       updatedAt: s.updated_at,
+      status: (((s as any).status as string) || 'published') as LibraryItem['status'],
+      version: ((s as any).version as string) || '1.0.0',
+      parentId: (s as any).parent_id ?? undefined,
       meta: {
         type: 'skill',
         category: s.category,
@@ -134,6 +140,9 @@ export async function fetchLibraryItems(): Promise<LibraryItem[]> {
       isPublic: sq.is_public ?? false,
       createdAt: sq.created_at,
       updatedAt: sq.updated_at,
+      status: (((sq as any).status as string) || 'published') as LibraryItem['status'],
+      version: ((sq as any).version as string) || '1.0.0',
+      parentId: (sq as any).parent_id ?? undefined,
       meta: {
         type: 'squad',
         agentCount: agentIds.length,
@@ -164,6 +173,9 @@ export async function fetchLibraryItems(): Promise<LibraryItem[]> {
       isPublic: w.is_public ?? false,
       createdAt: w.created_at,
       updatedAt: w.updated_at,
+      status: (((w as any).status as string) || 'published') as LibraryItem['status'],
+      version: ((w as any).version as string) || '1.0.0',
+      parentId: (w as any).parent_id ?? undefined,
       meta: {
         type: 'workflow',
         pattern: w.pattern,

@@ -16,6 +16,7 @@ import DashboardPage from "./pages/DashboardPage";
 import WizardPage from "./pages/WizardPage";
 import ProjectDetailPage from "./pages/ProjectDetailPage";
 import LibraryPage from "./pages/LibraryPage";
+import LibraryEditorPage from "./pages/LibraryEditorPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/wizard/:id" element={<WizardPage />} />
             <Route path="/project/:id" element={<ProjectDetailPage />} />
             <Route path="/library" element={<LibraryPage />} />
+            <Route path="/library/editor/:type/:id" element={<LibraryEditorPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
