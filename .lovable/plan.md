@@ -1,24 +1,34 @@
 
 
-# ✅ IMPLEMENTADO — Correções na Lógica de Execução do Sistema Gerado
+# ✅ IMPLEMENTADO — AIOS Library Module (Phase 1)
 
-Todas as 14 correções foram implementadas em `src/lib/generate-aios-package.ts`.
+## Resumo
 
-## Resumo das Correções
+Modulo Library implementado com navegacao, filtragem e visualizacao de artefatos (agents, skills, squads, workflows).
 
-| # | Problema | Status |
-|---|----------|--------|
-| 1 | Orchestrator ignora retry_policy e timeout_ms | ✅ Implementado com helpers `withRetry` e `withTimeout` |
-| 2 | Agent Runner ignora temperature e max_tokens | ✅ Propagados do YAML para todos os providers |
-| 3 | Squads não usados no roteamento | ✅ Squad filtering + comando `/squad <slug> <tarefa>` |
-| 4 | Workflows ignoram depends_on, timeout, retry | ✅ Execução DAG com parallelismo + retry/timeout por step |
-| 5 | Script `npm run validate` não existe | ✅ Gerado `src/validate.ts` + script no package.json |
-| 6 | Docker não inclui `workflows/` | ✅ Adicionado COPY e volume |
-| 7 | WorkflowConfig tipo incompleto | ✅ Adicionado `configPath?`, `timeout_ms?`, `retry_policy?` |
-| 8 | FIRST-RUN.md diz Node.js 18+ | ✅ Corrigido para 20+ |
-| 9 | FIRST-RUN.md hardcoda Anthropic | ✅ Detecção dinâmica de providers |
-| 10 | frameworkProtection ausente | ✅ Adicionado ao aios.config.yaml |
-| 11 | Codebase map incompleto | ✅ Adicionados workflows, agent.ts, FIRST-RUN.md, validate.ts |
-| 12 | AppMaster não mapeia workflows | ✅ Seção workflows adicionada |
-| 13 | .gitignore exclui scaffolds úteis | ✅ Preserva JSON scaffold, ignora apenas runtime |
-| 14 | Orchestrator não expõe targetAgent | ✅ Rota direta + comando `@<slug> <tarefa>` |
+## Entregues
+
+| Item | Status |
+|------|--------|
+| Migration: skills, workflows_library, library_favorites + alter agents/squads | ✅ |
+| Tipos: `src/types/library.ts` | ✅ |
+| Servico: `src/services/library.service.ts` | ✅ |
+| Store: `src/stores/library-store.ts` | ✅ |
+| CSS tokens: --library-agent/skill/squad/workflow | ✅ |
+| LibraryCard com cores por tipo | ✅ |
+| LibraryGrid + LibraryList | ✅ |
+| LibraryFilterPanel (busca, tipo, tags, ordenacao, toggles) | ✅ |
+| LibraryToolbar (contagem, toggle view) | ✅ |
+| LibraryDetailPanel com tabs (Visao Geral + Detalhes Tecnicos) | ✅ |
+| Detail components: AgentDetail, SkillDetail, SquadDetail, WorkflowDetail | ✅ |
+| ImportDialog com selecao de projeto destino | ✅ |
+| LibraryPage com layout 3 colunas redimensinaveis | ✅ |
+| Rota /library no App.tsx | ✅ |
+| Link "Library" no header do DashboardPage | ✅ |
+
+## Phase 2 (Futuro)
+
+- Sistema de working copy (draft/fork/published)
+- Editor de elementos com formularios por tipo
+- Painel de IA assistida no editor
+- Auto-save e fluxo de publicacao
