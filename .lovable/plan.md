@@ -26,9 +26,32 @@ Modulo Library implementado com navegacao, filtragem e visualizacao de artefatos
 | Rota /library no App.tsx | ✅ |
 | Link "Library" no header do DashboardPage | ✅ |
 
-## Phase 2 (Futuro)
+# ✅ IMPLEMENTADO — AIOS Library Module (Phase 2)
 
-- Sistema de working copy (draft/fork/published)
-- Editor de elementos com formularios por tipo
-- Painel de IA assistida no editor
-- Auto-save e fluxo de publicacao
+## Resumo
+
+Sistema de working copy (draft/fork/published), editor de elementos com formularios por tipo, painel de IA assistida com streaming SSE, e fluxo de publicacao/descarte.
+
+## Entregues
+
+| Item | Status |
+|------|--------|
+| Migration: status, version, parent_id, changelog em 4 tabelas + library_editor_sessions | ✅ |
+| Tipos estendidos: LibraryItemStatus, WorkingCopy, FormData por tipo, EditorAiMessage | ✅ |
+| Servico: `src/services/library-editor.service.ts` (draft/fork/save/publish/discard/validate) | ✅ |
+| Store: `src/stores/library-editor-store.ts` (working copy + IA) | ✅ |
+| Edge Function: `library-editor-ai` com SSE streaming e tool calling (apply_fields) | ✅ |
+| Hook: `useAutoSave` (debounce 30s + beforeunload) | ✅ |
+| AgentForm (identidade, system prompt, LLM, comandos, config) | ✅ |
+| SkillForm (identidade, prompt, inputs/outputs, exemplos) | ✅ |
+| SquadForm (identidade, agentes, tasks, config) | ✅ |
+| WorkflowForm (identidade, steps, triggers, outputs) | ✅ |
+| EditorAiPanel (chat streaming, quick actions, sugestoes) | ✅ |
+| EditorHeader (breadcrumb, status, save/publish/discard/validate) | ✅ |
+| PublishDialog (versao, changelog, validacao) | ✅ |
+| DiscardDialog (confirmacao contextual fork vs draft) | ✅ |
+| LibraryEditorPage (layout 2 colunas redimensionaveis) | ✅ |
+| Rota /library/editor/:type/:id no App.tsx | ✅ |
+| LibraryToolbar com dropdown "Novo elemento" | ✅ |
+| LibraryCard com badges draft/fork e "Continuar editando" | ✅ |
+| LibraryDetailPanel com botao "Criar fork e editar" | ✅ |

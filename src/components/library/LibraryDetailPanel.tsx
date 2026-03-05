@@ -133,7 +133,10 @@ export default function LibraryDetailPanel({ item, onClose, onToggleFavorite }: 
             )}
 
             {/* Action */}
-            <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs mt-2">
+            <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs mt-2" disabled={forking} onClick={handleFork}>
+              <GitFork className="w-3 h-3" /> Criar fork e editar
+            </Button>
+            <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs mt-1">
               <ExternalLink className="w-3 h-3" /> Ver no projeto original
             </Button>
           </TabsContent>
