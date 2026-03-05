@@ -22,6 +22,7 @@ export function SquadBuilder() {
   const { squads, agents, addSquad, removeSquad, updateSquad } = useWizardStore();
   const [showCreate, setShowCreate] = useState(false);
   const [expandedSquad, setExpandedSquad] = useState<string | null>(null);
+  const [showLibrary, setShowLibrary] = useState(false);
   const [form, setForm] = useState({ name: '', description: '' });
 
   const handleCreate = () => {
@@ -83,9 +84,14 @@ export function SquadBuilder() {
             Agrupe seus {agents.length} agentes em equipes
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setShowCreate(true)} className="gap-1.5 text-xs">
-          <Plus className="w-3.5 h-3.5" /> Novo Squad
-        </Button>
+        <div className="flex gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => setShowLibrary(true)} className="gap-1.5 text-xs">
+            <BookOpen className="w-3.5 h-3.5" /> Library
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowCreate(true)} className="gap-1.5 text-xs">
+            <Plus className="w-3.5 h-3.5" /> Novo Squad
+          </Button>
+        </div>
       </div>
 
       {agents.length === 0 && (
@@ -270,6 +276,9 @@ export function SquadBuilder() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Library Import Dialog */}
+      <LibraryImportWizardDialog open={showLibrary} onOpenChange={setShowLibrary} filterType="squad" />
     </div>
   );
 }
