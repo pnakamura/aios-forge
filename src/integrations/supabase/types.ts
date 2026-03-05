@@ -21,6 +21,7 @@ export type Database = {
           definition_md: string
           id: string
           is_custom: boolean
+          is_public: boolean
           llm_model: string
           name: string
           project_id: string
@@ -28,8 +29,10 @@ export type Database = {
           skills: Json
           slug: string
           system_prompt: string
+          tags: Json
           tools: Json
           updated_at: string
+          usage_count: number
           visibility: string
         }
         Insert: {
@@ -38,6 +41,7 @@ export type Database = {
           definition_md?: string
           id?: string
           is_custom?: boolean
+          is_public?: boolean
           llm_model?: string
           name: string
           project_id: string
@@ -45,8 +49,10 @@ export type Database = {
           skills?: Json
           slug: string
           system_prompt?: string
+          tags?: Json
           tools?: Json
           updated_at?: string
+          usage_count?: number
           visibility?: string
         }
         Update: {
@@ -55,6 +61,7 @@ export type Database = {
           definition_md?: string
           id?: string
           is_custom?: boolean
+          is_public?: boolean
           llm_model?: string
           name?: string
           project_id?: string
@@ -62,8 +69,10 @@ export type Database = {
           skills?: Json
           slug?: string
           system_prompt?: string
+          tags?: Json
           tools?: Json
           updated_at?: string
+          usage_count?: number
           visibility?: string
         }
         Relationships: [
@@ -310,6 +319,30 @@ export type Database = {
           },
         ]
       }
+      library_favorites: {
+        Row: {
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           config: Json
@@ -382,19 +415,94 @@ export type Database = {
         }
         Relationships: []
       }
+      skills: {
+        Row: {
+          agent_id: string | null
+          category: string
+          created_at: string
+          description: string
+          examples: Json
+          id: string
+          inputs: Json
+          is_public: boolean
+          name: string
+          outputs: Json
+          project_id: string
+          prompt: string
+          slug: string
+          tags: Json
+          updated_at: string
+          usage_count: number
+        }
+        Insert: {
+          agent_id?: string | null
+          category?: string
+          created_at?: string
+          description?: string
+          examples?: Json
+          id?: string
+          inputs?: Json
+          is_public?: boolean
+          name: string
+          outputs?: Json
+          project_id: string
+          prompt?: string
+          slug: string
+          tags?: Json
+          updated_at?: string
+          usage_count?: number
+        }
+        Update: {
+          agent_id?: string | null
+          category?: string
+          created_at?: string
+          description?: string
+          examples?: Json
+          id?: string
+          inputs?: Json
+          is_public?: boolean
+          name?: string
+          outputs?: Json
+          project_id?: string
+          prompt?: string
+          slug?: string
+          tags?: Json
+          updated_at?: string
+          usage_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skills_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skills_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       squads: {
         Row: {
           agent_ids: Json
           created_at: string
           description: string | null
           id: string
+          is_public: boolean
           is_validated: boolean
           manifest_yaml: string
           name: string
           project_id: string
           slug: string
+          tags: Json
           tasks: Json
           updated_at: string
+          usage_count: number
           workflows: Json
         }
         Insert: {
@@ -402,13 +510,16 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_public?: boolean
           is_validated?: boolean
           manifest_yaml?: string
           name: string
           project_id: string
           slug: string
+          tags?: Json
           tasks?: Json
           updated_at?: string
+          usage_count?: number
           workflows?: Json
         }
         Update: {
@@ -416,13 +527,16 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_public?: boolean
           is_validated?: boolean
           manifest_yaml?: string
           name?: string
           project_id?: string
           slug?: string
+          tags?: Json
           tasks?: Json
           updated_at?: string
+          usage_count?: number
           workflows?: Json
         }
         Relationships: [
@@ -475,6 +589,75 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflows_library: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          is_public: boolean
+          name: string
+          outputs: Json
+          pattern: string
+          project_id: string
+          slug: string
+          squad_id: string | null
+          steps: Json
+          tags: Json
+          triggers: Json
+          updated_at: string
+          usage_count: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          is_public?: boolean
+          name: string
+          outputs?: Json
+          pattern?: string
+          project_id: string
+          slug: string
+          squad_id?: string | null
+          steps?: Json
+          tags?: Json
+          triggers?: Json
+          updated_at?: string
+          usage_count?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          is_public?: boolean
+          name?: string
+          outputs?: Json
+          pattern?: string
+          project_id?: string
+          slug?: string
+          squad_id?: string | null
+          steps?: Json
+          tags?: Json
+          triggers?: Json
+          updated_at?: string
+          usage_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflows_library_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflows_library_squad_id_fkey"
+            columns: ["squad_id"]
+            isOneToOne: false
+            referencedRelation: "squads"
             referencedColumns: ["id"]
           },
         ]

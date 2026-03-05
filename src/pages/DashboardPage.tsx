@@ -11,7 +11,7 @@ import { listProjects as fetchProjects } from '@/services/project.service';
 import { getSession, signOut as authSignOut } from '@/services/auth.service';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Cpu, Plus, FolderOpen, LogOut, Bot, Users, Network, Package, Calendar, Pencil, Sun, Moon } from 'lucide-react';
+import { Cpu, Plus, FolderOpen, LogOut, Bot, Users, Network, Package, Calendar, Pencil, Sun, Moon, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { useTheme } from '@/lib/theme';
@@ -87,6 +87,10 @@ export default function DashboardPage() {
             className="w-8 h-8 p-0"
           >
             {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => navigate('/library')} className="gap-2">
+            <BookOpen className="w-4 h-4" />
+            Library
           </Button>
           <Button size="sm" onClick={() => navigate('/wizard')} className="gap-2 shadow-[var(--shadow-glow)]">
             <Plus className="w-4 h-4" />
