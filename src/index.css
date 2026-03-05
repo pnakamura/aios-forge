@@ -56,6 +56,12 @@
     --gradient-hero: linear-gradient(160deg, hsl(220 20% 4%) 0%, hsl(220 30% 8%) 50%, hsl(190 40% 8%) 100%);
     --shadow-glow: 0 0 30px -5px hsl(190 95% 50% / 0.3);
     --shadow-glow-accent: 0 0 30px -5px hsl(265 80% 60% / 0.3);
+
+    /* Library entity type colors */
+    --library-agent: 265 80% 60%;
+    --library-skill: 170 80% 38%;
+    --library-squad: 25 90% 50%;
+    --library-workflow: 220 90% 55%;
   }
 
   /* ── Light theme ── */
@@ -107,6 +113,12 @@
     --gradient-hero: linear-gradient(160deg, hsl(210 30% 98%) 0%, hsl(215 25% 95%) 50%, hsl(200 30% 95%) 100%);
     --shadow-glow: 0 0 30px -5px hsl(200 95% 40% / 0.15);
     --shadow-glow-accent: 0 0 30px -5px hsl(265 70% 55% / 0.15);
+
+    /* Library entity type colors */
+    --library-agent: 265 70% 55%;
+    --library-skill: 170 70% 32%;
+    --library-squad: 25 85% 45%;
+    --library-workflow: 220 85% 50%;
   }
 }
 
