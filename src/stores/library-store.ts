@@ -9,7 +9,7 @@
 import { create } from 'zustand';
 import type { LibraryFilter, LibraryItem, LibraryEntityType } from '@/types/library';
 import { DEFAULT_LIBRARY_FILTER } from '@/types/library';
-import { fetchLibraryItems, filterItems, toggleFavorite as toggleFav } from '@/services/library.service';
+import { fetchLibraryItems, filterItems, toggleFavorite as toggleFav, deleteElement } from '@/services/library.service';
 
 interface LibraryStore {
   items: LibraryItem[];
@@ -22,6 +22,7 @@ interface LibraryStore {
   resetFilter: () => void;
   setSelectedItem: (item: LibraryItem | null) => void;
   toggleFavorite: (entityType: LibraryEntityType, entityId: string) => Promise<void>;
+  deleteItem: (entityType: LibraryEntityType, entityId: string) => Promise<void>;
   setViewMode: (mode: 'grid' | 'list') => void;
   loadItems: () => Promise<void>;
 
@@ -58,6 +59,14 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
   },
 
   setViewMode: (mode) => set({ viewMode: mode }),
+
+  deleteItem: async (entityType, entityId) => {
+    await deleteElement(entityType, entityId);
+    set((s) => ({
+      items: s.items.filter((i) => i.id !== entityId),
+      selectedItem: s.selectedItem?.id === entityId ? null : s.selectedItem,
+    }));
+  },
 
   loadItems: async () => {
     set({ isLoading: true });
