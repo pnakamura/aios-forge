@@ -327,3 +327,27 @@ export async function importElement(
 
   throw new Error(`Tipo desconhecido: ${entityType}`);
 }
+
+// ── Delete element ──
+
+export async function deleteElement(entityType: string, entityId: string): Promise<void> {
+  const tableMap: Record<string, string> = {
+    agent: 'agents',
+    skill: 'skills',
+    squad: 'squads',
+    workflow: 'workflows_library',
+  };
+  const table = tableMap[entityType];
+  if (!table) throw new Error(`Tipo desconhecido: ${entityType}`);
+
+  // Clean up favorites
+  await supabase
+    .from('library_favorites')
+    .delete()
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId);
+
+  // Delete the entity
+  const { error } = await supabase.from(table).delete().eq('id', entityId);
+  if (error) throw error;
+}

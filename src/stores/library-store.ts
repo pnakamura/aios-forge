@@ -9,7 +9,7 @@
 import { create } from 'zustand';
 import type { LibraryFilter, LibraryItem, LibraryEntityType } from '@/types/library';
 import { DEFAULT_LIBRARY_FILTER } from '@/types/library';
-import { fetchLibraryItems, filterItems, toggleFavorite as toggleFav } from '@/services/library.service';
+import { fetchLibraryItems, filterItems, toggleFavorite as toggleFav, deleteElement } from '@/services/library.service';
 
 interface LibraryStore {
   items: LibraryItem[];
