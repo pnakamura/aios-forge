@@ -22,6 +22,7 @@ interface LibraryStore {
   resetFilter: () => void;
   setSelectedItem: (item: LibraryItem | null) => void;
   toggleFavorite: (entityType: LibraryEntityType, entityId: string) => Promise<void>;
+  deleteItem: (entityType: LibraryEntityType, entityId: string) => Promise<void>;
   setViewMode: (mode: 'grid' | 'list') => void;
   loadItems: () => Promise<void>;
 

@@ -348,6 +348,17 @@ export async function deleteElement(entityType: string, entityId: string): Promi
     .eq('entity_id', entityId);
 
   // Delete the entity
-  const { error } = await supabase.from(table).delete().eq('id', entityId);
-  if (error) throw error;
+  if (entityType === 'agent') {
+    const { error } = await supabase.from('agents').delete().eq('id', entityId);
+    if (error) throw error;
+  } else if (entityType === 'skill') {
+    const { error } = await supabase.from('skills').delete().eq('id', entityId);
+    if (error) throw error;
+  } else if (entityType === 'squad') {
+    const { error } = await supabase.from('squads').delete().eq('id', entityId);
+    if (error) throw error;
+  } else if (entityType === 'workflow') {
+    const { error } = await supabase.from('workflows_library').delete().eq('id', entityId);
+    if (error) throw error;
+  }
 }
