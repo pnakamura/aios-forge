@@ -15,7 +15,7 @@ import { useState } from 'react';
 import {
   Crown, Network, Search, Target, Building2, Palette,
   Users, Code, ShieldCheck, Star, Server, Plus, Check, X, Sparkles,
-  Terminal, Wrench, FileCode, Brain
+  Terminal, Wrench, FileCode, Brain, BookOpen
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
