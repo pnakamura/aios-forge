@@ -436,6 +436,9 @@ export function AgentCatalog() {
 
       {/* Agent Editor for editing added agents */}
       <AgentEditor agent={editAgent} open={!!editAgent} onOpenChange={(open) => { if (!open) setEditAgent(null); }} />
+
+      {/* Library Import Dialog */}
+      <LibraryImportWizardDialog open={showLibrary} onOpenChange={setShowLibrary} filterType="agent" />
     </div>
   );
 }

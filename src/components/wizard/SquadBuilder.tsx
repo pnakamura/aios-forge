@@ -12,10 +12,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Users, ListChecks, Bot, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, Users, ListChecks, Bot, ChevronDown, ChevronRight, BookOpen } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { LibraryImportWizardDialog } from './LibraryImportWizardDialog';
 
 export function SquadBuilder() {
   const { squads, agents, addSquad, removeSquad, updateSquad } = useWizardStore();
