@@ -60,6 +60,14 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
 
   setViewMode: (mode) => set({ viewMode: mode }),
 
+  deleteItem: async (entityType, entityId) => {
+    await deleteElement(entityType, entityId);
+    set((s) => ({
+      items: s.items.filter((i) => i.id !== entityId),
+      selectedItem: s.selectedItem?.id === entityId ? null : s.selectedItem,
+    }));
+  },
+
   loadItems: async () => {
     set({ isLoading: true });
     try {
