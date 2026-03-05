@@ -26,6 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ORCHESTRATION_PATTERNS } from '@/data/orchestration-patterns';
 import { AgentEditor } from './AgentEditor';
 import { EditableList } from './EditableList';
+import { LibraryImportWizardDialog } from './LibraryImportWizardDialog';
 
 const iconMap: Record<string, React.FC<any>> = {
   Crown, Network, Search, Target, Building2, Palette,
