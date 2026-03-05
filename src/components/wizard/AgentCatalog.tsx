@@ -15,7 +15,7 @@ import { useState } from 'react';
 import {
   Crown, Network, Search, Target, Building2, Palette,
   Users, Code, ShieldCheck, Star, Server, Plus, Check, X, Sparkles,
-  Terminal, Wrench, FileCode, Brain
+  Terminal, Wrench, FileCode, Brain, BookOpen
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ORCHESTRATION_PATTERNS } from '@/data/orchestration-patterns';
 import { AgentEditor } from './AgentEditor';
 import { EditableList } from './EditableList';
+import { LibraryImportWizardDialog } from './LibraryImportWizardDialog';
 
 const iconMap: Record<string, React.FC<any>> = {
   Crown, Network, Search, Target, Building2, Palette,
@@ -67,6 +68,7 @@ export function AgentCatalog() {
   const [detailAgent, setDetailAgent] = useState<typeof NATIVE_AGENTS[0] | null>(null);
   const [editAgent, setEditAgent] = useState<AiosAgent | null>(null);
   const [showCustom, setShowCustom] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
   const [draft, setDraft] = useState<CustomAgentDraft>({ ...emptyDraft });
 
   const filtered = filter === 'all' ? NATIVE_AGENTS : NATIVE_AGENTS.filter(a => a.category === filter);
@@ -131,9 +133,14 @@ export function AgentCatalog() {
     <div className="p-4 space-y-4 overflow-y-auto h-full">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-sm">Catalogo de Agentes</h3>
-        <Button variant="outline" size="sm" onClick={() => setShowCustom(true)} className="gap-1.5 text-xs">
-          <Plus className="w-3.5 h-3.5" /> Custom
-        </Button>
+        <div className="flex gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => setShowLibrary(true)} className="gap-1.5 text-xs">
+            <BookOpen className="w-3.5 h-3.5" /> Library
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowCustom(true)} className="gap-1.5 text-xs">
+            <Plus className="w-3.5 h-3.5" /> Custom
+          </Button>
+        </div>
       </div>
 
       {/* Recommended banner */}
@@ -429,6 +436,9 @@ export function AgentCatalog() {
 
       {/* Agent Editor for editing added agents */}
       <AgentEditor agent={editAgent} open={!!editAgent} onOpenChange={(open) => { if (!open) setEditAgent(null); }} />
+
+      {/* Library Import Dialog */}
+      <LibraryImportWizardDialog open={showLibrary} onOpenChange={setShowLibrary} filterType="agent" />
     </div>
   );
 }

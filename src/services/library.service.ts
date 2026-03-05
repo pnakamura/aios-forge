@@ -328,6 +328,25 @@ export async function importElement(
   throw new Error(`Tipo desconhecido: ${entityType}`);
 }
 
+// ── Fetch element for wizard import ──
+
+export async function fetchAgentForWizard(agentId: string) {
+  const { data, error } = await supabase.from('agents').select('*').eq('id', agentId).single();
+  if (error || !data) throw new Error('Agente nao encontrado');
+  return data;
+}
+
+export async function fetchSquadForWizard(squadId: string) {
+  const { data, error } = await supabase.from('squads').select('*').eq('id', squadId).single();
+  if (error || !data) throw new Error('Squad nao encontrado');
+  return data;
+}
+
+export async function fetchAgentsByProject(projectId: string) {
+  const { data } = await supabase.from('agents').select('*').eq('project_id', projectId);
+  return data ?? [];
+}
+
 // ── Delete element ──
 
 export async function deleteElement(entityType: string, entityId: string): Promise<void> {
