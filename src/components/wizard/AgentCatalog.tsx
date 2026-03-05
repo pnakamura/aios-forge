@@ -68,6 +68,7 @@ export function AgentCatalog() {
   const [detailAgent, setDetailAgent] = useState<typeof NATIVE_AGENTS[0] | null>(null);
   const [editAgent, setEditAgent] = useState<AiosAgent | null>(null);
   const [showCustom, setShowCustom] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
   const [draft, setDraft] = useState<CustomAgentDraft>({ ...emptyDraft });
 
   const filtered = filter === 'all' ? NATIVE_AGENTS : NATIVE_AGENTS.filter(a => a.category === filter);
