@@ -97,7 +97,7 @@ export function LibraryImportWizardDialog({ open, onOpenChange, filterType }: Pr
     try {
       const dbSquad = await fetchSquadForWizard(item.id);
       const agentIds = Array.isArray(dbSquad.agent_ids) ? dbSquad.agent_ids as string[] : [];
-      const tasks = Array.isArray(dbSquad.tasks) ? dbSquad.tasks as SquadTask[] : [];
+      const tasks = Array.isArray(dbSquad.tasks) ? dbSquad.tasks as unknown as SquadTask[] : [];
       const workflows = Array.isArray(dbSquad.workflows) ? dbSquad.workflows : [];
 
       // Resolve agent dependencies
@@ -148,7 +148,7 @@ export function LibraryImportWizardDialog({ open, onOpenChange, filterType }: Pr
           dependencies: t.dependencies || [],
           checklist: t.checklist || [],
         })),
-        workflows: Array.isArray(workflows) ? workflows as AiosSquad['workflows'] : [],
+        workflows: Array.isArray(workflows) ? workflows as unknown as AiosSquad['workflows'] : [],
         isValidated: dbSquad.is_validated,
       };
 

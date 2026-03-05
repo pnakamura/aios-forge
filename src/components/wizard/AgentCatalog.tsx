@@ -133,9 +133,14 @@ export function AgentCatalog() {
     <div className="p-4 space-y-4 overflow-y-auto h-full">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-sm">Catalogo de Agentes</h3>
-        <Button variant="outline" size="sm" onClick={() => setShowCustom(true)} className="gap-1.5 text-xs">
-          <Plus className="w-3.5 h-3.5" /> Custom
-        </Button>
+        <div className="flex gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => setShowLibrary(true)} className="gap-1.5 text-xs">
+            <BookOpen className="w-3.5 h-3.5" /> Library
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowCustom(true)} className="gap-1.5 text-xs">
+            <Plus className="w-3.5 h-3.5" /> Custom
+          </Button>
+        </div>
       </div>
 
       {/* Recommended banner */}
