@@ -5,11 +5,16 @@
  * @context   Exibe visao geral e detalhes tecnicos do item, com tabs por tipo de entidade.
  */
 
-import { X, Star, ExternalLink, Bot, Zap, Users, GitBranch } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { X, Star, ExternalLink, Bot, Zap, Users, GitBranch, GitFork } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { supabase } from '@/integrations/supabase/client';
+import { createFork } from '@/services/library-editor.service';
+import { toast } from '@/hooks/use-toast';
 import type { LibraryItem, LibraryEntityType } from '@/types/library';
 import AgentDetail from './detail/AgentDetail';
 import SkillDetail from './detail/SkillDetail';
@@ -27,8 +32,28 @@ interface LibraryDetailPanelProps {
 }
 
 export default function LibraryDetailPanel({ item, onClose, onToggleFavorite }: LibraryDetailPanelProps) {
+  const navigate = useNavigate();
+  const [forking, setForking] = useState(false);
   const Icon = TYPE_ICONS[item.type];
   const formatDate = (d: string) => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  const handleFork = async () => {
+    setForking(true);
+    try {
+      const { data: projects } = await supabase.from('projects').select('id').limit(1);
+      const projectId = projects?.[0]?.id;
+      if (!projectId) {
+        toast({ title: 'Nenhum projeto encontrado', description: 'Crie um projeto primeiro.', variant: 'destructive' });
+        return;
+      }
+      const forkId = await createFork(item.type, item.id, projectId);
+      navigate(`/library/editor/${item.type}/${forkId}`);
+    } catch (e) {
+      toast({ title: 'Erro ao criar fork', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setForking(false);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full">

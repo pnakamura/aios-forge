@@ -5,7 +5,8 @@
  * @context   Usado no LibraryGrid e LibraryList para exibir cada artefato.
  */
 
-import { Bot, Zap, Users, GitBranch, Star, Eye, Import } from 'lucide-react';
+import { Bot, Zap, Users, GitBranch, Star, Eye, Import, Pencil } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
@@ -26,9 +27,11 @@ interface LibraryCardProps {
 }
 
 export default function LibraryCard({ item, index = 0, onSelect, onToggleFavorite }: LibraryCardProps) {
+  const navigate = useNavigate();
   const cfg = TYPE_CONFIG[item.type];
   const Icon = cfg.icon;
   const borderColor = `hsl(${cfg.colorVar})`;
+  const isDraftOrFork = item.status === 'draft' || item.status === 'fork';
 
   const metaChips: string[] = [];
   if (item.meta.type === 'agent') {
@@ -54,6 +57,16 @@ export default function LibraryCard({ item, index = 0, onSelect, onToggleFavorit
       className="glass rounded-xl p-5 cursor-pointer hover:border-primary/30 transition-all group relative"
       style={{ borderLeftWidth: 3, borderLeftColor: borderColor }}
     >
+      {/* Draft/Fork badge */}
+      {isDraftOrFork && (
+        <Badge
+          className="absolute top-2 left-2 text-[9px] z-10"
+          variant={item.status === 'draft' ? 'secondary' : 'outline'}
+          style={item.status === 'fork' ? { borderColor: 'hsl(var(--library-workflow))', color: 'hsl(var(--library-workflow))' } : { backgroundColor: 'hsl(var(--glow-warning) / 0.2)', color: 'hsl(var(--glow-warning))' }}
+        >
+          {item.status === 'draft' ? 'Rascunho' : 'Fork'}
+        </Badge>
+      )}
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
@@ -112,12 +125,20 @@ export default function LibraryCard({ item, index = 0, onSelect, onToggleFavorit
 
       {/* Hover actions */}
       <div className="absolute inset-0 rounded-xl bg-background/60 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-        <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={(e) => { e.stopPropagation(); onSelect(item); }}>
-          <Eye className="w-3 h-3" /> Detalhes
-        </Button>
-        <Button size="sm" className="gap-1.5 text-xs" onClick={(e) => { e.stopPropagation(); /* import handled at page level */ }}>
-          <Import className="w-3 h-3" /> Importar
-        </Button>
+        {isDraftOrFork ? (
+          <Button size="sm" className="gap-1.5 text-xs" onClick={(e) => { e.stopPropagation(); navigate(`/library/editor/${item.type}/${item.id}`); }}>
+            <Pencil className="w-3 h-3" /> Continuar editando
+          </Button>
+        ) : (
+          <>
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={(e) => { e.stopPropagation(); onSelect(item); }}>
+              <Eye className="w-3 h-3" /> Detalhes
+            </Button>
+            <Button size="sm" className="gap-1.5 text-xs" onClick={(e) => { e.stopPropagation(); /* import handled at page level */ }}>
+              <Import className="w-3 h-3" /> Importar
+            </Button>
+          </>
+        )}
       </div>
     </motion.div>
   );
