@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { importElementFromFile } from '@/services/library-import.service';
+import { isAiosPackage, detectAiosPackageType, parseAiosPackage } from '@/services/aios-package-parser';
 import type { LibraryEntityType } from '@/types/library';
 
 interface FileImportDialogProps {
@@ -57,6 +58,7 @@ const HELP_CONTENT: Record<LibraryEntityType, { title: string; description: stri
     ],
     tips: [
       'Arquivos .md: use o formato @agent com headers @name, @role, @slug no docblock.',
+      'Voce tambem pode importar arquivos .agent gerados pelo Claude Code ou outros geradores AIOS.',
       'Se slug nao for informado, sera gerado a partir do name.',
     ],
   },
@@ -74,7 +76,10 @@ const HELP_CONTENT: Record<LibraryEntityType, { title: string; description: stri
       { name: 'examples', required: false, desc: 'Array de exemplos [{title, input, output}]' },
       { name: 'tags', required: false, desc: 'Array de tags' },
     ],
-    tips: ['Apenas formato JSON e suportado para skills.'],
+    tips: [
+      'Voce tambem pode importar arquivos .skill gerados pelo Claude Code ou outros geradores AIOS.',
+      'O arquivo .skill e um pacote ZIP contendo SKILL.md com a definicao completa.',
+    ],
   },
   squad: {
     title: 'Importar Squad',
@@ -92,6 +97,7 @@ const HELP_CONTENT: Record<LibraryEntityType, { title: string; description: stri
       'Voce pode enviar multiplos arquivos: 1 squad + N agentes.',
       'O sistema detecta automaticamente squads (campo agent_ids) vs agentes.',
       'Agentes enviados junto serao importados automaticamente.',
+      'Voce tambem pode importar arquivos .squad gerados pelo Claude Code.',
     ],
   },
   workflow: {
@@ -106,7 +112,10 @@ const HELP_CONTENT: Record<LibraryEntityType, { title: string; description: stri
       { name: 'outputs', required: false, desc: 'Array de outputs' },
       { name: 'tags', required: false, desc: 'Array de tags' },
     ],
-    tips: ['Apenas formato JSON e suportado para workflows.'],
+    tips: [
+      'Voce tambem pode importar arquivos .workflow gerados pelo Claude Code.',
+      'O arquivo .workflow e um pacote ZIP contendo WORKFLOW.md com a definicao completa.',
+    ],
   },
 };
 
@@ -230,6 +239,20 @@ export default function FileImportDialog({ open, onOpenChange, onImported }: Fil
         });
         continue;
       }
+
+      // Handle AIOS packages (.skill, .agent, .squad, .workflow)
+      if (isAiosPackage(file.name)) {
+        const result = await parseAiosPackage(file);
+        results.push({
+          fileName: file.name,
+          entityType: result.entityType,
+          data: result.data,
+          errors: result.errors,
+          isValid: result.errors.length === 0,
+        });
+        continue;
+      }
+
       const content = await file.text();
       results.push(parseFile(file, content, entityType));
     }
@@ -367,7 +390,7 @@ export default function FileImportDialog({ open, onOpenChange, onImported }: Fil
             <input
               ref={inputRef}
               type="file"
-              accept=".json,.md"
+              accept=".json,.md,.skill,.agent,.squad,.workflow"
               multiple
               className="hidden"
               onChange={handleFileInput}
@@ -383,7 +406,7 @@ export default function FileImportDialog({ open, onOpenChange, onImported }: Fil
             >
               <Upload className="w-6 h-6 text-muted-foreground" />
               <span className="text-xs text-muted-foreground">Arraste arquivos aqui ou clique para selecionar</span>
-              <span className="text-[10px] text-muted-foreground/60">JSON{entityType === 'agent' ? ' ou MD' : ''} • Max 1MB • Ate 10 arquivos</span>
+              <span className="text-[10px] text-muted-foreground/60">JSON{entityType === 'agent' ? ', MD' : ''}, .{entityType} (pacote AIOS) • Max 1MB • Ate 10 arquivos</span>
             </div>
 
             <div className="flex justify-between">
