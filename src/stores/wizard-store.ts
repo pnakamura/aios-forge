@@ -7,7 +7,7 @@
  */
 
 import { create } from 'zustand';
-import { WizardStep, AiosAgent, AiosSquad, AiosProject, ChatMessage, WIZARD_STEPS, OrchestrationPatternType } from '@/types/aios';
+import { WizardStep, AiosAgent, AiosSquad, AiosProject, ChatMessage, WIZARD_STEPS, OrchestrationPatternType, normalizeCommands } from '@/types/aios';
 import { FeedbackCollector } from '@/lib/self-improve/feedback-collector';
 
 interface WizardState {
@@ -175,7 +175,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       role: a.role,
       systemPrompt: a.system_prompt || '',
       llmModel: a.llm_model || 'gemini-3-flash-preview',
-      commands: a.commands || [],
+      commands: normalizeCommands(a.commands || []),
       tools: a.tools || [],
       skills: a.skills || [],
       memory: a.memory || [],

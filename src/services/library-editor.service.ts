@@ -295,6 +295,21 @@ export async function loadEntityForEditor(type: LibraryEntityType, id: string): 
 
   let formData: FormData;
   if (type === 'agent') {
+    // Normalize commands from DB (may be strings or objects)
+    const rawCommands = (raw.commands as unknown[]) || [];
+    const normalizedCmds = rawCommands.map((c: unknown) => {
+      if (typeof c === 'string') return { name: c, description: '', visibility: 'public', handler: '' };
+      if (c && typeof c === 'object') {
+        const obj = c as Record<string, unknown>;
+        return {
+          name: String(obj.name || ''),
+          description: String(obj.description || ''),
+          visibility: String(obj.visibility || 'public'),
+          handler: String(obj.handler || obj.returnType || ''),
+        };
+      }
+      return { name: '', description: '', visibility: 'public', handler: '' };
+    });
     formData = {
       name: raw.name as string,
       slug: raw.slug as string,
@@ -302,7 +317,7 @@ export async function loadEntityForEditor(type: LibraryEntityType, id: string): 
       category: (raw.is_custom as boolean) ? 'Custom' : 'Nativo',
       systemPrompt: raw.system_prompt as string,
       llmModel: raw.llm_model as string,
-      commands: (raw.commands as AgentFormData['commands']) || [],
+      commands: normalizedCmds,
       tools: (raw.tools as string[]) || [],
       skills: (raw.skills as string[]) || [],
       visibility: raw.visibility as string,

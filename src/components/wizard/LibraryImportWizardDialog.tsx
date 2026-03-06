@@ -17,7 +17,7 @@ import { useWizardStore } from '@/stores/wizard-store';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { LibraryItem } from '@/types/library';
-import type { AiosAgent, AiosSquad, SquadTask } from '@/types/aios';
+import { AiosAgent, AiosSquad, SquadTask, normalizeCommands } from '@/types/aios';
 
 interface Props {
   open: boolean;
@@ -60,7 +60,7 @@ export function LibraryImportWizardDialog({ open, onOpenChange, filterType }: Pr
     setImporting(true);
     try {
       const dbAgent = await fetchAgentForWizard(item.id);
-      const commands = Array.isArray(dbAgent.commands) ? dbAgent.commands as string[] : [];
+      const commands = normalizeCommands(Array.isArray(dbAgent.commands) ? dbAgent.commands : []);
       const tools = Array.isArray(dbAgent.tools) ? dbAgent.tools as string[] : [];
       const skills = Array.isArray(dbAgent.skills) ? dbAgent.skills as string[] : [];
 
@@ -113,7 +113,7 @@ export function LibraryImportWizardDialog({ open, onOpenChange, filterType }: Pr
           if (!existingSlugs.has(agSlug)) {
             const dbAg = agentSlugMap.get(agSlug);
             if (dbAg) {
-              const cmds = Array.isArray(dbAg.commands) ? dbAg.commands as string[] : [];
+              const cmds = normalizeCommands(Array.isArray(dbAg.commands) ? dbAg.commands : []);
               const tls = Array.isArray(dbAg.tools) ? dbAg.tools as string[] : [];
               const sks = Array.isArray(dbAg.skills) ? dbAg.skills as string[] : [];
               addAgent({

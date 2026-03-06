@@ -53,7 +53,7 @@ export interface NativeAgent {
   description: string;
   defaultSystemPrompt: string;
   defaultModel: string;
-  defaultCommands: string[];
+  defaultCommands: AgentCommand[];
   icon: string;
   compatiblePatterns: OrchestrationPatternType[];
   defaultTools: string[];
@@ -87,19 +87,36 @@ export interface AiosAgent {
   role: string;
   systemPrompt: string;
   llmModel: string;
-  commands: string[];
+  commands: AgentCommand[];
   tools: string[];
   skills: string[];
   memory: AgentMemory[];
   visibility: 'full' | 'quick' | 'key';
   isCustom: boolean;
   category?: AgentCategory;
-  /** Structured commands with description, visibility and handler (Agent File v4.2.13) */
-  structuredCommands?: AgentCommand[];
   /** File dependencies (services, hooks, types) */
   dependencies?: AgentDependencies;
   /** When to activate this agent — use case description */
   context?: string;
+}
+
+/** Normalizes legacy string commands to structured AgentCommand format */
+export function normalizeCommands(commands: unknown[]): AgentCommand[] {
+  return commands.map(c => {
+    if (typeof c === 'string') {
+      return { name: c, description: '', visibility: 'public' as const, handler: '' };
+    }
+    if (c && typeof c === 'object') {
+      const obj = c as Record<string, unknown>;
+      return {
+        name: String(obj.name || ''),
+        description: String(obj.description || ''),
+        visibility: (obj.visibility as AgentCommand['visibility']) || 'public',
+        handler: String(obj.handler || obj.returnType || ''),
+      };
+    }
+    return { name: '', description: '', visibility: 'public' as const, handler: '' };
+  });
 }
 
 export interface AiosSquad {

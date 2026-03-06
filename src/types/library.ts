@@ -114,7 +114,7 @@ export interface AgentFormData {
   category: string;
   systemPrompt: string;
   llmModel: string;
-  commands: { name: string; description: string; returnType: string }[];
+  commands: { name: string; description: string; visibility: string; handler: string }[];
   tools: string[];
   skills: string[];
   visibility: string;
