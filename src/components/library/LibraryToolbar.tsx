@@ -7,7 +7,8 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutGrid, List, Plus, Bot, Zap, Users, GitBranch } from 'lucide-react';
+import { LayoutGrid, List, Plus, Upload, Bot, Zap, Users, GitBranch } from 'lucide-react';
+import FileImportDialog from '@/components/library/FileImportDialog';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useLibraryStore } from '@/stores/library-store';
