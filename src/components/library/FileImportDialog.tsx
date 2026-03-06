@@ -2,16 +2,17 @@
  * @agent     FileImportDialog
  * @persona   Dialog multi-step para importar elementos da Library via upload de arquivos
  * @commands  render
- * @context   Permite ao usuario importar agents, skills, squads e workflows via JSON ou MD.
+ * @context   Permite ao usuario importar agents, skills, squads e workflows via JSON, MD ou pacotes AIOS.
  */
 
 import { useState, useCallback, useRef } from 'react';
-import { Upload, FileJson, FileText, Bot, Zap, Users, GitBranch, AlertCircle, CheckCircle2, ChevronRight, ChevronLeft, X, HelpCircle } from 'lucide-react';
+import { Upload, FileJson, FileText, Bot, Zap, Users, GitBranch, AlertCircle, CheckCircle2, ChevronRight, ChevronLeft, X, HelpCircle, AlertTriangle, ChevronDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { importElementFromFile } from '@/services/library-import.service';
@@ -31,7 +32,9 @@ interface ParsedElement {
   entityType: LibraryEntityType;
   data: Record<string, unknown>;
   errors: string[];
+  warnings: string[];
   isValid: boolean;
+  rawContent: string;
 }
 
 const TYPE_META: Record<LibraryEntityType, { label: string; icon: typeof Bot; color: string }> = {
@@ -139,7 +142,6 @@ function parseAgentMd(content: string): Record<string, unknown> {
     result.slug = toSlug(result.name as string);
   }
 
-  // Extract body after docblock as system_prompt
   const docblockEnd = content.indexOf('*/');
   if (docblockEnd !== -1) {
     const body = content.slice(docblockEnd + 2).trim();
@@ -166,13 +168,11 @@ function parseFile(file: File, content: string, entityType: LibraryEntityType): 
     errors.push('Erro ao fazer parse do arquivo. Verifique se o JSON e valido.');
   }
 
-  // Detect type for squad multi-file
   let detectedType = entityType;
   if (entityType === 'squad' && !data.agent_ids && data.role) {
     detectedType = 'agent';
   }
 
-  // Validate required fields
   if (!data.name) errors.push('Campo obrigatorio ausente: name');
   if (!data.slug && data.name) {
     data.slug = toSlug(data.name as string);
@@ -184,11 +184,46 @@ function parseFile(file: File, content: string, entityType: LibraryEntityType): 
     entityType: detectedType,
     data,
     errors,
+    warnings: [],
     isValid: errors.length === 0,
+    rawContent: content,
   };
 }
 
-const MAX_FILE_SIZE = 1024 * 1024; // 1MB
+/** Returns field-level summary for the preview */
+function getFieldSummary(el: ParsedElement): { label: string; value: string; empty: boolean }[] {
+  const fields: { label: string; value: string; empty: boolean }[] = [];
+  const d = el.data;
+
+  fields.push({ label: 'Nome', value: (d.name as string) || '', empty: !d.name });
+  fields.push({ label: 'Slug', value: (d.slug as string) || '', empty: !d.slug });
+
+  if (el.entityType === 'skill') {
+    const desc = (d.description as string) || '';
+    fields.push({ label: 'Descricao', value: desc.length > 80 ? desc.slice(0, 80) + '…' : desc, empty: desc.length < 3 });
+    const prompt = (d.prompt as string) || '';
+    fields.push({ label: 'Prompt', value: prompt ? `${prompt.length} caracteres` : '', empty: !prompt });
+    fields.push({ label: 'Inputs', value: Array.isArray(d.inputs) && d.inputs.length > 0 ? `${d.inputs.length} item(ns)` : '', empty: !Array.isArray(d.inputs) || d.inputs.length === 0 });
+    fields.push({ label: 'Outputs', value: Array.isArray(d.outputs) && d.outputs.length > 0 ? `${d.outputs.length} item(ns)` : '', empty: !Array.isArray(d.outputs) || d.outputs.length === 0 });
+  } else if (el.entityType === 'agent') {
+    fields.push({ label: 'Role', value: (d.role as string) || '', empty: !d.role });
+    const sp = (d.system_prompt as string) || '';
+    fields.push({ label: 'System Prompt', value: sp ? `${sp.length} caracteres` : '', empty: !sp });
+    fields.push({ label: 'Commands', value: Array.isArray(d.commands) && d.commands.length > 0 ? `${d.commands.length} item(ns)` : '', empty: !Array.isArray(d.commands) || d.commands.length === 0 });
+  } else if (el.entityType === 'squad') {
+    fields.push({ label: 'Descricao', value: (d.description as string) || '', empty: !d.description });
+    fields.push({ label: 'Agentes', value: Array.isArray(d.agent_ids) && d.agent_ids.length > 0 ? `${d.agent_ids.length} item(ns)` : '', empty: !Array.isArray(d.agent_ids) || d.agent_ids.length === 0 });
+    fields.push({ label: 'Tasks', value: Array.isArray(d.tasks) && d.tasks.length > 0 ? `${d.tasks.length} item(ns)` : '', empty: !Array.isArray(d.tasks) || d.tasks.length === 0 });
+  } else if (el.entityType === 'workflow') {
+    fields.push({ label: 'Descricao', value: (d.description as string) || '', empty: !d.description });
+    fields.push({ label: 'Pattern', value: (d.pattern as string) || '', empty: !d.pattern });
+    fields.push({ label: 'Steps', value: Array.isArray(d.steps) && d.steps.length > 0 ? `${d.steps.length} item(ns)` : '', empty: !Array.isArray(d.steps) || d.steps.length === 0 });
+  }
+
+  return fields;
+}
+
+const MAX_FILE_SIZE = 1024 * 1024;
 const MAX_FILES = 10;
 
 export default function FileImportDialog({ open, onOpenChange, onImported }: FileImportDialogProps) {
@@ -199,6 +234,7 @@ export default function FileImportDialog({ open, onOpenChange, onImported }: Fil
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [importing, setImporting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [expandedRaw, setExpandedRaw] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const resetState = useCallback(() => {
@@ -206,6 +242,7 @@ export default function FileImportDialog({ open, onOpenChange, onImported }: Fil
     setParsedElements([]);
     setProjectId('');
     setImporting(false);
+    setExpandedRaw(null);
   }, []);
 
   const handleOpenChange = (open: boolean) => {
@@ -235,12 +272,13 @@ export default function FileImportDialog({ open, onOpenChange, onImported }: Fil
           entityType,
           data: {},
           errors: [`Arquivo excede o limite de 1MB (${(file.size / 1024 / 1024).toFixed(1)}MB)`],
+          warnings: [],
           isValid: false,
+          rawContent: '',
         });
         continue;
       }
 
-      // Handle AIOS packages (.skill, .agent, .squad, .workflow)
       if (isAiosPackage(file.name)) {
         const result = await parseAiosPackage(file);
         results.push({
@@ -248,7 +286,9 @@ export default function FileImportDialog({ open, onOpenChange, onImported }: Fil
           entityType: result.entityType,
           data: result.data,
           errors: result.errors,
+          warnings: result.warnings,
           isValid: result.errors.length === 0,
+          rawContent: result.rawContent,
         });
         continue;
       }
@@ -302,11 +342,11 @@ export default function FileImportDialog({ open, onOpenChange, onImported }: Fil
 
   const help = HELP_CONTENT[entityType];
   const validCount = parsedElements.filter((e) => e.isValid).length;
-  const TypeIcon = TYPE_META[entityType].icon;
+  const totalWarnings = parsedElements.reduce((sum, el) => sum + el.warnings.length, 0);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[85vh] flex flex-col">
+      <DialogContent className="sm:max-w-[640px] max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">
             <Upload className="w-4 h-4" />
@@ -348,7 +388,6 @@ export default function FileImportDialog({ open, onOpenChange, onImported }: Fil
         {/* Step 2: Help + Upload */}
         {step === 'upload' && (
           <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
-            {/* Help card */}
             <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
               <div className="flex items-center gap-2 text-xs font-medium">
                 <HelpCircle className="w-3.5 h-3.5 text-primary" />
@@ -386,7 +425,6 @@ export default function FileImportDialog({ open, onOpenChange, onImported }: Fil
               )}
             </div>
 
-            {/* Drop zone */}
             <input
               ref={inputRef}
               type="file"
@@ -420,13 +458,30 @@ export default function FileImportDialog({ open, onOpenChange, onImported }: Fil
         {/* Step 3: Preview + Confirm */}
         {step === 'preview' && (
           <div className="space-y-3 flex-1 overflow-hidden flex flex-col">
-            <ScrollArea className="flex-1 max-h-[280px]">
+            {/* Warnings banner */}
+            {totalWarnings > 0 && (
+              <div className="flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/5 px-3 py-2 text-[11px] text-yellow-600 dark:text-yellow-400">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                <span>{totalWarnings} aviso(s): alguns campos podem nao ter sido extraidos corretamente. Verifique o preview abaixo.</span>
+              </div>
+            )}
+
+            <ScrollArea className="flex-1 max-h-[320px]">
               <div className="space-y-2">
                 {parsedElements.map((el, i) => {
                   const Meta = TYPE_META[el.entityType];
                   const Icon = Meta.icon;
+                  const fieldSummary = getFieldSummary(el);
+                  const hasWarnings = el.warnings.length > 0;
+                  const borderClass = !el.isValid
+                    ? 'border-destructive/50 bg-destructive/5'
+                    : hasWarnings
+                    ? 'border-yellow-500/30 bg-yellow-500/5'
+                    : 'border-border';
+
                   return (
-                    <div key={i} className={`rounded-lg border p-3 text-xs space-y-1 ${el.isValid ? 'border-border' : 'border-destructive/50 bg-destructive/5'}`}>
+                    <div key={i} className={`rounded-lg border p-3 text-xs space-y-2 ${borderClass}`}>
+                      {/* Header */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Icon className="w-3.5 h-3.5" style={{ color: Meta.color }} />
@@ -434,23 +489,62 @@ export default function FileImportDialog({ open, onOpenChange, onImported }: Fil
                           <Badge variant="outline" className="text-[9px] h-4">{Meta.label}</Badge>
                         </div>
                         {el.isValid ? (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                          hasWarnings ? (
+                            <AlertTriangle className="w-3.5 h-3.5 text-yellow-500" />
+                          ) : (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                          )
                         ) : (
                           <AlertCircle className="w-3.5 h-3.5 text-destructive" />
                         )}
                       </div>
-                      <p className="text-muted-foreground flex items-center gap-1">
-                        {el.isValid ? (
-                          <>
-                            <FileJson className="w-3 h-3" /> {el.fileName} — slug: <code className="font-mono text-primary/80">{el.data.slug as string}</code>
-                          </>
-                        ) : null}
-                      </p>
+
+                      {/* Field-level summary table */}
+                      {el.isValid && (
+                        <div className="rounded border border-border/50 overflow-hidden">
+                          <table className="w-full text-[10px]">
+                            <tbody>
+                              {fieldSummary.map((f, fi) => (
+                                <tr key={fi} className={fi > 0 ? 'border-t border-border/30' : ''}>
+                                  <td className="px-2 py-0.5 font-medium text-muted-foreground w-24">{f.label}</td>
+                                  <td className={`px-2 py-0.5 ${f.empty ? 'text-yellow-600 dark:text-yellow-400 italic' : 'text-foreground'}`}>
+                                    {f.empty ? '(vazio)' : f.value}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {/* Warnings */}
+                      {el.warnings.map((warn, j) => (
+                        <p key={j} className="text-yellow-600 dark:text-yellow-400 text-[10px] flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3 shrink-0" /> {warn}
+                        </p>
+                      ))}
+
+                      {/* Errors */}
                       {el.errors.map((err, j) => (
                         <p key={j} className="text-destructive text-[10px] flex items-center gap-1">
                           <X className="w-3 h-3 shrink-0" /> {err}
                         </p>
                       ))}
+
+                      {/* Raw content collapsible */}
+                      {el.rawContent && (
+                        <Collapsible open={expandedRaw === i} onOpenChange={(open) => setExpandedRaw(open ? i : null)}>
+                          <CollapsibleTrigger className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                            <ChevronDown className={`w-3 h-3 transition-transform ${expandedRaw === i ? 'rotate-180' : ''}`} />
+                            Ver conteudo bruto do MD
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <pre className="mt-1 max-h-[120px] overflow-auto rounded bg-muted/50 border border-border/50 p-2 text-[9px] font-mono text-muted-foreground whitespace-pre-wrap">
+                              {el.rawContent.slice(0, 2000)}{el.rawContent.length > 2000 ? '\n\n[... truncado]' : ''}
+                            </pre>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      )}
                     </div>
                   );
                 })}
@@ -479,6 +573,7 @@ export default function FileImportDialog({ open, onOpenChange, onImported }: Fil
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-muted-foreground">
                   {validCount} de {parsedElements.length} valido(s)
+                  {totalWarnings > 0 && ` • ${totalWarnings} aviso(s)`}
                 </span>
                 <Button
                   size="sm"
