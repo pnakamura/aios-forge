@@ -1,8 +1,8 @@
 /**
  * @agent     LibraryEditorPage
- * @persona   Pagina do editor de elementos da Library com formulario e painel IA
+ * @persona   Pagina do editor de elementos da Library com formulario, painel IA e comparacao
  * @squad     pages
- * @context   Rota /library/editor/:type/:id. Layout duas colunas: formulario + IA.
+ * @context   Rota /library/editor/:type/:id. Layout duas colunas: formulario + IA ou Compare.
  */
 
 import { useEffect, useState } from 'react';
@@ -14,6 +14,8 @@ import { useAutoSave } from '@/hooks/useAutoSave';
 import { getSession } from '@/services/auth.service';
 import EditorHeader from '@/components/library/editor/EditorHeader';
 import EditorAiPanel from '@/components/library/editor/EditorAiPanel';
+import ComparePanel from '@/components/library/editor/ComparePanel';
+import CompareSelectDialog from '@/components/library/editor/CompareSelectDialog';
 import PublishDialog from '@/components/library/editor/PublishDialog';
 import DiscardDialog from '@/components/library/editor/DiscardDialog';
 import AgentForm from '@/components/library/editor/forms/AgentForm';
@@ -28,15 +30,19 @@ export default function LibraryEditorPage() {
   const {
     workingCopy,
     aiPanelOpen,
+    comparePanelOpen,
     validationErrors,
     loadEntity,
     updateField,
     runValidation,
+    loadCompareEntity,
+    closeCompare,
     reset,
   } = useLibraryEditorStore();
 
   const [publishOpen, setPublishOpen] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
+  const [compareSelectOpen, setCompareSelectOpen] = useState(false);
 
   useAutoSave();
 
@@ -53,7 +59,6 @@ export default function LibraryEditorPage() {
   const handleAiRequest = (prompt: string) => {
     const store = useLibraryEditorStore.getState();
     if (!store.aiPanelOpen) store.toggleAiPanel();
-    // Simulate sending message via the AI panel
     store.addAiMessage({
       id: crypto.randomUUID(),
       role: 'user',
@@ -61,6 +66,13 @@ export default function LibraryEditorPage() {
       timestamp: new Date().toISOString(),
     });
   };
+
+  const handleCompareSelect = async (selectedId: string, selectedName: string) => {
+    if (!type) return;
+    await loadCompareEntity(type as LibraryEntityType, selectedId, selectedName);
+  };
+
+  const sidePanelOpen = aiPanelOpen || comparePanelOpen;
 
   if (!workingCopy) {
     return (
@@ -91,12 +103,13 @@ export default function LibraryEditorPage() {
         onPublish={() => setPublishOpen(true)}
         onDiscard={() => setDiscardOpen(true)}
         onValidate={runValidation}
+        onCompare={() => setCompareSelectOpen(true)}
       />
 
       <div className="flex-1 h-[calc(100vh-49px)]">
         <ResizablePanelGroup direction="horizontal">
           {/* Form panel */}
-          <ResizablePanel defaultSize={aiPanelOpen ? 60 : 100} minSize={40}>
+          <ResizablePanel defaultSize={sidePanelOpen ? 60 : 100} minSize={40}>
             <ScrollArea className="h-full">
               <div className="p-6 max-w-3xl mx-auto">
                 {renderForm()}
@@ -117,12 +130,16 @@ export default function LibraryEditorPage() {
             </ScrollArea>
           </ResizablePanel>
 
-          {/* AI panel */}
-          {aiPanelOpen && (
+          {/* Side panel: AI or Compare */}
+          {sidePanelOpen && (
             <>
               <ResizableHandle withHandle />
               <ResizablePanel defaultSize={40} minSize={25} maxSize={50}>
-                <EditorAiPanel onClose={() => useLibraryEditorStore.getState().toggleAiPanel()} />
+                {comparePanelOpen ? (
+                  <ComparePanel onClose={closeCompare} />
+                ) : (
+                  <EditorAiPanel onClose={() => useLibraryEditorStore.getState().toggleAiPanel()} />
+                )}
               </ResizablePanel>
             </>
           )}
@@ -131,6 +148,13 @@ export default function LibraryEditorPage() {
 
       <PublishDialog open={publishOpen} onOpenChange={setPublishOpen} />
       <DiscardDialog open={discardOpen} onOpenChange={setDiscardOpen} />
+      <CompareSelectDialog
+        open={compareSelectOpen}
+        onOpenChange={setCompareSelectOpen}
+        entityType={(type as LibraryEntityType) || 'agent'}
+        currentEntityId={id || ''}
+        onSelect={handleCompareSelect}
+      />
     </div>
   );
 }
