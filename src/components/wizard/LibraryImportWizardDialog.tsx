@@ -17,7 +17,7 @@ import { useWizardStore } from '@/stores/wizard-store';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { LibraryItem } from '@/types/library';
-import type { AiosAgent, AiosSquad, SquadTask } from '@/types/aios';
+import { AiosAgent, AiosSquad, SquadTask, normalizeCommands } from '@/types/aios';
 
 interface Props {
   open: boolean;
