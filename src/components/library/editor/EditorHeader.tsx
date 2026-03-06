@@ -5,7 +5,7 @@
  * @context   Exibe status do working copy, botoes de salvar/publicar/descartar e toggle IA.
  */
 
-import { ArrowLeft, Save, Upload, Trash2, Sparkles, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Upload, Trash2, Sparkles, CheckCircle, AlertCircle, Loader2, GitCompareArrows } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
@@ -19,11 +19,12 @@ interface EditorHeaderProps {
   onPublish: () => void;
   onDiscard: () => void;
   onValidate: () => void;
+  onCompare: () => void;
 }
 
-export default function EditorHeader({ onPublish, onDiscard, onValidate }: EditorHeaderProps) {
+export default function EditorHeader({ onPublish, onDiscard, onValidate, onCompare }: EditorHeaderProps) {
   const navigate = useNavigate();
-  const { workingCopy, isSaving, validationErrors, aiPanelOpen, toggleAiPanel, saveDraft } = useLibraryEditorStore();
+  const { workingCopy, isSaving, validationErrors, aiPanelOpen, comparePanelOpen, toggleAiPanel, saveDraft } = useLibraryEditorStore();
 
   if (!workingCopy) return null;
 
@@ -82,6 +83,9 @@ export default function EditorHeader({ onPublish, onDiscard, onValidate }: Edito
 
         <Button variant="outline" size="sm" className="text-xs gap-1" onClick={onValidate}>
           <CheckCircle className="w-3 h-3" /> Validar
+        </Button>
+        <Button variant={comparePanelOpen ? 'secondary' : 'outline'} size="sm" className="text-xs gap-1" onClick={onCompare}>
+          <GitCompareArrows className="w-3 h-3" /> Comparar
         </Button>
         <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => saveDraft()} disabled={isSaving}>
           {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Salvar

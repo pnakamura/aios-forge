@@ -64,8 +64,8 @@ export default function ComparePanel({ onClose }: ComparePanelProps) {
 
   const diffs = useMemo<FieldDiff[]>(() => {
     if (!workingCopy || !compareEntity) return [];
-    const current = workingCopy.data as Record<string, unknown>;
-    const other = compareEntity as Record<string, unknown>;
+    const current = workingCopy.data as unknown as Record<string, unknown>;
+    const other = compareEntity as unknown as Record<string, unknown>;
     const result: FieldDiff[] = [];
 
     // Scalar diffs
@@ -124,7 +124,7 @@ export default function ComparePanel({ onClose }: ComparePanelProps) {
 
   const mergeArrayItem = (field: string, item: ArrayItemDiff) => {
     if (!workingCopy) return;
-    const current = workingCopy.data as Record<string, unknown>;
+    const current = workingCopy.data as unknown as Record<string, unknown>;
 
     if (field === 'commands') {
       const cmds = [...((current.commands as AgentFormData['commands']) || [])];
