@@ -58,7 +58,7 @@ export default function AgentForm({ data, onChange, onAiRequest }: AgentFormProp
 
   const addCommand = () => {
     const newIdx = data.commands.length;
-    onChange('commands', [...data.commands, { name: '', description: '', returnType: '' }]);
+    onChange('commands', [...data.commands, { name: '', description: '', visibility: 'public', handler: '' }]);
     setExpandedCmds(prev => new Set(prev).add(newIdx));
   };
 
@@ -244,8 +244,8 @@ export default function AgentForm({ data, onChange, onAiRequest }: AgentFormProp
                         <span className="text-[10px] text-muted-foreground truncate flex-1">
                           {cmd.description ? (cmd.description.length > 60 ? cmd.description.slice(0, 60) + '...' : cmd.description) : ''}
                         </span>
-                        {cmd.returnType && (
-                          <Badge variant="outline" className="text-[9px] font-mono shrink-0 opacity-60">{cmd.returnType}</Badge>
+                        {cmd.handler && (
+                          <Badge variant="outline" className="text-[9px] font-mono shrink-0 opacity-60">{cmd.handler}</Badge>
                         )}
                       </button>
                     </CollapsibleTrigger>
@@ -259,9 +259,19 @@ export default function AgentForm({ data, onChange, onAiRequest }: AgentFormProp
                           <Label className="text-[10px] text-muted-foreground">Descricao</Label>
                           <Textarea value={cmd.description} onChange={e => updateCommand(idx, 'description', e.target.value)} placeholder="O que este comando faz..." className="text-xs min-h-[60px] mt-0.5" rows={2} />
                         </div>
-                        <div>
-                          <Label className="text-[10px] text-muted-foreground">Retorno esperado</Label>
-                          <Input value={cmd.returnType} onChange={e => updateCommand(idx, 'returnType', e.target.value)} placeholder="Ex: AnalysisResult" className="text-xs font-mono h-8 mt-0.5" />
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-[10px] text-muted-foreground">Handler</Label>
+                            <Input value={cmd.handler} onChange={e => updateCommand(idx, 'handler', e.target.value)} placeholder="Ex: route-task" className="text-xs font-mono h-8 mt-0.5" />
+                          </div>
+                          <div>
+                            <Label className="text-[10px] text-muted-foreground">Visibilidade</Label>
+                            <select value={cmd.visibility || 'public'} onChange={e => updateCommand(idx, 'visibility', e.target.value)} className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs mt-0.5">
+                              <option value="public">Public</option>
+                              <option value="internal">Internal</option>
+                              <option value="admin">Admin</option>
+                            </select>
+                          </div>
                         </div>
                         <div className="flex items-center justify-end gap-1 pt-1 border-t border-border/30">
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => moveCommand(idx, -1)} disabled={idx === 0} title="Mover para cima">

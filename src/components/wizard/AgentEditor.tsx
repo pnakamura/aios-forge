@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { AiosAgent, AgentMemory, AgentCommand, AgentDependencies } from '@/types/aios';
+import { AiosAgent, AgentMemory, AgentCommand, AgentDependencies, normalizeCommands } from '@/types/aios';
 import { useWizardStore } from '@/stores/wizard-store';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -50,7 +50,7 @@ export function AgentEditor({ agent, open, onOpenChange }: AgentEditorProps) {
     if (agent) setDraft({
       ...agent,
       memory: agent.memory || [],
-      structuredCommands: agent.structuredCommands || [],
+      commands: normalizeCommands(agent.commands || []),
       dependencies: agent.dependencies || { services: [], hooks: [], types: [] },
       context: agent.context || '',
     });
@@ -66,8 +66,7 @@ export function AgentEditor({ agent, open, onOpenChange }: AgentEditorProps) {
       name: draft.name, role: draft.role, systemPrompt: draft.systemPrompt,
       llmModel: draft.llmModel, visibility: draft.visibility,
       commands: draft.commands, tools: draft.tools, skills: draft.skills,
-      memory: draft.memory, structuredCommands: draft.structuredCommands,
-      dependencies: draft.dependencies, context: draft.context,
+      memory: draft.memory, dependencies: draft.dependencies, context: draft.context,
     });
     onOpenChange(false);
   };
@@ -84,17 +83,17 @@ export function AgentEditor({ agent, open, onOpenChange }: AgentEditorProps) {
   };
 
   // Structured commands helpers
-  const sCommands = draft.structuredCommands || [];
+  const commands = draft.commands || [];
   const deps = draft.dependencies || { services: [], hooks: [], types: [] };
 
-  const addStructuredCommand = () => {
-    update({ structuredCommands: [...sCommands, { name: '', description: '', visibility: 'public', handler: '' }] });
+  const addCommand = () => {
+    update({ commands: [...commands, { name: '', description: '', visibility: 'public', handler: '' }] });
   };
-  const updateStructuredCommand = (idx: number, data: Partial<AgentCommand>) => {
-    update({ structuredCommands: sCommands.map((c, i) => i === idx ? { ...c, ...data } : c) });
+  const updateCommand = (idx: number, data: Partial<AgentCommand>) => {
+    update({ commands: commands.map((c, i) => i === idx ? { ...c, ...data } : c) });
   };
-  const removeStructuredCommand = (idx: number) => {
-    update({ structuredCommands: sCommands.filter((_, i) => i !== idx) });
+  const removeCommand = (idx: number) => {
+    update({ commands: commands.filter((_, i) => i !== idx) });
   };
 
   const updateDeps = (partial: Partial<AgentDependencies>) => {
@@ -115,7 +114,7 @@ export function AgentEditor({ agent, open, onOpenChange }: AgentEditorProps) {
         <Tabs defaultValue="general" className="mt-1">
           <TabsList className="grid w-full grid-cols-4 h-8">
             <TabsTrigger value="general" className="text-[10px] px-1">Geral</TabsTrigger>
-            <TabsTrigger value="structured" className="text-[10px] px-1">Comandos</TabsTrigger>
+            <TabsTrigger value="commands" className="text-[10px] px-1">Comandos</TabsTrigger>
             <TabsTrigger value="toolskills" className="text-[10px] px-1">Tools/Skills</TabsTrigger>
             <TabsTrigger value="advanced" className="text-[10px] px-1">Avancado</TabsTrigger>
           </TabsList>
@@ -168,48 +167,36 @@ export function AgentEditor({ agent, open, onOpenChange }: AgentEditorProps) {
             </div>
           </TabsContent>
 
-          {/* Structured Commands tab */}
-          <TabsContent value="structured" className="mt-3 space-y-3">
+          {/* Commands tab */}
+          <TabsContent value="commands" className="mt-3 space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">Comandos com descricao, visibilidade e handler</p>
-              <Button variant="outline" size="sm" className="gap-1 text-xs h-7" onClick={addStructuredCommand}>
+              <Button variant="outline" size="sm" className="gap-1 text-xs h-7" onClick={addCommand}>
                 <Plus className="w-3 h-3" /> Comando
               </Button>
             </div>
-            {sCommands.length === 0 && (
-              <p className="text-xs text-muted-foreground italic text-center py-4">Nenhum comando estruturado</p>
+            {commands.length === 0 && (
+              <p className="text-xs text-muted-foreground italic text-center py-4">Nenhum comando configurado</p>
             )}
-            {sCommands.map((cmd, idx) => (
+            {commands.map((cmd, idx) => (
               <div key={idx} className="rounded-lg border border-border p-3 space-y-2 bg-card/50">
                 <div className="flex items-center gap-2">
                   <Terminal className="w-3.5 h-3.5 text-primary shrink-0" />
-                  <Input value={cmd.name} onChange={e => updateStructuredCommand(idx, { name: e.target.value })} placeholder="Nome (ex: /analyze)" className="h-7 text-xs flex-1 font-mono" />
-                  <select value={cmd.visibility} onChange={e => updateStructuredCommand(idx, { visibility: e.target.value as AgentCommand['visibility'] })}
+                  <Input value={cmd.name} onChange={e => updateCommand(idx, { name: e.target.value })} placeholder="Nome (ex: *analyze)" className="h-7 text-xs flex-1 font-mono" />
+                  <select value={cmd.visibility} onChange={e => updateCommand(idx, { visibility: e.target.value as AgentCommand['visibility'] })}
                     className="h-7 rounded-md border border-input bg-background px-2 text-[10px] w-[90px] shrink-0">
                     <option value="public">Public</option>
                     <option value="internal">Internal</option>
                     <option value="admin">Admin</option>
                   </select>
-                  <button onClick={() => removeStructuredCommand(idx)} className="text-muted-foreground hover:text-destructive transition-colors">
+                  <button onClick={() => removeCommand(idx)} className="text-muted-foreground hover:text-destructive transition-colors">
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <Input value={cmd.description} onChange={e => updateStructuredCommand(idx, { description: e.target.value })} placeholder="Descricao" className="h-7 text-xs" />
-                <Input value={cmd.handler} onChange={e => updateStructuredCommand(idx, { handler: e.target.value })} placeholder="Handler (ex: service.method)" className="h-7 text-xs font-mono" />
+                <Input value={cmd.description} onChange={e => updateCommand(idx, { description: e.target.value })} placeholder="Descricao" className="h-7 text-xs" />
+                <Input value={cmd.handler} onChange={e => updateCommand(idx, { handler: e.target.value })} placeholder="Handler (ex: service.method)" className="h-7 text-xs font-mono" />
               </div>
             ))}
-
-            {/* Legacy simple commands */}
-            <div className="pt-3 border-t border-border">
-              <Label className="text-xs text-muted-foreground mb-2 block">Comandos simples (legado)</Label>
-              <EditableList
-                items={draft.commands}
-                onAdd={cmd => update({ commands: [...draft.commands, cmd] })}
-                onRemove={i => update({ commands: draft.commands.filter((_, idx) => idx !== i) })}
-                placeholder="Ex: /analyze, /report"
-                icon={Terminal}
-              />
-            </div>
           </TabsContent>
 
           {/* Tools & Skills tab */}

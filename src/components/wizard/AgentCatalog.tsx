@@ -7,7 +7,7 @@
 
 import { NATIVE_AGENTS } from '@/data/native-agents';
 import { useWizardStore } from '@/stores/wizard-store';
-import { AiosAgent, AgentCategory, AgentCommand, AgentDependencies } from '@/types/aios';
+import { AiosAgent, AgentCategory, AgentCommand, AgentDependencies, normalizeCommands } from '@/types/aios';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -115,10 +115,9 @@ export function AgentCatalog() {
     const agent: AiosAgent = {
       slug, name: draft.name, role: draft.role,
       systemPrompt: draft.systemPrompt, llmModel: 'gemini-3-flash-preview',
-      commands: draft.structuredCommands.map(c => c.name).filter(Boolean),
+      commands: draft.structuredCommands.filter(c => c.name),
       tools: draft.tools, skills: draft.skills, memory: [],
       visibility: 'full', isCustom: true,
-      structuredCommands: draft.structuredCommands.filter(c => c.name),
       dependencies: draft.dependencies,
       context: draft.context,
     };
@@ -243,7 +242,7 @@ export function AgentCatalog() {
                 <div>
                   <Label className="text-xs text-muted-foreground">Comandos</Label>
                   <div className="flex gap-1.5 flex-wrap mt-1">
-                    {detailAgent.defaultCommands.map(cmd => <Badge key={cmd} variant="secondary" className="text-xs font-mono">{cmd}</Badge>)}
+                    {detailAgent.defaultCommands.map(cmd => <Badge key={cmd.name} variant="secondary" className="text-xs font-mono">{cmd.name}</Badge>)}
                   </div>
                 </div>
                 <div>
