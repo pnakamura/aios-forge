@@ -55,3 +55,26 @@ Sistema de working copy (draft/fork/published), editor de elementos com formular
 | LibraryToolbar com dropdown "Novo elemento" | ✅ |
 | LibraryCard com badges draft/fork e "Continuar editando" | ✅ |
 | LibraryDetailPanel com botao "Criar fork e editar" | ✅ |
+
+# ✅ IMPLEMENTADO — Migrate Commands from Plain Strings to Structured Format
+
+## Resumo
+
+Unificacao do formato de comandos de agentes: de `string[]` para `AgentCommand[]` em toda a stack (tipos, dados nativos, store, editor, geracao).
+
+## Entregues
+
+| Item | Status |
+|------|--------|
+| Tipo `NativeAgent.defaultCommands` migrado para `AgentCommand[]` | ✅ |
+| Campo `AiosAgent.structuredCommands` removido, `commands` unificado como `AgentCommand[]` | ✅ |
+| Funcao `normalizeCommands()` para converter legacy strings em objetos | ✅ |
+| 11 agentes nativos enriquecidos com descricao, visibilidade e handler | ✅ |
+| `AgentFormData.commands` alinhado com `{ name, description, visibility, handler }` | ✅ |
+| `AgentForm.tsx` (Library Editor) atualizado com campos visibility e handler | ✅ |
+| `AgentEditor.tsx` (Wizard) unificado sem dual-path | ✅ |
+| `AgentCatalog.tsx` copia comandos estruturados ao adicionar nativo | ✅ |
+| `LibraryImportWizardDialog` normaliza comandos ao importar | ✅ |
+| `wizard-store.ts` normaliza comandos no `loadProject` | ✅ |
+| `library-editor.service.ts` normaliza ao carregar do DB | ✅ |
+| `generate-aios-package.ts` removido dual-path (structured vs simple) | ✅ |
