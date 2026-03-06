@@ -40,6 +40,11 @@ interface LibraryEditorStore {
   isAiThinking: boolean;
   aiPanelOpen: boolean;
 
+  // Compare
+  compareEntity: FormData | null;
+  compareEntityName: string;
+  comparePanelOpen: boolean;
+
   // Working copy actions
   loadEntity: (type: LibraryEntityType, id: string) => Promise<void>;
   startNew: (type: LibraryEntityType, projectId: string) => Promise<string>;
@@ -57,6 +62,10 @@ interface LibraryEditorStore {
   applyAiSuggestion: (fields: Partial<FormData>) => void;
   clearAiHistory: () => void;
 
+  // Compare actions
+  loadCompareEntity: (type: LibraryEntityType, id: string, name: string) => Promise<void>;
+  closeCompare: () => void;
+
   // Cleanup
   reset: () => void;
 }
@@ -69,6 +78,9 @@ export const useLibraryEditorStore = create<LibraryEditorStore>((set, get) => ({
   aiMessages: [],
   isAiThinking: false,
   aiPanelOpen: true,
+  compareEntity: null,
+  compareEntityName: '',
+  comparePanelOpen: false,
 
   loadEntity: async (type, id) => {
     const wc = await loadEntityForEditor(type, id);
@@ -168,6 +180,14 @@ export const useLibraryEditorStore = create<LibraryEditorStore>((set, get) => ({
 
   clearAiHistory: () => set({ aiMessages: [] }),
 
+  loadCompareEntity: async (type, id, name) => {
+    const wc = await loadEntityForEditor(type, id);
+    if (!wc) throw new Error('Elemento nao encontrado');
+    set({ compareEntity: wc.data, compareEntityName: name, comparePanelOpen: true, aiPanelOpen: false });
+  },
+
+  closeCompare: () => set({ compareEntity: null, compareEntityName: '', comparePanelOpen: false }),
+
   reset: () =>
     set({
       workingCopy: null,
@@ -176,5 +196,8 @@ export const useLibraryEditorStore = create<LibraryEditorStore>((set, get) => ({
       validationErrors: [],
       aiMessages: [],
       isAiThinking: false,
+      compareEntity: null,
+      compareEntityName: '',
+      comparePanelOpen: false,
     }),
 }));
