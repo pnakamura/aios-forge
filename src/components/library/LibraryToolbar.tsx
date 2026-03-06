@@ -20,6 +20,7 @@ import type { LibraryEntityType } from '@/types/library';
 interface LibraryToolbarProps {
   filteredCount: number;
   totalCount: number;
+  onReload?: () => void;
 }
 
 const NEW_ITEMS: { type: LibraryEntityType; label: string; icon: typeof Bot }[] = [
@@ -29,10 +30,11 @@ const NEW_ITEMS: { type: LibraryEntityType; label: string; icon: typeof Bot }[] 
   { type: 'workflow', label: 'Novo Workflow', icon: GitBranch },
 ];
 
-export default function LibraryToolbar({ filteredCount, totalCount }: LibraryToolbarProps) {
+export default function LibraryToolbar({ filteredCount, totalCount, onReload }: LibraryToolbarProps) {
   const { viewMode, setViewMode } = useLibraryStore();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const handleNewElement = async (type: LibraryEntityType) => {
     setCreating(true);
@@ -59,6 +61,10 @@ export default function LibraryToolbar({ filteredCount, totalCount }: LibraryToo
         Exibindo <strong className="text-foreground">{filteredCount}</strong> de {totalCount} elementos
       </span>
       <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => setImportOpen(true)}>
+          <Upload className="w-3 h-3" /> Importar
+        </Button>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="text-xs gap-1" disabled={creating}>
@@ -94,6 +100,12 @@ export default function LibraryToolbar({ filteredCount, totalCount }: LibraryToo
           </Button>
         </div>
       </div>
+
+      <FileImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={() => onReload?.()}
+      />
     </div>
   );
 }
