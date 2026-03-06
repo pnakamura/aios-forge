@@ -1,80 +1,51 @@
 
 
-# ✅ IMPLEMENTADO — AIOS Library Module (Phase 1)
+# Fix: AIOS Package Import Parsing Empty Data
 
-## Resumo
+## Problem Identified
 
-Modulo Library implementado com navegacao, filtragem e visualizacao de artefatos (agents, skills, squads, workflows).
+The database confirms the imported skill `pep-rs-auditoria` has empty data:
+- `description`: just `">"` (a stray markdown blockquote character)
+- `prompt`: empty
+- `inputs`: `[]`
+- `outputs`: `[]`
+- `examples`: `[]`
+- `tags`: `[]`
 
-## Entregues
+The AIOS package parser (`aios-package-parser.ts`) failed to extract content from the SKILL.md inside the `.skill` ZIP. The likely causes:
 
-| Item | Status |
+1. **The SKILL.md format from Claude Code doesn't match the expected structure** — the parser expects either YAML front-matter (`---` blocks) or `@agent` docblocks, but Claude Code may use a different layout (e.g., plain markdown with `# Title` and prose sections without `##` headers, or a different section naming convention).
+
+2. **The `>` in description** indicates the MD starts with a blockquote (`> description text`) which the `splitSections` function doesn't handle — it only splits by `## Header`, so a `>` blockquote at the top becomes the description via some path that only captures the `>` character.
+
+3. **No validation gate on import** — the FileImportDialog shows a preview but doesn't warn when critical fields (prompt, inputs) are empty, so the user clicks "Import" without realizing the parse failed silently.
+
+## Plan
+
+### 1. Make parser more resilient (`src/services/aios-package-parser.ts`)
+
+- Handle blockquote descriptions: `> text` → strip the `>` prefix
+- Handle "flat" markdown without `##` sections: treat the body after the first `#` title as description + prompt content
+- Support alternate section names used by Claude Code generators (e.g., `## Objetivo`, `## Contexto`, `## Instrucoes`, `## Checklist`)
+- If no structured sections found, treat the entire body as the `prompt` field (better to have the full text in one field than lose it)
+- Parse bullet lists outside of named sections as potential inputs/outputs
+
+### 2. Add import validation warnings (`src/components/library/FileImportDialog.tsx`)
+
+- In the preview step, show yellow warnings for empty critical fields per type:
+  - Skill: warn if `prompt` is empty, warn if `inputs` is empty
+  - Agent: warn if `system_prompt` is empty
+- Show the actual parsed field values in the preview (not just name/slug) so the user can verify before importing
+- Add a "raw content" expandable section showing the extracted markdown for debugging
+
+### 3. Add fallback: store raw MD content
+
+- When importing a `.skill` package, store the full SKILL.md content in the `prompt` field as fallback if no structured prompt section was found — ensures no data loss even if parsing is imperfect
+
+## Files to modify
+
+| File | Action |
 |------|--------|
-| Migration: skills, workflows_library, library_favorites + alter agents/squads | ✅ |
-| Tipos: `src/types/library.ts` | ✅ |
-| Servico: `src/services/library.service.ts` | ✅ |
-| Store: `src/stores/library-store.ts` | ✅ |
-| CSS tokens: --library-agent/skill/squad/workflow | ✅ |
-| LibraryCard com cores por tipo | ✅ |
-| LibraryGrid + LibraryList | ✅ |
-| LibraryFilterPanel (busca, tipo, tags, ordenacao, toggles) | ✅ |
-| LibraryToolbar (contagem, toggle view) | ✅ |
-| LibraryDetailPanel com tabs (Visao Geral + Detalhes Tecnicos) | ✅ |
-| Detail components: AgentDetail, SkillDetail, SquadDetail, WorkflowDetail | ✅ |
-| ImportDialog com selecao de projeto destino | ✅ |
-| LibraryPage com layout 3 colunas redimensinaveis | ✅ |
-| Rota /library no App.tsx | ✅ |
-| Link "Library" no header do DashboardPage | ✅ |
+| `src/services/aios-package-parser.ts` | **Edit** — More resilient parsing, blockquote handling, flat MD fallback |
+| `src/components/library/FileImportDialog.tsx` | **Edit** — Show field-level preview + validation warnings before import |
 
-# ✅ IMPLEMENTADO — AIOS Library Module (Phase 2)
-
-## Resumo
-
-Sistema de working copy (draft/fork/published), editor de elementos com formularios por tipo, painel de IA assistida com streaming SSE, e fluxo de publicacao/descarte.
-
-## Entregues
-
-| Item | Status |
-|------|--------|
-| Migration: status, version, parent_id, changelog em 4 tabelas + library_editor_sessions | ✅ |
-| Tipos estendidos: LibraryItemStatus, WorkingCopy, FormData por tipo, EditorAiMessage | ✅ |
-| Servico: `src/services/library-editor.service.ts` (draft/fork/save/publish/discard/validate) | ✅ |
-| Store: `src/stores/library-editor-store.ts` (working copy + IA) | ✅ |
-| Edge Function: `library-editor-ai` com SSE streaming e tool calling (apply_fields) | ✅ |
-| Hook: `useAutoSave` (debounce 30s + beforeunload) | ✅ |
-| AgentForm (identidade, system prompt, LLM, comandos, config) | ✅ |
-| SkillForm (identidade, prompt, inputs/outputs, exemplos) | ✅ |
-| SquadForm (identidade, agentes, tasks, config) | ✅ |
-| WorkflowForm (identidade, steps, triggers, outputs) | ✅ |
-| EditorAiPanel (chat streaming, quick actions, sugestoes) | ✅ |
-| EditorHeader (breadcrumb, status, save/publish/discard/validate) | ✅ |
-| PublishDialog (versao, changelog, validacao) | ✅ |
-| DiscardDialog (confirmacao contextual fork vs draft) | ✅ |
-| LibraryEditorPage (layout 2 colunas redimensionaveis) | ✅ |
-| Rota /library/editor/:type/:id no App.tsx | ✅ |
-| LibraryToolbar com dropdown "Novo elemento" | ✅ |
-| LibraryCard com badges draft/fork e "Continuar editando" | ✅ |
-| LibraryDetailPanel com botao "Criar fork e editar" | ✅ |
-
-# ✅ IMPLEMENTADO — Migrate Commands from Plain Strings to Structured Format
-
-## Resumo
-
-Unificacao do formato de comandos de agentes: de `string[]` para `AgentCommand[]` em toda a stack (tipos, dados nativos, store, editor, geracao).
-
-## Entregues
-
-| Item | Status |
-|------|--------|
-| Tipo `NativeAgent.defaultCommands` migrado para `AgentCommand[]` | ✅ |
-| Campo `AiosAgent.structuredCommands` removido, `commands` unificado como `AgentCommand[]` | ✅ |
-| Funcao `normalizeCommands()` para converter legacy strings em objetos | ✅ |
-| 11 agentes nativos enriquecidos com descricao, visibilidade e handler | ✅ |
-| `AgentFormData.commands` alinhado com `{ name, description, visibility, handler }` | ✅ |
-| `AgentForm.tsx` (Library Editor) atualizado com campos visibility e handler | ✅ |
-| `AgentEditor.tsx` (Wizard) unificado sem dual-path | ✅ |
-| `AgentCatalog.tsx` copia comandos estruturados ao adicionar nativo | ✅ |
-| `LibraryImportWizardDialog` normaliza comandos ao importar | ✅ |
-| `wizard-store.ts` normaliza comandos no `loadProject` | ✅ |
-| `library-editor.service.ts` normaliza ao carregar do DB | ✅ |
-| `generate-aios-package.ts` removido dual-path (structured vs simple) | ✅ |
