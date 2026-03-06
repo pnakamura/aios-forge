@@ -85,7 +85,7 @@ export default function LibraryPage() {
           {/* Main content */}
           <ResizablePanel defaultSize={selectedItem ? 52 : 82} minSize={35}>
             <div className="h-full overflow-y-auto p-6">
-              <LibraryToolbar filteredCount={filteredItems.length} totalCount={items.length} />
+              <LibraryToolbar filteredCount={filteredItems.length} totalCount={items.length} onReload={loadItems} />
               {isLoading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {[1, 2, 3, 4, 5, 6].map((i) => (
