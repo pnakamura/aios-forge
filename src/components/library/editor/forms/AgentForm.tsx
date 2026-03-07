@@ -2,7 +2,7 @@
  * @agent     AgentForm
  * @persona   Formulario de edicao de Agent no editor da Library
  * @commands  render
- * @context   Secoes colapsaveis: identidade, system prompt, modelo LLM, comandos (cards colapsaveis com busca), ferramentas, skills, config.
+ * @context   Secoes colapsaveis: identidade, system prompt, modelo LLM, comandos (cards colapsaveis com busca), ferramentas, skills, config. Com ajuda contextual em todos os campos.
  */
 
 import { useCallback, useMemo, useState } from 'react';
@@ -17,7 +17,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Plus, Trash2, Sparkles, Search, ChevronRight, ChevronDown, ArrowUp, ArrowDown, ChevronsUpDown, X } from 'lucide-react';
+import { LabelWithHelp } from '@/components/library/editor/FieldHelp';
+import { FIELD_HELP } from '@/data/editor-field-help';
 import type { AgentFormData } from '@/types/library';
+
+const H = FIELD_HELP.agent;
 
 interface AgentFormProps {
   data: AgentFormData;
@@ -125,19 +129,19 @@ export default function AgentForm({ data, onChange, onAiRequest }: AgentFormProp
         <AccordionTrigger className="text-sm font-semibold">Identidade</AccordionTrigger>
         <AccordionContent className="space-y-3 pb-4">
           <div>
-            <Label className="text-xs">Nome</Label>
+            <LabelWithHelp help={H.name}>Nome</LabelWithHelp>
             <Input value={data.name} onChange={e => { onChange('name', e.target.value); updateSlug(e.target.value); }} placeholder="Ex: Code Reviewer" className="mt-1" />
           </div>
           <div>
-            <Label className="text-xs">Slug</Label>
+            <LabelWithHelp help={H.slug}>Slug</LabelWithHelp>
             <Input value={data.slug} onChange={e => onChange('slug', e.target.value)} placeholder="code-reviewer" className="mt-1 font-mono text-xs" />
           </div>
           <div>
-            <Label className="text-xs">Role</Label>
-            <Input value={data.role} onChange={e => onChange('role', e.target.value)} placeholder="Senior Code Reviewer" className="mt-1" />
+            <LabelWithHelp help={H.role}>Role</LabelWithHelp>
+            <Input value={data.role} onChange={e => onChange('role', e.target.value)} placeholder="Ex: Senior Code Reviewer" className="mt-1" />
           </div>
           <div>
-            <Label className="text-xs">Categoria</Label>
+            <LabelWithHelp help={H.category}>Categoria</LabelWithHelp>
             <Select value={data.category} onValueChange={v => onChange('category', v)}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -150,8 +154,8 @@ export default function AgentForm({ data, onChange, onAiRequest }: AgentFormProp
             </Select>
           </div>
           <div>
-            <Label className="text-xs">Descricao curta</Label>
-            <Textarea value={data.description} onChange={e => onChange('description', e.target.value)} placeholder="Descricao para exibicao na Library" className="mt-1" rows={2} />
+            <LabelWithHelp help={H.description}>Descricao curta</LabelWithHelp>
+            <Textarea value={data.description} onChange={e => onChange('description', e.target.value)} placeholder="Ex: Revisa codigo-fonte com foco em seguranca e aderencia a padroes." className="mt-1" rows={2} />
           </div>
         </AccordionContent>
       </AccordionItem>
@@ -161,14 +165,14 @@ export default function AgentForm({ data, onChange, onAiRequest }: AgentFormProp
         <AccordionTrigger className="text-sm font-semibold">System Prompt</AccordionTrigger>
         <AccordionContent className="space-y-3 pb-4">
           <div className="flex items-center justify-between">
-            <Label className="text-xs">Prompt do agente</Label>
+            <LabelWithHelp help={H.systemPrompt}>Prompt do agente</LabelWithHelp>
             {onAiRequest && (
               <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => onAiRequest('Gere um system prompt completo para este agente com as secoes ROLE, CONTEXT, RESPONSIBILITIES, COMMANDS e OUTPUT FORMAT.')}>
                 <Sparkles className="w-3 h-3" /> Gerar
               </Button>
             )}
           </div>
-          <Textarea value={data.systemPrompt} onChange={e => onChange('systemPrompt', e.target.value)} className="font-mono text-xs min-h-[200px]" placeholder="# ROLE&#10;...&#10;# CONTEXT&#10;..." />
+          <Textarea value={data.systemPrompt} onChange={e => onChange('systemPrompt', e.target.value)} className="font-mono text-xs min-h-[200px]" placeholder="# ROLE&#10;Voce e um...&#10;&#10;# CONTEXT&#10;Atua em projetos...&#10;&#10;# CONSTRAINTS&#10;- Regra 1&#10;- Regra 2" />
           <p className="text-[10px] text-muted-foreground">~{Math.ceil((data.systemPrompt?.length || 0) / 4)} tokens estimados</p>
         </AccordionContent>
       </AccordionItem>
@@ -177,6 +181,7 @@ export default function AgentForm({ data, onChange, onAiRequest }: AgentFormProp
       <AccordionItem value="llm" className="glass rounded-lg px-4">
         <AccordionTrigger className="text-sm font-semibold">Modelo LLM</AccordionTrigger>
         <AccordionContent className="pb-4">
+          <LabelWithHelp help={H.llmModel} className="mb-2">Modelo</LabelWithHelp>
           <Select value={data.llmModel} onValueChange={v => onChange('llmModel', v)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -199,6 +204,7 @@ export default function AgentForm({ data, onChange, onAiRequest }: AgentFormProp
           </span>
         </AccordionTrigger>
         <AccordionContent className="space-y-3 pb-4">
+          <LabelWithHelp help={H.commands} className="mb-1">Comandos do agente</LabelWithHelp>
           {/* Search + bulk actions */}
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
@@ -238,6 +244,7 @@ export default function AgentForm({ data, onChange, onAiRequest }: AgentFormProp
                     <CollapsibleTrigger asChild>
                       <button className="w-full flex items-center gap-2 px-3 py-2 rounded-md bg-secondary/50 hover:bg-secondary/80 transition-colors text-left group">
                         {isOpen ? <ChevronDown className="w-3 h-3 shrink-0 text-muted-foreground" /> : <ChevronRight className="w-3 h-3 shrink-0 text-muted-foreground" />}
+                        <span className="text-[10px] text-muted-foreground font-mono w-5 shrink-0">#{idx + 1}</span>
                         <span className="font-mono text-xs font-medium text-primary truncate">
                           {cmd.name || '(sem nome)'}
                         </span>
@@ -253,16 +260,16 @@ export default function AgentForm({ data, onChange, onAiRequest }: AgentFormProp
                       <div className="ml-5 mr-2 mt-1 mb-2 p-3 rounded-md border border-border/50 bg-background/60 space-y-2">
                         <div>
                           <Label className="text-[10px] text-muted-foreground">Nome do comando</Label>
-                          <Input value={cmd.name} onChange={e => updateCommand(idx, 'name', e.target.value)} placeholder="*nome-do-comando" className="text-xs font-mono h-8 mt-0.5" />
+                          <Input value={cmd.name} onChange={e => updateCommand(idx, 'name', e.target.value)} placeholder="Ex: *review-pr" className="text-xs font-mono h-8 mt-0.5" />
                         </div>
                         <div>
                           <Label className="text-[10px] text-muted-foreground">Descricao</Label>
-                          <Textarea value={cmd.description} onChange={e => updateCommand(idx, 'description', e.target.value)} placeholder="O que este comando faz..." className="text-xs min-h-[60px] mt-0.5" rows={2} />
+                          <Textarea value={cmd.description} onChange={e => updateCommand(idx, 'description', e.target.value)} placeholder="Ex: Analisa um Pull Request e gera relatorio" className="text-xs min-h-[60px] mt-0.5" rows={2} />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <Label className="text-[10px] text-muted-foreground">Handler</Label>
-                            <Input value={cmd.handler} onChange={e => updateCommand(idx, 'handler', e.target.value)} placeholder="Ex: route-task" className="text-xs font-mono h-8 mt-0.5" />
+                            <Input value={cmd.handler} onChange={e => updateCommand(idx, 'handler', e.target.value)} placeholder="Ex: review-handler" className="text-xs font-mono h-8 mt-0.5" />
                           </div>
                           <div>
                             <Label className="text-[10px] text-muted-foreground">Visibilidade</Label>
@@ -314,6 +321,7 @@ export default function AgentForm({ data, onChange, onAiRequest }: AgentFormProp
           </span>
         </AccordionTrigger>
         <AccordionContent className="space-y-3 pb-4">
+          <LabelWithHelp help={H.tools}>Ferramentas do agente</LabelWithHelp>
           <div className="flex flex-wrap gap-1.5">
             {data.tools.map(t => (
               <Badge key={t} variant="outline" className="text-xs gap-1 cursor-pointer hover:bg-destructive/10 transition-colors" onClick={() => removeTool(t)}>
@@ -326,7 +334,7 @@ export default function AgentForm({ data, onChange, onAiRequest }: AgentFormProp
             <Input
               value={newTool}
               onChange={e => setNewTool(e.target.value)}
-              placeholder="Nome da ferramenta"
+              placeholder="Ex: github-api, eslint-runner"
               className="text-xs h-8"
               onKeyDown={e => { if (e.key === 'Enter') { addTool(); e.preventDefault(); } }}
             />
@@ -346,6 +354,7 @@ export default function AgentForm({ data, onChange, onAiRequest }: AgentFormProp
           </span>
         </AccordionTrigger>
         <AccordionContent className="space-y-3 pb-4">
+          <LabelWithHelp help={H.skills}>Skills vinculadas</LabelWithHelp>
           <div className="flex flex-wrap gap-1.5">
             {data.skills.map(s => (
               <Badge key={s} variant="outline" className="text-xs gap-1 cursor-pointer hover:bg-destructive/10 transition-colors" onClick={() => removeSkillItem(s)}>
@@ -358,7 +367,7 @@ export default function AgentForm({ data, onChange, onAiRequest }: AgentFormProp
             <Input
               value={newSkill}
               onChange={e => setNewSkill(e.target.value)}
-              placeholder="Slug da skill"
+              placeholder="Ex: code-analysis, security-audit"
               className="text-xs h-8 font-mono"
               onKeyDown={e => { if (e.key === 'Enter') { addSkillItem(); e.preventDefault(); } }}
             />
@@ -374,7 +383,7 @@ export default function AgentForm({ data, onChange, onAiRequest }: AgentFormProp
         <AccordionTrigger className="text-sm font-semibold">Configuracoes</AccordionTrigger>
         <AccordionContent className="space-y-3 pb-4">
           <div>
-            <Label className="text-xs">Visibilidade</Label>
+            <LabelWithHelp help={H.visibility}>Visibilidade</LabelWithHelp>
             <Select value={data.visibility} onValueChange={v => onChange('visibility', v)}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -385,11 +394,11 @@ export default function AgentForm({ data, onChange, onAiRequest }: AgentFormProp
             </Select>
           </div>
           <div className="flex items-center justify-between">
-            <Label className="text-xs">Elemento publico</Label>
+            <LabelWithHelp help={H.isPublic}>Elemento publico</LabelWithHelp>
             <Switch checked={data.isPublic} onCheckedChange={v => onChange('isPublic', v)} />
           </div>
           <div>
-            <Label className="text-xs mb-2 block">Tags</Label>
+            <LabelWithHelp help={H.tags} className="mb-2">Tags</LabelWithHelp>
             <div className="flex flex-wrap gap-1 mb-2">
               {data.tags.map(t => (
                 <Badge key={t} variant="secondary" className="text-[10px] cursor-pointer" onClick={() => removeTag(t)}>
@@ -397,7 +406,7 @@ export default function AgentForm({ data, onChange, onAiRequest }: AgentFormProp
                 </Badge>
               ))}
             </div>
-            <Input placeholder="Adicionar tag (Enter)" onKeyDown={e => { if (e.key === 'Enter') { addTag((e.target as HTMLInputElement).value); (e.target as HTMLInputElement).value = ''; e.preventDefault(); } }} className="text-xs" />
+            <Input placeholder="Ex: security, typescript (Enter)" onKeyDown={e => { if (e.key === 'Enter') { addTag((e.target as HTMLInputElement).value); (e.target as HTMLInputElement).value = ''; e.preventDefault(); } }} className="text-xs" />
           </div>
         </AccordionContent>
       </AccordionItem>
